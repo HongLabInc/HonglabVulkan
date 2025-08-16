@@ -1,0 +1,61 @@
+#pragma once
+
+#include "Context.h"
+#include "ResourceBinding.h"
+
+#include <string>
+#include <vulkan/vulkan.h>
+
+namespace hlab {
+
+class MappedBuffer
+{
+  public:
+    MappedBuffer(Context& ctx);
+    MappedBuffer(MappedBuffer&&) noexcept;
+    MappedBuffer(const MappedBuffer&) = delete;
+    MappedBuffer& operator=(const MappedBuffer&) = delete;
+    MappedBuffer& operator=(MappedBuffer&&) = delete;
+    ~MappedBuffer();
+
+    auto buffer() -> VkBuffer&;
+    auto descriptorBufferInfo() const -> VkDescriptorBufferInfo;
+    auto mapped() const -> void*;
+    auto name() -> string&;
+    auto resourceBinding() -> ResourceBinding&
+    {
+        return resourceBinding_;
+    }
+
+    void cleanup();
+    void create(VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memPropFlags,
+                VkDeviceSize size, void* data);
+    void createVertexBuffer(VkDeviceSize size, void* data);
+    void createIndexBuffer(VkDeviceSize size, void* data);
+    void createStagingBuffer(VkDeviceSize size, void* data);
+    void createUniformBuffer(VkDeviceSize size, void* data);
+    void updateData(const void* data, VkDeviceSize size, VkDeviceSize offset);
+    void flush() const;
+
+  private:
+    Context& ctx_;
+
+    VkBuffer buffer_{VK_NULL_HANDLE};
+    VkDeviceMemory memory_{VK_NULL_HANDLE};
+
+    VkDeviceSize offset_{0};
+    VkDeviceSize dataSize_{0};
+    VkDeviceSize allocatedSize_{0};
+    VkDeviceSize alignment_{0};
+
+    VkMemoryPropertyFlags memPropFlags_{VK_MEMORY_PROPERTY_FLAG_BITS_MAX_ENUM};
+    VkBufferUsageFlags usageFlags_{VK_BUFFER_USAGE_FLAG_BITS_MAX_ENUM};
+
+    void* mapped_{nullptr};
+
+    string name_{};
+
+    ResourceBinding resourceBinding_;
+};
+
+} // namespace hlab
