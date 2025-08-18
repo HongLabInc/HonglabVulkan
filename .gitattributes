@@ -1,0 +1,57 @@
+# Ensure consistent line endings across platforms
+* text=auto eol=lf
+
+# Specific file types
+*.cpp text eol=lf
+*.h text eol=lf
+*.hpp text eol=lf
+*.c text eol=lf
+*.cmake text eol=lf
+*.txt text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Shell scripts must use LF
+*.sh text eol=lf
+
+# Windows-specific files can use CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.spv binary
+*.ktx2 binary
+
+# Additional C++ related files
+*.cc text eol=lf
+*.cxx text eol=lf
+*.inl text eol=lf
+*.inc text eol=lf
+
+# Build system files
+*.vcxproj text eol=crlf
+*.vcxproj.filters text eol=crlf
+*.vcxproj.user text eol=crlf
+*.sln text eol=crlf
+Makefile text eol=lf
+
+# Shader files
+*.vert text eol=lf
+*.frag text eol=lf
+*.glsl text eol=lf
+*.hlsl text eol=lf
+
+# Additional binary types
+*.exe binary
+*.dll binary
+*.so binary
+*.dylib binary
+*.lib binary
+*.a binary
+*.obj binary
+*.o binary
+*.pdb binary
