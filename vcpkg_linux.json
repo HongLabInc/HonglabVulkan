@@ -1,0 +1,14 @@
+{
+  "dependencies": [
+    "glfw3",
+    "assimp",
+    "glm",
+    "spirv-reflect",
+    "stb",
+    {
+      "name": "imgui",
+      "features": [ "wchar32" ]
+    }
+  ],
+  "builtin-baseline": "f9b54c1c539dda8d61c3001bb30eb9f0c5032086"
+}
