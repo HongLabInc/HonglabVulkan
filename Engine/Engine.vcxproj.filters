@@ -87,36 +87,6 @@
     <None Include="..\.gitignore" />
     <None Include="..\README.md" />
     <None Include="..\vcpkg.json" />
-    <None Include="..\assets\shaders\pbrForward.frag">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="..\assets\shaders\pbrForward.vert">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="..\assets\shaders\post.frag">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="..\assets\shaders\post.vert">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="..\assets\shaders\redblue.comp">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="..\assets\shaders\shadowMap.frag">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="..\assets\shaders\shadowMap.vert">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="..\assets\shaders\skybox.frag">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="..\assets\shaders\skybox.vert">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="..\assets\shaders\ssao.comp">
-      <Filter>shaders</Filter>
-    </None>
     <None Include="..\scripts\bistro_helper.py">
       <Filter>scripts</Filter>
     </None>
@@ -132,10 +102,7 @@
     <None Include="..\scripts\rename_vcxproject.py">
       <Filter>scripts</Filter>
     </None>
-    <None Include="..\assets\shaders\imgui.frag">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="..\assets\shaders\imgui.vert">
+    <None Include="..\assets\shaders\test.comp">
       <Filter>shaders</Filter>
     </None>
   </ItemGroup>

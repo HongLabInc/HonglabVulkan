@@ -18,108 +18,11 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="Animation.h" />
-    <ClInclude Include="Application.h" />
-    <ClInclude Include="BarrierHelper.h" />
-    <ClInclude Include="Camera.h" />
-    <ClInclude Include="CommandBuffer.h" />
-    <ClInclude Include="Context.h" />
-    <ClInclude Include="DepthStencil.h" />
-    <ClInclude Include="DescriptorPool.h" />
-    <ClInclude Include="DescriptorSet.h" />
-    <ClInclude Include="GuiRenderer.h" />
-    <ClInclude Include="Logger.h" />
-    <ClInclude Include="MappedBuffer.h" />
-    <ClInclude Include="Material.h" />
-    <ClInclude Include="Mesh.h" />
-    <ClInclude Include="Model.h" />
-    <ClInclude Include="ModelLoader.h" />
-    <ClInclude Include="ModelNode.h" />
-    <ClInclude Include="Pipeline.h" />
-    <ClInclude Include="PushConstants.h" />
-    <ClInclude Include="Renderer.h" />
-    <ClInclude Include="ResourceBinding.h" />
-    <ClInclude Include="Sampler.h" />
-    <ClInclude Include="Shader.h" />
-    <ClInclude Include="ShaderManager.h" />
-    <ClInclude Include="ShadowMap.h" />
-    <ClInclude Include="Skeleton.h" />
-    <ClInclude Include="SkyTextures.h" />
-    <ClInclude Include="StorageBuffer.h" />
-    <ClInclude Include="Image2D.h" />
-    <ClInclude Include="Swapchain.h" />
-    <ClInclude Include="UniformBuffer.h" />
-    <ClInclude Include="Vertex.h" />
-    <ClInclude Include="ViewFrustum.h" />
-    <ClInclude Include="VulkanTools.h" />
-    <ClInclude Include="Window.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="Animation.cpp" />
-    <ClCompile Include="Application.cpp" />
-    <ClCompile Include="BarrierHelper.cpp" />
-    <ClCompile Include="Camera.cpp" />
-    <ClCompile Include="CommandBuffer.cpp" />
-    <ClCompile Include="Context.cpp" />
-    <ClCompile Include="DepthStencil.cpp" />
-    <ClCompile Include="DescriptorPool.cpp" />
-    <ClCompile Include="DescriptorSet.cpp" />
-    <ClCompile Include="GuiRenderer.cpp" />
-    <ClCompile Include="Logger.cpp" />
-    <ClCompile Include="MappedBuffer.cpp" />
-    <ClCompile Include="Material.cpp" />
-    <ClCompile Include="Mesh.cpp" />
-    <ClCompile Include="Model.cpp" />
-    <ClCompile Include="ModelLoader.cpp" />
-    <ClCompile Include="ModelNode.cpp" />
-    <ClCompile Include="Pipeline.cpp" />
-    <ClCompile Include="PipelineCompute.cpp" />
-    <ClCompile Include="PipelineGui.cpp" />
-    <ClCompile Include="PipelinePbrDeferred.cpp" />
-    <ClCompile Include="PipelinePbrForward.cpp" />
-    <ClCompile Include="PipelinePost.cpp" />
-    <ClCompile Include="PipelineShadowMap.cpp" />
-    <ClCompile Include="PipelineSky.cpp" />
-    <ClCompile Include="PipelineSsao.cpp" />
-    <ClCompile Include="PushConstants.cpp" />
-    <ClCompile Include="Renderer.cpp" />
-    <ClCompile Include="ResourceBinding.cpp" />
-    <ClCompile Include="Sampler.cpp" />
-    <ClCompile Include="Shader.cpp" />
-    <ClCompile Include="ShaderManager.cpp" />
-    <ClCompile Include="ShadowMap.cpp" />
-    <ClCompile Include="Skeleton.cpp" />
-    <ClCompile Include="SkyTextures.cpp" />
-    <ClCompile Include="StorageBuffer.cpp" />
-    <ClCompile Include="Image2D.cpp" />
-    <ClCompile Include="Swapchain.cpp" />
-    <ClCompile Include="UniformBuffer.cpp" />
-    <ClCompile Include="Vertex.cpp" />
-    <ClCompile Include="ViewFrustum.cpp" />
-    <ClCompile Include="VulkanTools.cpp" />
-    <ClCompile Include="Window.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\.clang-format" />
-    <None Include="..\.gitignore" />
-    <None Include="..\assets\shaders\test.comp" />
-    <None Include="..\README.md" />
-    <None Include="..\scripts\bistro_helper.py" />
-    <None Include="..\scripts\compile_shaders.py" />
-    <None Include="..\scripts\convert_and_format.py" />
-    <None Include="..\scripts\remove_cpp_comments.py" />
-    <None Include="..\scripts\rename_vcxproject.py" />
-    <None Include="..\vcpkg.json" />
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="..\.gitattributes" />
-  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{471ee89e-a14c-4152-8042-bb386391c80a}</ProjectGuid>
-    <RootNamespace>Engine</RootNamespace>
+    <ProjectGuid>{cc9d68ea-1c9e-418b-aba5-13671fe86ae9}</ProjectGuid>
+    <RootNamespace>Ex02_Compute</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -137,13 +40,13 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
@@ -200,22 +103,18 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions);GLFW_INCLUDE_VULKAN;GLM_ENABLE_EXPERIMENTAL;GLM_FORCE_RADIANS;GLM_FORCE_DEPTH_ZERO_TO_ONE;NOMINMAX;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
+      <PreprocessorDefinitions>GLM_ENABLE_EXPERIMENTAL;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>$(SolutionDir);%VULKAN_SDK%\include;</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalIncludeDirectories>%VULKAN_SDK%\include;</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-    </Link>
-    <Lib>
-      <AdditionalDependencies>vulkan-1.lib;</AdditionalDependencies>
-    </Lib>
-    <Lib>
+      <AdditionalDependencies>vulkan-1.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>%VULKAN_SDK%\lib;</AdditionalLibraryDirectories>
-    </Lib>
+    </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -223,23 +122,30 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions);GLFW_INCLUDE_VULKAN;GLM_ENABLE_EXPERIMENTAL;GLM_FORCE_RADIANS;GLM_FORCE_DEPTH_ZERO_TO_ONE;NOMINMAX;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
+      <PreprocessorDefinitions>GLM_ENABLE_EXPERIMENTAL;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>$(SolutionDir);%VULKAN_SDK%\include;</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalIncludeDirectories>%VULKAN_SDK%\include;</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-    </Link>
-    <Lib>
-      <AdditionalDependencies>vulkan-1.lib;</AdditionalDependencies>
-    </Lib>
-    <Lib>
+      <AdditionalDependencies>vulkan-1.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>%VULKAN_SDK%\lib;</AdditionalLibraryDirectories>
-    </Lib>
+    </Link>
   </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="Ex02_Compute.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\engine\Engine.vcxproj">
+      <Project>{73e9e3fe-95e0-4881-9e87-416ffccbf416}</Project>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="log.txt" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
