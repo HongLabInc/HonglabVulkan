@@ -27,7 +27,6 @@ Available instance layers:
   VK_LAYER_KHRONOS_profiles
   VK_LAYER_KHRONOS_shader_object
   VK_LAYER_KHRONOS_synchronization2
-  VK_LAYER_KHRONOS_validation
   VK_LAYER_LUNARG_api_dump
   VK_LAYER_LUNARG_crash_diagnostic
   VK_LAYER_LUNARG_gfxreconstruct
@@ -40,22 +39,4 @@ Available instance layers:
   VK_LAYER_RTSS
   VK_LAYER_VALVE_steam_fossilize
   VK_LAYER_VALVE_steam_overlay
-
-Available physical devices: 2
-  0 NVIDIA GeForce RTX 4090 Laptop GPU (Discrete GPU)
-  1 Intel(R) RaptorLake-S Mobile Graphics Controller (Integrated GPU)
-Selected NVIDIA GeForce RTX 4090 Laptop GPU (Discrete GPU)
-  nonCoherentAtomSize: 64
-  Max UBO size: 64 KBytes
-  Max SSBO size: 4194303 KBytes
-  UBO offset alignment: 64
-  SSBO offset alignment: 16
-
-Queue Family Properties: 6
-  Queue Family 0: 16 queues, flags: GRAPHICS COMPUTE TRANSFER SPARSE_BINDING 
-  Queue Family 1: 2 queues, flags: TRANSFER SPARSE_BINDING 
-  Queue Family 2: 8 queues, flags: COMPUTE TRANSFER SPARSE_BINDING 
-  Queue Family 3: 1 queues, flags: TRANSFER SPARSE_BINDING 
-  Queue Family 4: 2 queues, flags: TRANSFER SPARSE_BINDING 
-  Queue Family 5: 1 queues, flags: TRANSFER SPARSE_BINDING 
-DescriptorPoolSize.txt not found, will create pools on-demand
+Validation layer VK_LAYER_KHRONOS_validation not present

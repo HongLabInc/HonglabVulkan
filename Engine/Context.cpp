@@ -43,6 +43,18 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugUtilsMessageCallback(
     return VK_FALSE;
 }
 
+Context::Context(const vector<const char*>& requiredInstanceExtensions, bool useSwapchain)
+    : descriptorPool_(device_)
+{
+    createInstance(requiredInstanceExtensions);
+    selectPhysicalDevice();
+    createLogicalDevice(useSwapchain);
+    createQueues();
+    createPipelineCache();
+    determineDepthStencilFormat();
+    descriptorPool_.createFromScript();
+}
+
 uint32_t Context::getMemoryTypeIndex(uint32_t typeBits, VkMemoryPropertyFlags properties) const
 {
     for (uint32_t i = 0; i < deviceMemoryProperties_.memoryTypeCount; i++) {
@@ -100,8 +112,6 @@ void Context::selectPhysicalDevice()
     physicalDevice_ = physicalDevices[selectedDevice];
 
     vkGetPhysicalDeviceProperties(physicalDevice_, &deviceProperties_);
-    vkGetPhysicalDeviceFeatures(physicalDevice_, &deviceFeatures_);
-    vkGetPhysicalDeviceMemoryProperties(physicalDevice_, &deviceMemoryProperties_);
 
     printLog("Selected {} ({})", deviceProperties_.deviceName,
              getPhysicalDeviceTypeString(deviceProperties_.deviceType));
@@ -112,6 +122,57 @@ void Context::selectPhysicalDevice()
              deviceProperties_.limits.minUniformBufferOffsetAlignment);
     printLog("  SSBO offset alignment: {}",
              deviceProperties_.limits.minStorageBufferOffsetAlignment);
+
+    vkGetPhysicalDeviceFeatures(physicalDevice_, &deviceFeatures_);
+
+    printLog("\nDevice Features:");
+    printLog("  geometryShader: {}", deviceFeatures_.geometryShader ? "YES" : "NO");
+    printLog("  tessellationShader: {}", deviceFeatures_.tessellationShader ? "YES" : "NO");
+    // ... etc ...
+
+    vkGetPhysicalDeviceMemoryProperties(physicalDevice_, &deviceMemoryProperties_);
+
+    // Print device memory properties
+    printLog("\nDevice Memory Properties:");
+    printLog("  Memory Type Count: {}", deviceMemoryProperties_.memoryTypeCount);
+    for (uint32_t i = 0; i < deviceMemoryProperties_.memoryTypeCount; ++i) {
+        const auto& memType = deviceMemoryProperties_.memoryTypes[i];
+        string propFlags;
+        if (memType.propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+            propFlags += "DEVICE_LOCAL ";
+        if (memType.propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+            propFlags += "HOST_VISIBLE ";
+        if (memType.propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
+            propFlags += "HOST_COHERENT ";
+        if (memType.propertyFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT)
+            propFlags += "HOST_CACHED ";
+        if (memType.propertyFlags & VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT)
+            propFlags += "LAZILY_ALLOCATED ";
+        if (memType.propertyFlags & VK_MEMORY_PROPERTY_PROTECTED_BIT)
+            propFlags += "PROTECTED ";
+        if (propFlags.empty())
+            propFlags = "NONE";
+        else
+            propFlags.pop_back(); // Remove trailing space
+
+        printLog("    Memory Type {}: heap {}, flags: {}", i, memType.heapIndex, propFlags);
+    }
+
+    printLog("  Memory Heap Count: {}", deviceMemoryProperties_.memoryHeapCount);
+    for (uint32_t i = 0; i < deviceMemoryProperties_.memoryHeapCount; ++i) {
+        const auto& heap = deviceMemoryProperties_.memoryHeaps[i];
+        string heapFlags;
+        if (heap.flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT)
+            heapFlags += "DEVICE_LOCAL ";
+        if (heap.flags & VK_MEMORY_HEAP_MULTI_INSTANCE_BIT)
+            heapFlags += "MULTI_INSTANCE ";
+        if (heapFlags.empty())
+            heapFlags = "NONE";
+        else
+            heapFlags.pop_back(); // Remove trailing space
+
+        printLog("    Memory Heap {}: {} MB, flags: {}", i, heap.size / (1024 * 1024), heapFlags);
+    }
 
     // Find queue family properties
     uint32_t queueFamilyCount;
@@ -607,18 +668,6 @@ CommandBuffer Context::createComputeCommandBuffer(VkCommandBufferLevel level, bo
 CommandBuffer Context::createTransferCommandBuffer(VkCommandBufferLevel level, bool begin)
 {
     return CommandBuffer(device_, transferCommandPool_, transferQueue_, level, begin);
-}
-
-Context::Context(const vector<const char*>& requiredInstanceExtensions, bool useSwapchain)
-    : descriptorPool_(device_)
-{
-    createInstance(requiredInstanceExtensions);
-    selectPhysicalDevice();
-    createLogicalDevice(useSwapchain);
-    createQueues();
-    createPipelineCache();
-    determineDepthStencilFormat();
-    descriptorPool_.createFromScript();
 }
 
 Context::~Context()
