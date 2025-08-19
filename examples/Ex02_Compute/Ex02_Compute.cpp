@@ -324,8 +324,8 @@ int main()
     // Dispatch the compute shader
     // Our shader uses local workgroup size of 16x16 (defined in shader)
     // We need to calculate how many workgroups to cover the entire image
-    uint32_t groupCountX = (width + 15) / 16;  // Round up division for X
-    uint32_t groupCountY = (height + 15) / 16; // Round up division for Y
+    uint32_t groupCountX = (width + 15) / 32;  // Round up division for X
+    uint32_t groupCountY = (height + 15) / 32; // Round up division for Y
     vkCmdDispatch(computeCmd.handle(), groupCountX, groupCountY, 1);
 
     // After compute shader writes, transition output image for transfer operations

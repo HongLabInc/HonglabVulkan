@@ -1,7 +1,7 @@
 #version 450
 #extension GL_KHR_vulkan_glsl:enable
 
-layout (local_size_x = 16, local_size_y = 16) in;
+layout (local_size_x = 32, local_size_y = 32) in;
 
 layout (set = 0, binding = 0, rgba8) uniform readonly image2D inputImage;
 layout (set = 0, binding = 1, rgba32f) uniform writeonly image2D outputImage;
@@ -20,15 +20,21 @@ void main()
     
     vec4 color = imageLoad(inputImage, imageCoords);
 
-    // Determine which half of the image we're in
-    int halfWidth = int(imageDims.x * 0.4);
+    // Create chessboard pattern based on workgroup ID
+    // Each workgroup is 16x16 pixels, so each "square" in the chessboard is one workgroup
+    ivec2 workgroupCoords = ivec2(gl_WorkGroupID.xy);
     
-    if (imageCoords.x < halfWidth) {
-        // Left half: tint red
+    // Calculate chessboard pattern: alternate colors based on sum of workgroup coordinates
+    // If sum is even -> red tint, if sum is odd -> blue tint
+    bool isRedSquare = ((workgroupCoords.x + workgroupCoords.y) % 2) == 0;
+    
+    if (isRedSquare) {
+        // Red square: tint red
         color.rgb *= vec3(1.0, 0.5, 0.5); // Reduce green and blue components
     } else {
-        // Right half: tint blue
-        color.rgb *= vec3(0.5, 0.5, 1.0); // Reduce red and green components
+        // Blue square: tint blue
+        // color.rgb *= vec3(0.5, 0.5, 1.0); // Reduce red and green components
+        color.rgb *= vec3(1.5);
     }
 
     imageStore(outputImage, imageCoords, color);
