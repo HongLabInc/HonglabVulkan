@@ -20,13 +20,15 @@ void main()
     
     vec4 color = imageLoad(inputImage, imageCoords);
 
-    // Create chessboard pattern based on workgroup ID
-    // Each workgroup is 16x16 pixels, so each "square" in the chessboard is one workgroup
+    // Create larger chessboard pattern - each square is 4x4 workgroups (128x128 pixels)
     ivec2 workgroupCoords = ivec2(gl_WorkGroupID.xy);
     
-    // Calculate chessboard pattern: alternate colors based on sum of workgroup coordinates
+    // Group workgroups into 4x4 blocks to create larger squares
+    ivec2 largeSquareCoords = workgroupCoords / 4;
+    
+    // Calculate chessboard pattern: alternate colors based on sum of large square coordinates
     // If sum is even -> red tint, if sum is odd -> blue tint
-    bool isRedSquare = ((workgroupCoords.x + workgroupCoords.y) % 2) == 0;
+    bool isRedSquare = ((largeSquareCoords.x + largeSquareCoords.y) % 2) == 0;
     
     if (isRedSquare) {
         // Red square: tint red
