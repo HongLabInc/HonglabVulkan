@@ -121,6 +121,25 @@ void Context::selectPhysicalDevice()
     vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice_, &queueFamilyCount,
                                              queueFamilyProperties_.data());
 
+    printLog("\nQueue Family Properties: {}", queueFamilyCount);
+    for (uint32_t i = 0; i < queueFamilyCount; ++i) {
+        const auto& props = queueFamilyProperties_[i];
+
+        string queueFlagsStr;
+        if (props.queueFlags & VK_QUEUE_GRAPHICS_BIT)
+            queueFlagsStr += "GRAPHICS ";
+        if (props.queueFlags & VK_QUEUE_COMPUTE_BIT)
+            queueFlagsStr += "COMPUTE ";
+        if (props.queueFlags & VK_QUEUE_TRANSFER_BIT)
+            queueFlagsStr += "TRANSFER ";
+        if (props.queueFlags & VK_QUEUE_SPARSE_BINDING_BIT)
+            queueFlagsStr += "SPARSE_BINDING ";
+        else
+            queueFlagsStr.pop_back(); // Remove trailing space
+
+        printLog("  Queue Family {}: {} queues, flags: {}", i, props.queueCount, queueFlagsStr);
+    }
+
     uint32_t extCount = 0;
     vkEnumerateDeviceExtensionProperties(physicalDevice_, nullptr, &extCount, nullptr);
     if (extCount > 0) {

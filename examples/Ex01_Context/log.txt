@@ -50,4 +50,12 @@ Selected NVIDIA GeForce RTX 4090 Laptop GPU (Discrete GPU)
   Max SSBO size: 4194303 KBytes
   UBO offset alignment: 64
   SSBO offset alignment: 16
+
+Queue Family Properties: 6
+  Queue Family 0: 16 queues, flags: GRAPHICS COMPUTE TRANSFER SPARSE_BINDING 
+  Queue Family 1: 2 queues, flags: TRANSFER SPARSE_BINDING 
+  Queue Family 2: 8 queues, flags: COMPUTE TRANSFER SPARSE_BINDING 
+  Queue Family 3: 1 queues, flags: TRANSFER SPARSE_BINDING 
+  Queue Family 4: 2 queues, flags: TRANSFER SPARSE_BINDING 
+  Queue Family 5: 1 queues, flags: TRANSFER SPARSE_BINDING 
 DescriptorPoolSize.txt not found, will create pools on-demand
