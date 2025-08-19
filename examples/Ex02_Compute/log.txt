@@ -73,24 +73,5 @@ Queue Family Properties: 6
   Queue Family 3: 1 queues, flags: TRANSFER SPARSE_BINDING 
   Queue Family 4: 2 queues, flags: TRANSFER SPARSE_BINDING 
   Queue Family 5: 1 queues, flags: TRANSFER SPARSE_BINDING 
-Found DescriptorPoolSize.txt, loading previous statistics...
-Created initial pool with 1 sets and 1 descriptor types
-Loaded input image: 1512x1043 with 3 channels
-ShaderManager: Created 1 unique layout(s)
-  Layout 0 (0x100000000010): 2 binding(s), used by:
-    - Pipeline 'compute', Set 0
-    Binding 0: type=STORAGE_IMAGE, count=1, stages=COMPUTE
-    Binding 1: type=STORAGE_IMAGE, count=1, stages=COMPUTE
-Creating compute pipeline: compute
-
-Successfully created compute pipeline
-
+DescriptorPoolSize.txt not found, will create pools on-demand
 Successfully saved processed image to: output.jpg
-Saved descriptor pool statistics to DescriptorPoolSize.txt
-
-=== DescriptorPool Allocated Statistics ===
-Total Pools Created: 1
-Total Allocated Sets: 1
-  STORAGE_IMAGE: 2
-============================================
-

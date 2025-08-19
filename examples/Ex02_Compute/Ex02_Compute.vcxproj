@@ -146,6 +146,9 @@
   <ItemGroup>
     <Text Include="log.txt" />
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="output.jpg" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

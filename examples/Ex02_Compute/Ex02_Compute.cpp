@@ -6,8 +6,46 @@
 #include <stb_image.h>
 #include <stb_image_write.h>
 #include <glm/glm.hpp>
+#include <fstream>
 
 using namespace hlab;
+
+// Helper function to read SPIR-V binary file
+vector<char> readSpvFile(const string& spvFilename)
+{
+    if (spvFilename.length() < 4 || spvFilename.substr(spvFilename.length() - 4) != ".spv") {
+        exitWithMessage("Shader file does not have .spv extension: {}", spvFilename);
+    }
+
+    ifstream is(spvFilename, ios::binary | ios::in | ios::ate);
+    if (!is.is_open()) {
+        exitWithMessage("Could not open shader file: {}", spvFilename);
+    }
+
+    size_t shaderSize = static_cast<size_t>(is.tellg());
+    if (shaderSize == 0 || shaderSize % 4 != 0) {
+        exitWithMessage("Shader file size is invalid (must be >0 and multiple of 4): {}",
+                        spvFilename);
+    }
+    is.seekg(0, ios::beg);
+
+    vector<char> shaderCode(shaderSize);
+    is.read(shaderCode.data(), shaderSize);
+    is.close();
+
+    return shaderCode;
+}
+
+// Helper function to create VkShaderModule
+VkShaderModule createShaderModule(VkDevice device, const vector<char>& shaderCode)
+{
+    VkShaderModule shaderModule;
+    VkShaderModuleCreateInfo shaderModuleCI{VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
+    shaderModuleCI.codeSize = shaderCode.size();
+    shaderModuleCI.pCode = reinterpret_cast<const uint32_t*>(shaderCode.data());
+    check(vkCreateShaderModule(device, &shaderModuleCI, nullptr, &shaderModule));
+    return shaderModule;
+}
 
 int main()
 {
@@ -20,46 +58,69 @@ int main()
     string computeShaderFilename = assetsPath + "shaders/test.comp.spv";
     string outputImageFilename = "output.jpg";
 
-    // 1. Read an image from inputImageFilename
-    int width, height, channels;
-    unsigned char* inputPixels =
-        stbi_load(inputImageFilename.c_str(), &width, &height, &channels, STBI_rgb_alpha);
-
-    if (!inputPixels) {
-        exitWithMessage("Failed to load input image: {} ({})", inputImageFilename,
-                        stbi_failure_reason());
-    }
-
-    printLog("Loaded input image: {}x{} with {} channels", width, height, channels);
-
-    // Create input image with storage usage for compute shader access
     Image2D inputImage(ctx);
-    inputImage.updateUsageFlags(VK_IMAGE_USAGE_STORAGE_BIT); // Set storage usage BEFORE creating
-    inputImage.createFromPixelData(inputPixels, width, height, 4, false);
+    inputImage.updateUsageFlags(VK_IMAGE_USAGE_STORAGE_BIT); // Set storage usage before creating
+    inputImage.createTextureFromImage(inputImageFilename, false, false);
 
-    // Create output image (write-only)
+    uint32_t width = inputImage.width();
+    uint32_t height = inputImage.height();
+
     Image2D outputImage(ctx);
-    outputImage.createRGBA32F(static_cast<uint32_t>(width), static_cast<uint32_t>(height));
+    outputImage.createImage(VK_FORMAT_R32G32B32A32_SFLOAT, width, height, VK_SAMPLE_COUNT_1_BIT,
+                            VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+                            VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, 0, VK_IMAGE_VIEW_TYPE_2D);
 
-    // 2. Create a compute pipeline from the shader in computeShaderFilename
-    ShaderManager shaderManager(ctx, assetsPath + "shaders/", {{"compute", {"test.comp"}}});
+    // 1. Load and create VkShaderModule from SPIR-V file
+    vector<char> shaderCode = readSpvFile(computeShaderFilename);
+    VkShaderModule computeShaderModule = createShaderModule(device, shaderCode);
 
-    // Create pipeline layout first
-    Pipeline computePipeline(ctx, shaderManager, "compute", VK_FORMAT_UNDEFINED,
-                             VK_FORMAT_UNDEFINED, VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM);
+    // 2. Create descriptor set layout manually for the compute shader
+    // Based on shader: binding 0 = input image (readonly), binding 1 = output image (writeonly)
+    vector<VkDescriptorSetLayoutBinding> bindings(2);
 
-    // Get shader stage info
-    vector<VkPipelineShaderStageCreateInfo> shaderStagesCI =
-        shaderManager.createPipelineShaderStageCIs("compute");
+    // Binding 0: Input image (readonly storage image)
+    bindings[0].binding = 0;
+    bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    bindings[0].descriptorCount = 1;
+    bindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    bindings[0].pImmutableSamplers = nullptr;
 
-    if (shaderStagesCI.empty()) {
-        exitWithMessage("No compute shader stages found");
-    }
+    // Binding 1: Output image (writeonly storage image)
+    bindings[1].binding = 1;
+    bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    bindings[1].descriptorCount = 1;
+    bindings[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    bindings[1].pImmutableSamplers = nullptr;
 
-    // Create compute pipeline manually
+    VkDescriptorSetLayoutCreateInfo descriptorLayoutCI{
+        VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
+    descriptorLayoutCI.bindingCount = static_cast<uint32_t>(bindings.size());
+    descriptorLayoutCI.pBindings = bindings.data();
+
+    VkDescriptorSetLayout descriptorSetLayout;
+    check(vkCreateDescriptorSetLayout(device, &descriptorLayoutCI, nullptr, &descriptorSetLayout));
+
+    // 3. Create pipeline layout
+    VkPipelineLayoutCreateInfo pipelineLayoutCI{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
+    pipelineLayoutCI.setLayoutCount = 1;
+    pipelineLayoutCI.pSetLayouts = &descriptorSetLayout;
+    pipelineLayoutCI.pushConstantRangeCount = 0;
+    pipelineLayoutCI.pPushConstantRanges = nullptr;
+
+    VkPipelineLayout pipelineLayout;
+    check(vkCreatePipelineLayout(device, &pipelineLayoutCI, nullptr, &pipelineLayout));
+
+    // 4. Create compute pipeline
+    VkPipelineShaderStageCreateInfo shaderStageCI{
+        VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
+    shaderStageCI.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    shaderStageCI.module = computeShaderModule;
+    shaderStageCI.pName = "main";
+    shaderStageCI.pSpecializationInfo = nullptr;
+
     VkComputePipelineCreateInfo pipelineCI{VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
-    pipelineCI.layout = computePipeline.pipelineLayout();
-    pipelineCI.stage = shaderStagesCI[0]; // Only one shader stage for compute
+    pipelineCI.layout = pipelineLayout;
+    pipelineCI.stage = shaderStageCI;
     pipelineCI.basePipelineHandle = VK_NULL_HANDLE;
     pipelineCI.basePipelineIndex = -1;
 
@@ -67,16 +128,26 @@ int main()
     check(vkCreateComputePipelines(device, ctx.pipelineCache(), 1, &pipelineCI, nullptr,
                                    &computePipelineHandle));
 
-    // 3. Create descriptor sets for the compute shader
-    auto& descriptorPool = ctx.descriptorPool();
-    vector<VkDescriptorSetLayout> layouts = descriptorPool.layoutsForPipeline("compute");
+    // 5. Create descriptor pool and allocate descriptor set
+    VkDescriptorPoolSize poolSize{};
+    poolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    poolSize.descriptorCount = 2; // 2 storage images
 
-    if (layouts.empty()) {
-        exitWithMessage("No descriptor set layouts found for compute pipeline");
-    }
+    VkDescriptorPoolCreateInfo poolCI{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
+    poolCI.poolSizeCount = 1;
+    poolCI.pPoolSizes = &poolSize;
+    poolCI.maxSets = 1;
 
-    // Allocate descriptor set directly using the existing method
-    VkDescriptorSet descriptorSet = descriptorPool.allocateDescriptorSet(layouts[0]);
+    VkDescriptorPool descriptorPool;
+    check(vkCreateDescriptorPool(device, &poolCI, nullptr, &descriptorPool));
+
+    VkDescriptorSetAllocateInfo allocInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
+    allocInfo.descriptorPool = descriptorPool;
+    allocInfo.descriptorSetCount = 1;
+    allocInfo.pSetLayouts = &descriptorSetLayout;
+
+    VkDescriptorSet descriptorSet;
+    check(vkAllocateDescriptorSets(device, &allocInfo, &descriptorSet));
 
     // Update descriptor set with input and output images
     VkDescriptorImageInfo inputImageInfo{};
@@ -114,7 +185,7 @@ int main()
     vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()),
                            descriptorWrites.data(), 0, nullptr);
 
-    // 4. Run the shader pipeline to process inputImage
+    // 6. Run the shader pipeline to process inputImage
     CommandBuffer computeCmd =
         ctx.createComputeCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
 
@@ -152,10 +223,10 @@ int main()
 
     vkCmdPipelineBarrier2(computeCmd.handle(), &dependencyInfo);
 
-    // Bind compute pipeline and descriptor sets (using our manually created pipeline)
+    // Bind compute pipeline and descriptor sets
     vkCmdBindPipeline(computeCmd.handle(), VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineHandle);
-    vkCmdBindDescriptorSets(computeCmd.handle(), VK_PIPELINE_BIND_POINT_COMPUTE,
-                            computePipeline.pipelineLayout(), 0, 1, &descriptorSet, 0, nullptr);
+    vkCmdBindDescriptorSets(computeCmd.handle(), VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0,
+                            1, &descriptorSet, 0, nullptr);
 
     // Dispatch compute shader (16x16 local work group size from shader)
     uint32_t groupCountX = (width + 15) / 16;
@@ -183,7 +254,7 @@ int main()
 
     computeCmd.submitAndWait();
 
-    // 5. Save the result to outputImageFilename
+    // 7. Save the result to outputImageFilename
     // Create staging buffer to copy image data back to CPU
     VkDeviceSize imageSize = width * height * 4 * sizeof(float); // RGBA32F
 
@@ -221,7 +292,7 @@ int main()
     copyRegion.imageSubresource.baseArrayLayer = 0;
     copyRegion.imageSubresource.layerCount = 1;
     copyRegion.imageOffset = {0, 0, 0};
-    copyRegion.imageExtent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1};
+    copyRegion.imageExtent = {width, height, 1};
 
     vkCmdCopyImageToBuffer(copyCmd.handle(), outputImage.image(),
                            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, stagingBuffer, 1, &copyRegion);
@@ -236,7 +307,7 @@ int main()
     vector<unsigned char> outputPixels(width * height * 4);
 
     // Convert float data to 8-bit
-    for (int i = 0; i < width * height * 4; ++i) {
+    for (uint32_t i = 0; i < width * height * 4; ++i) {
         float value = floatData[i];
         value = glm::clamp(value, 0.0f, 1.0f);
         outputPixels[i] = static_cast<unsigned char>(value * 255.0f);
@@ -252,10 +323,13 @@ int main()
     printLog("Successfully saved processed image to: {}", outputImageFilename);
 
     // Cleanup
-    stbi_image_free(inputPixels);
     vkDestroyBuffer(device, stagingBuffer, nullptr);
     vkFreeMemory(device, stagingMemory, nullptr);
+    vkDestroyDescriptorPool(device, descriptorPool, nullptr);
     vkDestroyPipeline(device, computePipelineHandle, nullptr);
+    vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+    vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
+    vkDestroyShaderModule(device, computeShaderModule, nullptr);
 
     return 0;
 }

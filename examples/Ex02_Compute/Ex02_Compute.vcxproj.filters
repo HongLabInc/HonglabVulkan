@@ -6,4 +6,7 @@
   <ItemGroup>
     <Text Include="log.txt" />
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="output.jpg" />
+  </ItemGroup>
 </Project>
