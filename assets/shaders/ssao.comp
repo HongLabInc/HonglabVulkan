@@ -1,0 +1,212 @@
+#version 450
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+layout(set = 0, binding = 0) uniform SceneDataUBO {
+    mat4 projection;
+    mat4 view;
+    vec3 cameraPos;
+    float padding1;
+    vec3 directionalLightDir;
+    float padding2;
+    vec3 directionalLightColor;
+    float padding3;
+    mat4 lightSpaceMatrix;
+} sceneData;
+
+layout(set = 0, binding = 1) uniform OptionsUBO {
+    bool textureOn;
+    bool shadowOn;
+    bool discardOn;
+    bool animationOn;
+    float ssaoRadius;
+    float ssaoBias;
+    int ssaoSampleCount;
+    float ssaoPower;
+} options;
+
+layout (set = 2, binding = 1, rgba16f) uniform readonly image2D inputForwardImage;
+layout (set = 2, binding = 2, rgba16f) uniform writeonly image2D outputComputeImage;
+layout (set = 2, binding = 3) uniform sampler2D depthTexture;
+
+//float radius = 0.5f;
+//float bias = 0.025f;
+//int sampleCount = 16;
+//float power = 2.0f;
+
+// Generate sampling kernel for SSAO
+vec3 generateSampleKernel(int index) {
+    // Use a deterministic method to generate sample points
+    float angle = float(index) * 2.39996323; // Golden angle approximation
+    float z = float(index) / float(options.ssaoSampleCount);
+    z = mix(0.1, 1.0, z * z); // Bias towards closer samples
+    
+    float r = sqrt(1.0 - z * z);
+    float x = cos(angle) * r;
+    float y = sin(angle) * r;
+    
+    return vec3(x, y, z);
+}
+
+
+// Generate pseudo-random rotation
+vec3 generateNoise(vec2 coord) {
+    // Simple noise function
+    float x = fract(sin(dot(coord, vec2(12.9898, 78.233))) * 43758.5453);
+    float y = fract(sin(dot(coord, vec2(4.898, 7.23))) * 23421.631);
+    float z = fract(sin(dot(coord, vec2(19.34, 7.632))) * 34168.522);
+    
+    // Create random rotation vector
+    return normalize(vec3(x * 2.0 - 1.0, y * 2.0 - 1.0, 0.0));
+}
+
+// Convert screen space to view space
+vec3 screenToView(vec2 texCoord, float depth) {
+    // Convert to NDC
+    vec2 ndc = texCoord * 2.0 - 1.0;
+    
+    // Convert depth from [0,1] to [-1,1] (reverse Z)
+    float ndcZ = depth * 2.0 - 1.0;
+    
+    // Apply inverse projection
+    vec4 clipPos = vec4(ndc, ndcZ, 1.0);
+    vec4 viewPos = inverse(sceneData.projection) * clipPos;
+    
+    return viewPos.xyz / viewPos.w;
+}
+
+// Get view-space normal from depth buffer
+vec3 reconstructNormal(vec2 texCoord, vec2 texelSize) {
+    // Sample depth at current position and neighbors
+    float depth = texture(depthTexture, texCoord).r;
+    float depthL = texture(depthTexture, texCoord - vec2(texelSize.x, 0.0)).r;
+    float depthR = texture(depthTexture, texCoord + vec2(texelSize.x, 0.0)).r;
+    float depthU = texture(depthTexture, texCoord - vec2(0.0, texelSize.y)).r;
+    float depthD = texture(depthTexture, texCoord + vec2(0.0, texelSize.y)).r;
+    
+    // Convert to view space positions
+    vec3 posC = screenToView(texCoord, depth);
+    vec3 posL = screenToView(texCoord - vec2(texelSize.x, 0.0), depthL);
+    vec3 posR = screenToView(texCoord + vec2(texelSize.x, 0.0), depthR);
+    vec3 posU = screenToView(texCoord - vec2(0.0, texelSize.y), depthU);
+    vec3 posD = screenToView(texCoord + vec2(0.0, texelSize.y), depthD);
+    
+    // Calculate gradients
+    vec3 dx = (abs(posR.z - posC.z) < abs(posL.z - posC.z)) ? posR - posC : posC - posL;
+    vec3 dy = (abs(posD.z - posC.z) < abs(posU.z - posC.z)) ? posD - posC : posC - posU;
+    
+    return normalize(cross(dx, dy));
+}
+
+// Calculate SSAO
+float calculateSSAO(vec2 texCoord, vec2 texelSize) {
+    float depth = texture(depthTexture, texCoord).r;
+    
+    // Skip background pixels
+    if (depth >= 0.9999) {
+        return 1.0;
+    }
+    
+    vec3 viewPos = screenToView(texCoord, depth);
+    vec3 normal = reconstructNormal(texCoord, texelSize);
+    vec3 randomVec = generateNoise(texCoord * textureSize(depthTexture, 0));
+    
+    // Create tangent-space to view-space matrix
+    vec3 tangent = normalize(randomVec - normal * dot(randomVec, normal));
+    vec3 bitangent = cross(normal, tangent);
+    mat3 tbn = mat3(tangent, bitangent, normal);
+    
+    float occlusion = 0.0;
+    float validSamples = 0.0;
+    
+    for (int i = 0; i < options.ssaoSampleCount; ++i) {
+        // Get sample position in view space
+        vec3 sampleKernel = generateSampleKernel(i);
+        vec3 samplePos = tbn * sampleKernel;
+        samplePos = viewPos + samplePos * options.ssaoRadius;
+        
+        // Convert to screen space
+        vec4 offset = sceneData.projection * vec4(samplePos, 1.0);
+        offset.xyz /= offset.w;
+        offset.xyz = offset.xyz * 0.5 + 0.5; // [-1,1] to [0,1]
+        
+        // Check if sample is within screen bounds
+        if (offset.x < 0.0 || offset.x > 1.0 || offset.y < 0.0 || offset.y > 1.0) {
+            continue;
+        }
+        
+        // Get depth at sample position
+        float sampleDepth = texture(depthTexture, offset.xy).r;
+        vec3 sampleViewPos = screenToView(offset.xy, sampleDepth);
+        
+        // Range check and accumulate occlusion
+        float rangeCheck = smoothstep(0.0, 1.0, options.ssaoRadius / abs(viewPos.z - sampleViewPos.z));
+        
+        // Check if sample is occluded
+        if (sampleViewPos.z >= samplePos.z + options.ssaoBias) {
+            occlusion += rangeCheck;
+        }
+        
+        validSamples += 1.0;
+    }
+    
+    if (validSamples > 0.0) {
+        occlusion = occlusion / validSamples;
+    }
+    
+    return 1.0 - occlusion;
+}
+
+void main() 
+{
+    ivec2 imageCoords = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 imageSize = imageSize(outputComputeImage);
+
+    // Skip if out of bounds
+    if (imageCoords.x >= imageSize.x || imageCoords.y >= imageSize.y) {
+        return;
+    }
+
+    vec4 color;
+    vec2 texCoords = vec2(imageCoords) / vec2(imageSize);
+    vec2 texelSize = 1.0 / vec2(imageSize);
+
+    if (imageCoords.x < imageSize.x * 0.01) 
+    {
+        color = vec4(0.8, 0.2, 0.2, 1.0); // Red
+    } 
+    else if(imageCoords.x < imageSize.x * 0.05) 
+    { 
+        // Read depth from depth buffer
+        float depth = texture(depthTexture, texCoords).r;
+        
+        // Convert non-linear depth to linear depth for better visualization
+        // This assumes a standard perspective projection
+        float near = 0.1;  // Near plane distance
+        float far = 256.0; // Far plane distance (from your camera setup)
+        float linearDepth = (2.0 * near) / (far + near - depth * (far - near));
+        
+        // Use linear depth as grayscale color
+        color = vec4(linearDepth, linearDepth, linearDepth, 1.0);
+    }
+    else if(imageCoords.x < imageSize.x * 0.9) 
+    {
+        // SSAO effect
+        float ssaoValue = calculateSSAO(texCoords, texelSize);
+        
+        // Apply power to enhance contrast
+        ssaoValue = pow(ssaoValue, options.ssaoPower);
+        
+        // Display SSAO as grayscale
+        //color = vec4(ssaoValue, ssaoValue, ssaoValue, 1.0);
+
+        vec4 forwardColor = imageLoad(inputForwardImage, imageCoords);
+        color = vec4(forwardColor.rgb * ssaoValue, forwardColor.a);
+    }
+    else    
+    {
+        color = imageLoad(inputForwardImage, imageCoords);
+    }
+
+    imageStore(outputComputeImage, imageCoords, color);
+}

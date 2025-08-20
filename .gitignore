@@ -5,6 +5,10 @@
 
 vcpkg_installed/
 build/
+assets/characters
+assets/models
+assets/Noto_Sans_KR
+assets/textures
 
 # User-specific files
 *.rsuser
