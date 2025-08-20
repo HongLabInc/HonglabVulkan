@@ -319,7 +319,7 @@ void Image2D::createImage(VkFormat format, uint32_t width, uint32_t height,
     format_ = format;
     width_ = width;
     height_ = height;
-    usage |= usageFlags_;
+    usageFlags_ |= usage;
 
     // Create image
     VkImageCreateInfo imageInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
@@ -332,7 +332,7 @@ void Image2D::createImage(VkFormat format, uint32_t width, uint32_t height,
     imageInfo.arrayLayers = arrayLayers;
     imageInfo.samples = sampleCount;
     imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    imageInfo.usage = usage;
+    imageInfo.usage = usageFlags_;
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     imageInfo.flags = flags;

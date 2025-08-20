@@ -24,7 +24,7 @@ void main()
     ivec2 workgroupCoords = ivec2(gl_WorkGroupID.xy);
     
     // Group workgroups into 4x4 blocks to create larger squares
-    ivec2 largeSquareCoords = workgroupCoords / 4;
+    ivec2 largeSquareCoords = workgroupCoords / 2;
     
     // Calculate chessboard pattern: alternate colors based on sum of large square coordinates
     // If sum is even -> red tint, if sum is odd -> blue tint

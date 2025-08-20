@@ -8,6 +8,8 @@ namespace hlab {
 // Modern barrier helper following industry standards
 class BarrierHelper
 {
+    friend class ResourceBinding;
+
   public:
     BarrierHelper()
     {
@@ -54,23 +56,6 @@ class BarrierHelper
         }
         return *this;
     }
-
-    // static void ExecuteBatch(VkCommandBuffer cmd,
-    //                          const std::vector<std::function<VkImageMemoryBarrier2()>>& barriers)
-    //{
-    //     std::vector<VkImageMemoryBarrier2> imageBarriers;
-    //     imageBarriers.reserve(barriers.size());
-
-    //    for (const auto& barrierFunc : barriers) {
-    //        imageBarriers.push_back(barrierFunc());
-    //    }
-
-    //    VkDependencyInfo depInfo{VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-    //    depInfo.imageMemoryBarrierCount = static_cast<uint32_t>(imageBarriers.size());
-    //    depInfo.pImageMemoryBarriers = imageBarriers.data();
-
-    //    vkCmdPipelineBarrier2(cmd, &depInfo);
-    //}
 
     void update(VkImage image, VkFormat format, uint32_t mipLevels, uint32_t arrayLayers)
     {

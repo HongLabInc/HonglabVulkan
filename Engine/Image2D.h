@@ -48,50 +48,72 @@ class Image2D
         resourceBinding_.setSampler(sampler);
     }
 
+    // Primary transition method with automatic ResourceBinding updates
+    void transitionTo(VkCommandBuffer cmd, VkAccessFlags2 newAccess, VkImageLayout newLayout,
+                      VkPipelineStageFlags2 newStage)
+    {
+        resourceBinding_.barrierHelper_.transitionTo(cmd, newAccess, newLayout, newStage);
+        updateResourceBindingAfterTransition();
+    }
+
+    // Convenience transition methods - all use the same pattern
+    void transitionToColorAttachment(VkCommandBuffer cmd)
+    {
+        resourceBinding_.barrierHelper_.transitionTo(
+            cmd, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
+        updateResourceBindingAfterTransition();
+    }
+
+    void transitionToTransferSrc(VkCommandBuffer cmd)
+    {
+        resourceBinding_.barrierHelper_.transitionTo(cmd, VK_ACCESS_2_TRANSFER_READ_BIT,
+                                                     VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                                                     VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+        updateResourceBindingAfterTransition();
+    }
+
+    void transitionToTransferDst(VkCommandBuffer cmd)
+    {
+        resourceBinding_.barrierHelper_.transitionTo(cmd, VK_ACCESS_2_TRANSFER_WRITE_BIT,
+                                                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                                     VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+        updateResourceBindingAfterTransition();
+    }
+
+    void transitionToShaderRead(VkCommandBuffer cmd)
+    {
+        resourceBinding_.barrierHelper_.transitionTo(cmd, VK_ACCESS_2_SHADER_READ_BIT,
+                                                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                                     VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT);
+        updateResourceBindingAfterTransition();
+    }
+
+    void transitionToGeneral(VkCommandBuffer cmd, VkAccessFlags2 accessFlags,
+                             VkPipelineStageFlags2 stageFlags)
+    {
+        resourceBinding_.barrierHelper_.transitionTo(cmd, accessFlags, VK_IMAGE_LAYOUT_GENERAL,
+                                                     stageFlags);
+        updateResourceBindingAfterTransition();
+    }
+
+    // Legacy method - delegates to transitionTo for consistency
+    [[deprecated("Use transitionTo() instead")]]
+    void transitionLayout(VkCommandBuffer cmd, VkAccessFlags2 newAccess, VkImageLayout newLayout,
+                          VkPipelineStageFlags2 newStage)
+    {
+        transitionTo(cmd, newAccess, newLayout, newStage);
+    }
+
     auto resourceBinding() -> ResourceBinding&
     {
         return resourceBinding_;
     }
 
-    // Simplified barrier transition methods using the internal BarrierHelper
-    void transitionLayout(VkCommandBuffer cmd, VkAccessFlags2 newAccess, VkImageLayout newLayout,
-                          VkPipelineStageFlags2 newStage)
-    {
-        resourceBinding_.barrierHelper().transitionTo(cmd, newAccess, newLayout, newStage);
-    }
-
-    void transitionToColorAttachment(VkCommandBuffer cmd)
-    {
-        resourceBinding_.barrierHelper().transitionTo(
-            cmd, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-            VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
-    }
-
-    void transitionToTransferSrc(VkCommandBuffer cmd)
-    {
-        resourceBinding_.barrierHelper().transitionTo(cmd, VK_ACCESS_2_TRANSFER_READ_BIT,
-                                                      VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                                                      VK_PIPELINE_STAGE_2_TRANSFER_BIT);
-    }
-
-    void transitionToTransferDst(VkCommandBuffer cmd)
-    {
-        resourceBinding_.barrierHelper().transitionTo(cmd, VK_ACCESS_2_TRANSFER_WRITE_BIT,
-                                                      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                                      VK_PIPELINE_STAGE_2_TRANSFER_BIT);
-    }
-
-    void transitionToShaderRead(VkCommandBuffer cmd)
-    {
-        resourceBinding_.barrierHelper().transitionTo(cmd, VK_ACCESS_2_SHADER_READ_BIT,
-                                                      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                                      VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT);
-    }
-
     // Direct access to barrier helper for advanced usage
     auto barrierHelper() -> BarrierHelper&
     {
-        return resourceBinding_.barrierHelper();
+        return resourceBinding_.barrierHelper_;
     }
 
   private:
@@ -106,6 +128,39 @@ class Image2D
 
     VkImageUsageFlags usageFlags_{0};
     ResourceBinding resourceBinding_;
+
+    // Helper method to update ResourceBinding after layout transitions
+    void updateResourceBindingAfterTransition()
+    {
+        VkImageLayout currentLayout = resourceBinding_.barrierHelper_.currentLayout();
+
+        if (currentLayout == VK_IMAGE_LAYOUT_GENERAL) {
+            // General layout is used for storage images
+            resourceBinding_.descriptorType_ = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+            resourceBinding_.imageInfo_.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+        } else if (currentLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+            // Shader read-only layout is used for sampled images
+            if (resourceBinding_.sampler_ != VK_NULL_HANDLE) {
+                resourceBinding_.descriptorType_ = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            } else {
+                resourceBinding_.descriptorType_ = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+            }
+            resourceBinding_.imageInfo_.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        } else if (currentLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL ||
+                   currentLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+            // Attachment layouts are typically used for input attachments when used in descriptors
+            resourceBinding_.descriptorType_ = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+            resourceBinding_.imageInfo_.imageLayout = currentLayout;
+        } else {
+            // For other layouts, default to storage image with general layout capability
+            resourceBinding_.descriptorType_ = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+            resourceBinding_.imageInfo_.imageLayout = currentLayout;
+        }
+
+        // Update the image info
+        resourceBinding_.imageInfo_.imageView = imageView_;
+        resourceBinding_.imageInfo_.sampler = resourceBinding_.sampler_;
+    }
 };
 
 } // namespace hlab

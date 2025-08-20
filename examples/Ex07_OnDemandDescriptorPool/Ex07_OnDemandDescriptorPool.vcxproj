@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{cc9d68ea-1c9e-418b-aba5-13671fe86ae9}</ProjectGuid>
-    <RootNamespace>Ex02_Compute</RootNamespace>
+    <ProjectGuid>{bad3031a-d47e-459b-90d6-e22819c6eff1}</ProjectGuid>
+    <RootNamespace>Ex07_OnDemandDescriptorPool</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -136,13 +136,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Ex02_Compute.cpp" />
+    <ClCompile Include="Ex07_OnDemandDescriptorPool.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="log.txt" />
-  </ItemGroup>
-  <ItemGroup>
-    <Image Include="output.jpg" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\engine\Engine.vcxproj">
