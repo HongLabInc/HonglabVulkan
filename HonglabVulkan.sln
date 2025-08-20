@@ -17,7 +17,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Ex02_Compute", "examples\Ex
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "assets", "assets\assets.vcxproj", "{66359153-20C1-4EF2-B787-FD3F1218C2D5}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Ex06_ShaderReflection", "examples\Ex06_ShaderReflection\Ex06_ShaderReflection.vcxproj", "{45441892-8C6B-4D55-9505-D57D16EF778D}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Ex05_ShaderReflection", "examples\Ex05_ShaderReflection\Ex05_ShaderReflection.vcxproj", "{45441892-8C6B-4D55-9505-D57D16EF778D}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Ex07_Swapchain", "examples\Ex07_Swapchain\Ex07_Swapchain.vcxproj", "{82D31B27-19D5-4D23-8F3E-AEF8FF566E22}"
 	ProjectSection(ProjectDependencies) = postProject
