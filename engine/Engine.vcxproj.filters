@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClInclude Include="Logger.h" />
+    <ClInclude Include="Context.h" />
+    <ClInclude Include="StorageBuffer.h" />
+    <ClInclude Include="BarrierHelper.h" />
+    <ClInclude Include="Image2D.h" />
+    <ClInclude Include="MappedBuffer.h" />
+    <ClInclude Include="Pipeline.h" />
+    <ClInclude Include="ShaderManager.h" />
+    <ClInclude Include="Shader.h" />
+    <ClInclude Include="CommandBuffer.h" />
+    <ClInclude Include="DescriptorSet.h" />
+    <ClInclude Include="Window.h" />
+    <ClInclude Include="Swapchain.h" />
+    <ClInclude Include="Sampler.h" />
+    <ClInclude Include="GuiRenderer.h" />
+    <ClInclude Include="PushConstants.h" />
+    <ClInclude Include="Application.h" />
+    <ClInclude Include="Camera.h" />
+    <ClInclude Include="Material.h" />
+    <ClInclude Include="Mesh.h" />
+    <ClInclude Include="Model.h" />
+    <ClInclude Include="ModelNode.h" />
+    <ClInclude Include="Vertex.h" />
+    <ClInclude Include="ViewFrustum.h" />
+    <ClInclude Include="Renderer.h" />
+    <ClInclude Include="SkyTextures.h" />
+    <ClInclude Include="DepthStencil.h" />
+    <ClInclude Include="ShadowMap.h" />
+    <ClInclude Include="UniformBuffer.h" />
+    <ClInclude Include="DescriptorPool.h" />
+    <ClInclude Include="VulkanTools.h" />
+    <ClInclude Include="ResourceBinding.h" />
+    <ClInclude Include="Animation.h" />
+    <ClInclude Include="ModelLoader.h" />
+    <ClInclude Include="Skeleton.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Logger.cpp" />
+    <ClCompile Include="Context.cpp" />
+    <ClCompile Include="StorageBuffer.cpp" />
+    <ClCompile Include="BarrierHelper.cpp" />
+    <ClCompile Include="Image2D.cpp" />
+    <ClCompile Include="MappedBuffer.cpp" />
+    <ClCompile Include="Pipeline.cpp" />
+    <ClCompile Include="ShaderManager.cpp" />
+    <ClCompile Include="Shader.cpp" />
+    <ClCompile Include="CommandBuffer.cpp" />
+    <ClCompile Include="DescriptorSet.cpp" />
+    <ClCompile Include="Window.cpp" />
+    <ClCompile Include="Swapchain.cpp" />
+    <ClCompile Include="PipelineCompute.cpp" />
+    <ClCompile Include="PipelinePost.cpp" />
+    <ClCompile Include="Sampler.cpp" />
+    <ClCompile Include="PipelineGui.cpp" />
+    <ClCompile Include="GuiRenderer.cpp" />
+    <ClCompile Include="PushConstants.cpp" />
+    <ClCompile Include="Application.cpp" />
+    <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="Material.cpp" />
+    <ClCompile Include="Mesh.cpp" />
+    <ClCompile Include="Model.cpp" />
+    <ClCompile Include="ModelNode.cpp" />
+    <ClCompile Include="Vertex.cpp" />
+    <ClCompile Include="ViewFrustum.cpp" />
+    <ClCompile Include="Renderer.cpp" />
+    <ClCompile Include="SkyTextures.cpp" />
+    <ClCompile Include="DepthStencil.cpp" />
+    <ClCompile Include="ShadowMap.cpp" />
+    <ClCompile Include="PipelineSky.cpp" />
+    <ClCompile Include="PipelineShadowMap.cpp" />
+    <ClCompile Include="PipelinePbrForward.cpp" />
+    <ClCompile Include="PipelinePbrDeferred.cpp" />
+    <ClCompile Include="UniformBuffer.cpp" />
+    <ClCompile Include="DescriptorPool.cpp" />
+    <ClCompile Include="VulkanTools.cpp" />
+    <ClCompile Include="ResourceBinding.cpp" />
+    <ClCompile Include="PipelineSsao.cpp" />
+    <ClCompile Include="Animation.cpp" />
+    <ClCompile Include="ModelLoader.cpp" />
+    <ClCompile Include="Skeleton.cpp" />
+    <ClCompile Include="PipelineTriangle.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\.clang-format" />
+    <None Include="..\.gitignore" />
+    <None Include="..\README.md" />
+    <None Include="..\vcpkg.json" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\.gitattributes" />
+  </ItemGroup>
+</Project>
