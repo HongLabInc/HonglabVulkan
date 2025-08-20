@@ -17,6 +17,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Ex02_Compute", "examples\Ex
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "assets", "assets\assets.vcxproj", "{66359153-20C1-4EF2-B787-FD3F1218C2D5}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Ex03_ShaderReflection", "examples\Ex03_ShaderReflection\Ex03_ShaderReflection.vcxproj", "{45441892-8C6B-4D55-9505-D57D16EF778D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -57,6 +59,14 @@ Global
 		{66359153-20C1-4EF2-B787-FD3F1218C2D5}.Release|x64.Build.0 = Release|x64
 		{66359153-20C1-4EF2-B787-FD3F1218C2D5}.Release|x86.ActiveCfg = Release|Win32
 		{66359153-20C1-4EF2-B787-FD3F1218C2D5}.Release|x86.Build.0 = Release|Win32
+		{45441892-8C6B-4D55-9505-D57D16EF778D}.Debug|x64.ActiveCfg = Debug|x64
+		{45441892-8C6B-4D55-9505-D57D16EF778D}.Debug|x64.Build.0 = Debug|x64
+		{45441892-8C6B-4D55-9505-D57D16EF778D}.Debug|x86.ActiveCfg = Debug|Win32
+		{45441892-8C6B-4D55-9505-D57D16EF778D}.Debug|x86.Build.0 = Debug|Win32
+		{45441892-8C6B-4D55-9505-D57D16EF778D}.Release|x64.ActiveCfg = Release|x64
+		{45441892-8C6B-4D55-9505-D57D16EF778D}.Release|x64.Build.0 = Release|x64
+		{45441892-8C6B-4D55-9505-D57D16EF778D}.Release|x86.ActiveCfg = Release|Win32
+		{45441892-8C6B-4D55-9505-D57D16EF778D}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
