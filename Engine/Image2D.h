@@ -53,6 +53,47 @@ class Image2D
         return resourceBinding_;
     }
 
+    // Simplified barrier transition methods using the internal BarrierHelper
+    void transitionLayout(VkCommandBuffer cmd, VkAccessFlags2 newAccess, VkImageLayout newLayout,
+                          VkPipelineStageFlags2 newStage)
+    {
+        resourceBinding_.barrierHelper().transitionTo(cmd, newAccess, newLayout, newStage);
+    }
+
+    void transitionToColorAttachment(VkCommandBuffer cmd)
+    {
+        resourceBinding_.barrierHelper().transitionTo(
+            cmd, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
+    }
+
+    void transitionToTransferSrc(VkCommandBuffer cmd)
+    {
+        resourceBinding_.barrierHelper().transitionTo(cmd, VK_ACCESS_2_TRANSFER_READ_BIT,
+                                                      VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                                                      VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+    }
+
+    void transitionToTransferDst(VkCommandBuffer cmd)
+    {
+        resourceBinding_.barrierHelper().transitionTo(cmd, VK_ACCESS_2_TRANSFER_WRITE_BIT,
+                                                      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                                      VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+    }
+
+    void transitionToShaderRead(VkCommandBuffer cmd)
+    {
+        resourceBinding_.barrierHelper().transitionTo(cmd, VK_ACCESS_2_SHADER_READ_BIT,
+                                                      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                                      VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT);
+    }
+
+    // Direct access to barrier helper for advanced usage
+    auto barrierHelper() -> BarrierHelper&
+    {
+        return resourceBinding_.barrierHelper();
+    }
+
   private:
     Context& ctx_;
 

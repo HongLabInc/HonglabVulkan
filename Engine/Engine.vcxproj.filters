@@ -81,6 +81,7 @@
     <ClCompile Include="Animation.cpp" />
     <ClCompile Include="ModelLoader.cpp" />
     <ClCompile Include="Skeleton.cpp" />
+    <ClCompile Include="PipelineTriangle.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\.clang-format" />

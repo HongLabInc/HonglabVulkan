@@ -26,6 +26,8 @@ void Pipeline::createByName(string pipelineName, optional<VkFormat> outColorForm
 
     if (name_ == "compute") {
         createCompute();
+    } else if (name_ == "triangle") {
+        createTriangle(outColorFormat.value());
     } else if (name_ == "post") {
         if (outColorFormat.has_value() && depthFormat.has_value()) {
             createPost(outColorFormat.value(), depthFormat.value());

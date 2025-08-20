@@ -74,6 +74,7 @@ class Pipeline
                           VkSampleCountFlagBits msaaSamples);
     void createPbrDeferred();
     void createSsao();
+    void createTriangle(VkFormat outColorFormat);
 
     // void dispatch(const VkCommandBuffer& cmd,
     //               initializer_list<reference_wrapper<const DescriptorSet>> descriptorSets,
