@@ -9,6 +9,12 @@
     <None Include="shaders\test.comp">
       <Filter>shaders</Filter>
     </None>
+    <None Include="shaders\triangle.vert">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\triangle.frag">
+      <Filter>shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Image Include="image.jpg" />
