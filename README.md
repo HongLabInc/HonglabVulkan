@@ -6,4 +6,5 @@
 - [The Modern Vulkan Cookbook](https://www.packtpub.com/en-ec/product/the-modern-vulkan-cookbook-9781803239989)
 - [Vulkan C++ examples and demos](https://github.com/SaschaWillems/Vulkan)
 - [KhronosGroup/Vulkan-Samples](https://github.com/KhronosGroup/Vulkan-Samples)
+- [Mastering C++ Game Animation Programming](https://www.packtpub.com/en-us/product/mastering-c-game-animation-programming-9781835881934?srsltid=AfmBOoooWiKj4K5Mv6As8nkUv85Jy5-oaRoPap9IfcQYDpphgMQ5m2Ct)
 
