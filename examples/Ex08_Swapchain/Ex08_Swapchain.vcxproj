@@ -22,7 +22,7 @@
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
     <ProjectGuid>{82d31b27-19d5-4d23-8f3e-aef8ff566e22}</ProjectGuid>
-    <RootNamespace>Ex07_Swapchain</RootNamespace>
+    <RootNamespace>Ex08_Swapchain</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -136,7 +136,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Ex07_Swapchain.cpp" />
+    <ClCompile Include="Ex08_Swapchain.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\engine\Engine.vcxproj">

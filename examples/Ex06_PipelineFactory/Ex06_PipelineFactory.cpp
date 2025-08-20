@@ -21,8 +21,8 @@ int main()
     Context ctx({}, false);
     auto device = ctx.device();
 
-    const uint32_t width = 1280;
-    const uint32_t height = 960;
+    const uint32_t width = 640;
+    const uint32_t height = 480;
 
     Image2D colorImage(ctx);
     colorImage.createImage(VK_FORMAT_R8G8B8A8_UNORM, width, height, VK_SAMPLE_COUNT_1_BIT,
