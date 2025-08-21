@@ -1,7 +1,6 @@
 #version 450
-#extension GL_KHR_vulkan_glsl:enable
 
-layout (local_size_x = 32, local_size_y = 32) in;
+layout (local_size_x = 16, local_size_y = 16) in;
 
 layout (set = 0, binding = 0, rgba8) uniform readonly image2D inputImage;
 layout (set = 0, binding = 1, rgba32f) uniform writeonly image2D outputImage;
@@ -20,15 +19,9 @@ void main()
     
     vec4 color = imageLoad(inputImage, imageCoords);
 
-    // Create larger chessboard pattern - each square is 4x4 workgroups (128x128 pixels)
-    ivec2 workgroupCoords = ivec2(gl_WorkGroupID.xy);
-    
-    // Group workgroups into 4x4 blocks to create larger squares
-    ivec2 largeSquareCoords = workgroupCoords / 2;
-    
     // Calculate chessboard pattern: alternate colors based on sum of large square coordinates
     // If sum is even -> red tint, if sum is odd -> blue tint
-    bool isRedSquare = ((largeSquareCoords.x + largeSquareCoords.y) % 2) == 0;
+    bool isRedSquare = ((gl_WorkGroupID.x + gl_WorkGroupID.y) % 2) == 0;
     
     if (isRedSquare) {
         // Red square: tint red
