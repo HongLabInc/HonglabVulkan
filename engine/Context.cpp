@@ -151,9 +151,7 @@ void Context::selectPhysicalDevice()
         if (memType.propertyFlags & VK_MEMORY_PROPERTY_PROTECTED_BIT)
             propFlags += "PROTECTED ";
         if (propFlags.empty())
-            propFlags = "NONE";
-        else
-            propFlags.pop_back(); // Remove trailing space
+            propFlags = "NONE ";
 
         printLog("    Memory Type {}: heap {}, flags: {}", i, memType.heapIndex, propFlags);
     }
@@ -167,9 +165,7 @@ void Context::selectPhysicalDevice()
         if (heap.flags & VK_MEMORY_HEAP_MULTI_INSTANCE_BIT)
             heapFlags += "MULTI_INSTANCE ";
         if (heapFlags.empty())
-            heapFlags = "NONE";
-        else
-            heapFlags.pop_back(); // Remove trailing space
+            heapFlags = "NONE ";
 
         printLog("    Memory Heap {}: {} MB, flags: {}", i, heap.size / (1024 * 1024), heapFlags);
     }
@@ -195,8 +191,16 @@ void Context::selectPhysicalDevice()
             queueFlagsStr += "TRANSFER ";
         if (props.queueFlags & VK_QUEUE_SPARSE_BINDING_BIT)
             queueFlagsStr += "SPARSE_BINDING ";
-        else
-            queueFlagsStr.pop_back(); // Remove trailing space
+        if (props.queueFlags & VK_QUEUE_PROTECTED_BIT)
+            queueFlagsStr += "PROTECTED ";
+        if (props.queueFlags & VK_QUEUE_VIDEO_DECODE_BIT_KHR)
+            queueFlagsStr += "VIDEO_DECODE ";
+        if (props.queueFlags & VK_QUEUE_VIDEO_ENCODE_BIT_KHR)
+            queueFlagsStr += "VIDEO_ENCODE ";
+        if (props.queueFlags & VK_QUEUE_OPTICAL_FLOW_BIT_NV)
+            queueFlagsStr += "OPTICAL_FLOW ";
+        if (props.queueFlags & VK_QUEUE_DATA_GRAPH_BIT_ARM)
+            queueFlagsStr += "DATA_GRAPH ";
 
         printLog("  Queue Family {}: {} queues, flags: {}", i, props.queueCount, queueFlagsStr);
     }
