@@ -13,6 +13,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "App04_PImpl", "App04_PImpl\
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "App05_MoveSemantics", "App05_MoveSemantics\App05_MoveSemantics.vcxproj", "{3060DD3D-BEC3-4FC4-AA1A-174C0ED24B2F}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "App06_InheritanceVsCompisition", "App06_InheritanceVsCompisition\App06_InheritanceVsCompisition.vcxproj", "{8D764938-E443-4E0C-A3DC-0A0D5BBA1951}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -61,6 +63,14 @@ Global
 		{3060DD3D-BEC3-4FC4-AA1A-174C0ED24B2F}.Release|x64.Build.0 = Release|x64
 		{3060DD3D-BEC3-4FC4-AA1A-174C0ED24B2F}.Release|x86.ActiveCfg = Release|Win32
 		{3060DD3D-BEC3-4FC4-AA1A-174C0ED24B2F}.Release|x86.Build.0 = Release|Win32
+		{8D764938-E443-4E0C-A3DC-0A0D5BBA1951}.Debug|x64.ActiveCfg = Debug|x64
+		{8D764938-E443-4E0C-A3DC-0A0D5BBA1951}.Debug|x64.Build.0 = Debug|x64
+		{8D764938-E443-4E0C-A3DC-0A0D5BBA1951}.Debug|x86.ActiveCfg = Debug|Win32
+		{8D764938-E443-4E0C-A3DC-0A0D5BBA1951}.Debug|x86.Build.0 = Debug|Win32
+		{8D764938-E443-4E0C-A3DC-0A0D5BBA1951}.Release|x64.ActiveCfg = Release|x64
+		{8D764938-E443-4E0C-A3DC-0A0D5BBA1951}.Release|x64.Build.0 = Release|x64
+		{8D764938-E443-4E0C-A3DC-0A0D5BBA1951}.Release|x86.ActiveCfg = Release|Win32
+		{8D764938-E443-4E0C-A3DC-0A0D5BBA1951}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
