@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{7d319a63-b075-460f-868b-86d679fd1748}</ProjectGuid>
-    <RootNamespace>App01PointerVsReference</RootNamespace>
+    <ProjectGuid>{4b92678c-bd27-46d8-838f-a40b763a969b}</ProjectGuid>
+    <RootNamespace>App02Pool</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -126,7 +126,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="App01_PointerVsReference.cpp" />
+    <ClCompile Include="App02_Pool.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
