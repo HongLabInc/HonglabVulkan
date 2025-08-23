@@ -4,6 +4,13 @@
 
 using namespace std;
 
+/*
+ * RAII, or Resource Acquisition Is Initialization, is a programming idiom primarily used in C++ to
+ * manage resources reliably. It dictates that resource acquisition should occur during object
+ * initialization (e.g., in a constructor), and resource release should happen during object
+ * destruction (e.g., in a destructor).
+ */
+
 class A
 {
   public:
@@ -25,10 +32,10 @@ class A
 class B1
 {
   public:
-    B1()
-    {
-        // A의 객체가 실제로 만들어지기 전에 초기화 가능
-    }
+    // B1()
+    //{
+    //     // A의 객체가 실제로 만들어지기 전에 초기화 가능
+    // }
 
     B1(A* a) : a_(a)
     {

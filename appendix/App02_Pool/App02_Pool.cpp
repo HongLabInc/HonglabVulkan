@@ -14,6 +14,7 @@ class ResourcePool
     ~ResourcePool()
     {
         // 여기서는 별도 해제 불필요
+        // (필요한 경우에는 일괄적으로 해제 가능)
     }
 
     uint32_t allocate(float f)
@@ -51,6 +52,7 @@ int main()
 {
     ResourcePool pool;
 
+    // Resource res(3.14f);
     Resource res(pool.allocate(3.14f));
 
     cout << pool.get(res.handle()) << endl;
