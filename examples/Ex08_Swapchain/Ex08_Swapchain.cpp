@@ -50,7 +50,7 @@ VkClearColorValue generateAnimatedColor()
 }
 
 void recordCommandBuffer(CommandBuffer& cmd, Swapchain& swapchain, uint32_t imageIndex,
-                         VkExtent2D windowSize, VkClearColorValue clearColor)
+                         VkExtent2D windowSize)
 {
     vkResetCommandBuffer(cmd.handle(), 0);
     VkCommandBufferBeginInfo cmdBufferBeginInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
@@ -61,6 +61,8 @@ void recordCommandBuffer(CommandBuffer& cmd, Swapchain& swapchain, uint32_t imag
                           VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_NONE,
                           VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
                           VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+    VkClearColorValue clearColor = generateAnimatedColor();
 
     VkRenderingAttachmentInfo colorAttachment{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
     colorAttachment.imageView = swapchain.imageView(imageIndex);
@@ -136,9 +138,7 @@ int main()
             exitWithMessage("Failed to acquire swapchain image!");
         }
 
-        VkClearColorValue clearColor = generateAnimatedColor();
-        recordCommandBuffer(commandBuffers_[currentFrame], swapchain, imageIndex, windowSize,
-                            clearColor);
+        recordCommandBuffer(commandBuffers_[currentFrame], swapchain, imageIndex, windowSize);
 
         VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
