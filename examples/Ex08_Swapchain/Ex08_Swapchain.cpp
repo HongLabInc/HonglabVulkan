@@ -36,6 +36,57 @@ void transitionImageLayout(VkCommandBuffer cmd, VkImage image, VkPipelineStageFl
     vkCmdPipelineBarrier2(cmd, &depInfo);
 }
 
+VkClearColorValue generateAnimatedColor()
+{
+    static auto startTime = chrono::high_resolution_clock::now();
+    auto currentTime = chrono::high_resolution_clock::now();
+    float time = chrono::duration<float>(currentTime - startTime).count();
+
+    float red = (sin(time * 0.5f) + 1.0f) * 0.5f;          // Slow red oscillation
+    float green = (sin(time * 0.7f + 1.0f) + 1.0f) * 0.5f; // Medium green with phase offset
+    float blue = (sin(time * 0.9f + 2.0f) + 1.0f) * 0.5f;  // Fast blue with different phase
+
+    return {{red, green, blue, 1.0f}};
+}
+
+void recordCommandBuffer(CommandBuffer& cmd, Swapchain& swapchain, uint32_t imageIndex,
+                         VkExtent2D windowSize, VkClearColorValue clearColor)
+{
+    vkResetCommandBuffer(cmd.handle(), 0);
+    VkCommandBufferBeginInfo cmdBufferBeginInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+    check(vkBeginCommandBuffer(cmd.handle(), &cmdBufferBeginInfo));
+
+    transitionImageLayout(cmd.handle(), swapchain.image(imageIndex),
+                          VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
+                          VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_NONE,
+                          VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
+                          VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+    VkRenderingAttachmentInfo colorAttachment{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
+    colorAttachment.imageView = swapchain.imageView(imageIndex);
+    colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    colorAttachment.clearValue.color = clearColor;
+
+    VkRenderingInfo renderingInfo{VK_STRUCTURE_TYPE_RENDERING_INFO};
+    renderingInfo.renderArea = {0, 0, windowSize.width, windowSize.height};
+    renderingInfo.layerCount = 1;
+    renderingInfo.colorAttachmentCount = 1;
+    renderingInfo.pColorAttachments = &colorAttachment;
+
+    vkCmdBeginRendering(cmd.handle(), &renderingInfo);
+    vkCmdEndRendering(cmd.handle());
+
+    transitionImageLayout(
+        cmd.handle(), swapchain.image(imageIndex), VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+        VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+        VK_ACCESS_2_NONE, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+
+    check(vkEndCommandBuffer(cmd.handle()));
+}
+
 int main()
 {
     Window window;
@@ -85,51 +136,9 @@ int main()
             exitWithMessage("Failed to acquire swapchain image!");
         }
 
-        static auto startTime = chrono::high_resolution_clock::now();
-        auto currentTime = chrono::high_resolution_clock::now();
-        float time = chrono::duration<float>(currentTime - startTime).count();
-
-        float red = (sin(time * 0.5f) + 1.0f) * 0.5f;
-        float green = (sin(time * 0.7f + 1.0f) + 1.0f) * 0.5f;
-        float blue = (sin(time * 0.9f + 2.0f) + 1.0f) * 0.5f;
-
-        VkClearColorValue clearColor = {{red, green, blue, 1.0f}};
-
-        CommandBuffer& cmd = commandBuffers_[currentFrame];
-
-        vkResetCommandBuffer(cmd.handle(), 0);
-        VkCommandBufferBeginInfo cmdBufferBeginInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-        check(vkBeginCommandBuffer(cmd.handle(), &cmdBufferBeginInfo));
-
-        transitionImageLayout(cmd.handle(), swapchain.image(imageIndex),
-                              VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
-                              VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_NONE,
-                              VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
-                              VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-
-        VkRenderingAttachmentInfo colorAttachment{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
-        colorAttachment.imageView = swapchain.imageView(imageIndex);
-        colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-        colorAttachment.clearValue.color = clearColor;
-
-        VkRenderingInfo renderingInfo{VK_STRUCTURE_TYPE_RENDERING_INFO};
-        renderingInfo.renderArea = {0, 0, windowSize.width, windowSize.height};
-        renderingInfo.layerCount = 1;
-        renderingInfo.colorAttachmentCount = 1;
-        renderingInfo.pColorAttachments = &colorAttachment;
-
-        vkCmdBeginRendering(cmd.handle(), &renderingInfo);
-        vkCmdEndRendering(cmd.handle());
-
-        transitionImageLayout(
-            cmd.handle(), swapchain.image(imageIndex),
-            VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT,
-            VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_2_NONE,
-            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-
-        check(vkEndCommandBuffer(cmd.handle()));
+        VkClearColorValue clearColor = generateAnimatedColor();
+        recordCommandBuffer(commandBuffers_[currentFrame], swapchain, imageIndex, windowSize,
+                            clearColor);
 
         VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
@@ -137,14 +146,13 @@ int main()
         submitInfo.waitSemaphoreCount = 1;
         submitInfo.pWaitSemaphores = &presentSemaphores_[currentSemaphore];
         submitInfo.pWaitDstStageMask = &waitStage;
-
         submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &cmd.handle();
-
+        submitInfo.pCommandBuffers = &commandBuffers_[currentFrame].handle();
         submitInfo.signalSemaphoreCount = 1;
         submitInfo.pSignalSemaphores = &renderSemaphores_[currentSemaphore];
 
-        check(vkQueueSubmit(cmd.queue(), 1, &submitInfo, inFlightFences_[currentFrame]));
+        check(vkQueueSubmit(commandBuffers_[currentFrame].queue(), 1, &submitInfo,
+                            inFlightFences_[currentFrame]));
 
         VkResult presentResult = swapchain.queuePresent(ctx.graphicsQueue(), imageIndex,
                                                         renderSemaphores_[currentSemaphore]);
