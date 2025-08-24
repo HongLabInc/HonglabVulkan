@@ -62,22 +62,22 @@ Device Features:
 
 Device Memory Properties:
   Memory Type Count: 5
-    Memory Type 0: heap 1, flags: NONE
-    Memory Type 1: heap 0, flags: DEVICE_LOCAL
-    Memory Type 2: heap 1, flags: HOST_VISIBLE HOST_COHERENT
-    Memory Type 3: heap 1, flags: HOST_VISIBLE HOST_COHERENT HOST_CACHED
-    Memory Type 4: heap 0, flags: DEVICE_LOCAL HOST_VISIBLE HOST_COHERENT
+    Memory Type 0: heap 1, flags: NONE 
+    Memory Type 1: heap 0, flags: DEVICE_LOCAL 
+    Memory Type 2: heap 1, flags: HOST_VISIBLE HOST_COHERENT 
+    Memory Type 3: heap 1, flags: HOST_VISIBLE HOST_COHERENT HOST_CACHED 
+    Memory Type 4: heap 0, flags: DEVICE_LOCAL HOST_VISIBLE HOST_COHERENT 
   Memory Heap Count: 2
-    Memory Heap 0: 16050 MB, flags: DEVICE_LOCAL
-    Memory Heap 1: 16253 MB, flags: NONE
+    Memory Heap 0: 16050 MB, flags: DEVICE_LOCAL 
+    Memory Heap 1: 16253 MB, flags: NONE 
 
 Queue Family Properties: 6
   Queue Family 0: 16 queues, flags: GRAPHICS COMPUTE TRANSFER SPARSE_BINDING 
   Queue Family 1: 2 queues, flags: TRANSFER SPARSE_BINDING 
   Queue Family 2: 8 queues, flags: COMPUTE TRANSFER SPARSE_BINDING 
-  Queue Family 3: 1 queues, flags: TRANSFER SPARSE_BINDING 
-  Queue Family 4: 2 queues, flags: TRANSFER SPARSE_BINDING 
-  Queue Family 5: 1 queues, flags: TRANSFER SPARSE_BINDING 
+  Queue Family 3: 1 queues, flags: TRANSFER SPARSE_BINDING VIDEO_DECODE 
+  Queue Family 4: 2 queues, flags: TRANSFER SPARSE_BINDING VIDEO_ENCODE 
+  Queue Family 5: 1 queues, flags: TRANSFER SPARSE_BINDING OPTICAL_FLOW 
 DescriptorPoolSize.txt not found, will create pools on-demand
 Swapchain Storage Bit Support: YES
 Designed Num of Swamchain Images: 3
