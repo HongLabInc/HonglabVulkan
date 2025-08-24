@@ -115,7 +115,7 @@ int main()
         colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
         colorAttachment.clearValue.color = clearColor;
 
-        VkRenderingInfo renderingInfo{VK_STRUCTURE_TYPE_RENDERING_INFO_KHR};
+        VkRenderingInfo renderingInfo{VK_STRUCTURE_TYPE_RENDERING_INFO};
         renderingInfo.renderArea = {0, 0, windowSize.width, windowSize.height};
         renderingInfo.layerCount = 1;
         renderingInfo.colorAttachmentCount = 1;
