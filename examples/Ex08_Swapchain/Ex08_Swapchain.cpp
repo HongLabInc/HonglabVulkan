@@ -48,6 +48,8 @@ int main()
     uint32_t currentFrame = 0;
     uint32_t currentSemaphore = 0;
 
+    auto startTime = chrono::high_resolution_clock::now();
+
     while (!window.isCloseRequested()) {
         window.pollEvents();
 
@@ -65,7 +67,6 @@ int main()
             exitWithMessage("Failed to acquire swapchain image!");
         }
 
-        static auto startTime = chrono::high_resolution_clock::now();
         auto currentTime = chrono::high_resolution_clock::now();
         float time = chrono::duration<float>(currentTime - startTime).count();
 
