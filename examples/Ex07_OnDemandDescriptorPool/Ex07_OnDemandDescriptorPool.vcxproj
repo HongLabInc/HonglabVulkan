@@ -139,6 +139,7 @@
     <ClCompile Include="Ex07_OnDemandDescriptorPool.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <Text Include="DescriptorPoolSize.txt" />
     <Text Include="log.txt" />
   </ItemGroup>
   <ItemGroup>
