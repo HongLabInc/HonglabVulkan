@@ -61,17 +61,30 @@ class DataFactory
 /*
 활용 사례:
 class Resource
-{}
+{
+    virtual void cleanup(Device& device) = 0;
+}
 
 class ImageResource : public Resource
 {
+  void cleanup(Device& device){...}
+
   ImageHandle handle_;
 }
 
 class BufferResource : public Resource
 {
+  void cleanup(Device& device){...}
+
   BufferHandle handle_;
 }
+
+vector<unique_ptr<Resource>> resources;
+
+// ...
+
+for(auto& res : resources)
+    res->cleanup(device);
 */
 
 int main()

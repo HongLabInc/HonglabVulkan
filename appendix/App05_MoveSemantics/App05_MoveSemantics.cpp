@@ -24,14 +24,14 @@ class B
     }
 
     // Copy constructor
-    B(const B& other) : a_(other.a_) // , data_(other.data_)
-    {
-        cout << "B copy constructor called" << endl;
-        // Reference a_ points to the same object as other.a_
-        // data_ is copied from other.data_
-    }
+    // B(const B& other) : a_(other.a_) // , data_(other.data_)
+    //{
+    //    cout << "B copy constructor called" << endl;
+    //    // Reference a_ points to the same object as other.a_
+    //    // data_ is copied from other.data_
+    //}
 
-    // B(const B&) = delete;
+    B(const B&) = delete;
 
     // Delete move assignment operator
     B& operator=(B&&) = delete;
@@ -54,9 +54,12 @@ int main()
 
     // vector<B> Bs(10, a);
 
-    // vector<B> Bs;
-    // Bs.reserve(10);
-    // for (int i = 0; i < 10; ++i) {
-    //     Bs.emplace_back(a); // Construct each B object in-place
-    // }
+    vector<B> Bs;
+    Bs.reserve(10);
+    for (int i = 0; i < 10; ++i) {
+        Bs.emplace_back(a); // Construct each B object in-place
+    }
+
+    // 대안
+    // vector<unique_ptr<B>> Bs;
 }
