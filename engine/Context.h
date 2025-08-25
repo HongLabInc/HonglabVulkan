@@ -65,6 +65,14 @@ class Context
     {
         return descriptorPool_;
     }
+    auto queueFamilyProperties() const -> const vector<VkQueueFamilyProperties>&
+    {
+        return queueFamilyProperties_;
+    }
+    auto queueFamilyIndices() const -> const QueueFamilyIndices&
+    {
+        return queueFamilyIndices_;
+    }
 
   private:
     VkInstance instance_{VK_NULL_HANDLE};

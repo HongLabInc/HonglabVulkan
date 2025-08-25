@@ -12,56 +12,47 @@ Swapchain::Swapchain(Context& ctx, VkSurfaceKHR surface, VkExtent2D& windowSize)
 
 void Swapchain::initSurface(VkSurfaceKHR surface)
 {
-    VkResult err = VK_SUCCESS;
-
     surface_ = surface;
 
-    uint32_t queueCount;
-    vkGetPhysicalDeviceQueueFamilyProperties(ctx_.physicalDevice(), &queueCount, NULL);
-    assert(queueCount >= 1);
+    // Use Context's existing queue family properties instead of re-querying
+    const auto& queueFamilyProps = ctx_.queueFamilyProperties();
+    uint32_t queueCount = static_cast<uint32_t>(queueFamilyProps.size());
 
-    std::vector<VkQueueFamilyProperties> queueProps(queueCount);
-    vkGetPhysicalDeviceQueueFamilyProperties(ctx_.physicalDevice(), &queueCount, queueProps.data());
-
+    // Check surface support for each queue family
     std::vector<VkBool32> supportsPresent(queueCount);
     for (uint32_t i = 0; i < queueCount; i++) {
         vkGetPhysicalDeviceSurfaceSupportKHR(ctx_.physicalDevice(), i, surface_,
                                              &supportsPresent[i]);
     }
 
-    uint32_t graphicsQueueNodeIndex = UINT32_MAX;
-    uint32_t presentQueueNodeIndex = UINT32_MAX;
-    for (uint32_t i = 0; i < queueCount; i++) {
-        if ((queueProps[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0) {
-            if (graphicsQueueNodeIndex == UINT32_MAX) {
-                graphicsQueueNodeIndex = i;
-            }
+    // Find graphics and present queue families
+    // Start with the graphics queue family from Context
+    uint32_t graphicsQueueIndex = ctx_.queueFamilyIndices().graphics;
+    uint32_t presentQueueIndex = UINT32_MAX;
 
-            if (supportsPresent[i] == VK_TRUE) {
-                graphicsQueueNodeIndex = i;
-                presentQueueNodeIndex = i;
-                break;
-            }
-        }
-    }
-    if (presentQueueNodeIndex == UINT32_MAX) {
-
+    // Check if the graphics queue supports presentation
+    if (supportsPresent[graphicsQueueIndex] == VK_TRUE) {
+        presentQueueIndex = graphicsQueueIndex;
+    } else {
+        // Find any queue that supports presentation
         for (uint32_t i = 0; i < queueCount; ++i) {
             if (supportsPresent[i] == VK_TRUE) {
-                presentQueueNodeIndex = i;
+                presentQueueIndex = i;
                 break;
             }
         }
     }
 
-    if (graphicsQueueNodeIndex == UINT32_MAX || presentQueueNodeIndex == UINT32_MAX) {
+    // Validate queue families found
+    if (graphicsQueueIndex == UINT32_MAX || presentQueueIndex == UINT32_MAX) {
         exitWithMessage("Could not find a graphics and/or presenting queue!");
     }
 
-    if (graphicsQueueNodeIndex != presentQueueNodeIndex) {
+    if (graphicsQueueIndex != presentQueueIndex) {
         exitWithMessage("Separate graphics and presenting queues are not supported yet!");
     }
 
+    // Surface format selection (this logic could potentially be moved to Context as well)
     uint32_t formatCount;
     check(
         vkGetPhysicalDeviceSurfaceFormatsKHR(ctx_.physicalDevice(), surface_, &formatCount, NULL));
