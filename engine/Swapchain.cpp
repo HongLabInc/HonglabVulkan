@@ -4,12 +4,11 @@ namespace hlab {
 
 using namespace std;
 
-Swapchain::Swapchain(Context& ctx, VkSurfaceKHR surface, VkExtent2D& windowSize, bool vsync,
-                     bool fullscreen)
+Swapchain::Swapchain(Context& ctx, VkSurfaceKHR surface, VkExtent2D& windowSize, bool vsync)
     : ctx_(ctx)
 {
     initSurface(surface);
-    create(windowSize, vsync, fullscreen);
+    create(windowSize, vsync);
 }
 
 void Swapchain::initSurface(VkSurfaceKHR surface)
@@ -93,7 +92,7 @@ void Swapchain::initSurface(VkSurfaceKHR surface)
     colorSpace_ = selectedFormat.colorSpace;
 }
 
-void Swapchain::create(VkExtent2D& exectedWindowSize, bool vsync, bool fullscreen)
+void Swapchain::create(VkExtent2D& exectedWindowSize, bool vsync)
 {
     VkSwapchainKHR oldSwapchain = swapchain_;
 
@@ -250,7 +249,6 @@ void Swapchain::create(VkExtent2D& exectedWindowSize, bool vsync, bool fullscree
 
 VkResult Swapchain::acquireNextImage(VkSemaphore presentCompleteSemaphore, uint32_t& imageIndex)
 {
-
     return vkAcquireNextImageKHR(ctx_.device(), swapchain_, UINT64_MAX, presentCompleteSemaphore,
                                  (VkFence) nullptr, &imageIndex);
 }

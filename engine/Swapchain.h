@@ -17,15 +17,14 @@ using namespace std;
 class Swapchain
 {
   public:
-    Swapchain(Context& ctx, VkSurfaceKHR surface, VkExtent2D& windowSize, bool vsync = false,
-              bool fullscreen = false);
+    Swapchain(Context& ctx, VkSurfaceKHR surface, VkExtent2D& windowSize, bool vsync = false);
     ~Swapchain()
     {
         cleanup();
     }
 
     void initSurface(VkSurfaceKHR surface);
-    void create(VkExtent2D& exectedWindowSize, bool vsync = false, bool fullscreen = false);
+    void create(VkExtent2D& exectedWindowSize, bool vsync = false);
     void cleanup();
 
     auto acquireNextImage(VkSemaphore presentCompleteSemaphore, uint32_t& imageIndex) -> VkResult;

@@ -84,11 +84,11 @@ Designed Num of Swamchain Images: 3
 
 Added VK_IMAGE_USAGE_STORAGE_BIT to swapchain
 
-[ERROR] [1402107823][VUID-vkQueueSubmit-pSignalSemaphores-00067] : vkQueueSubmit(): pSubmits[0].pSignalSemaphores[0] (VkSemaphore 0x100000000010) is being signaled by VkQueue 0x1cba9dee970, but it may still be in use by VkSwapchainKHR 0x60000000006.
-Here are the most recently acquired image indices: 0, 2, 1, 0, [2], 1, 0, 0.
+[ERROR] [1402107823][VUID-vkQueueSubmit-pSignalSemaphores-00067] : vkQueueSubmit(): pSubmits[0].pSignalSemaphores[0] (VkSemaphore 0x100000000010) is being signaled by VkQueue 0x1cf86031a60, but it may still be in use by VkSwapchainKHR 0x60000000006.
+Here are the most recently acquired image indices: 0, 1, 2, 0, [1], 2, 0, 2.
 (brackets mark the last use of VkSemaphore 0x100000000010 in a presentation operation)
-Swapchain image 2 was presented but was not re-acquired, so VkSemaphore 0x100000000010 may still be in use and cannot be safely reused with image index 0.
-Vulkan insight: One solution is to assign each image its own semaphore. This also handles the case where vkAcquireNextImageKHR returns the same index twice in a row. Here are some common methods to ensure that a semaphore passed to vkQueuePresentKHR is not in use and can be safely reused:
+Swapchain image 1 was presented but was not re-acquired, so VkSemaphore 0x100000000010 may still be in use and cannot be safely reused with image index 2.
+Vulkan insight: One solution is to assign each image its own semaphore. Here are some common methods to ensure that a semaphore passed to vkQueuePresentKHR is not in use and can be safely reused:
 	a) Use a separate semaphore per swapchain image. Index these semaphores using the index of the acquired image.
 	b) Consider the VK_KHR_swapchain_maintenance1 extension. It allows using a VkFence with the presentation operation.
 The Vulkan spec states: Each binary semaphore element of the pSignalSemaphores member of any element of pSubmits must be unsignaled when the semaphore signal operation it defines is executed on the device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/cmdbuffers.html#VUID-vkQueueSubmit-pSignalSemaphores-00067)
