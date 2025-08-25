@@ -12,6 +12,8 @@ Swapchain::Swapchain(Context& ctx, VkSurfaceKHR surface, VkExtent2D& windowSize)
 
 void Swapchain::initSurface(VkSurfaceKHR surface)
 {
+    constexpr uint32_t INVALID_INDEX = UINT32_MAX;
+
     surface_ = surface;
 
     // Use Context's existing queue family properties instead of re-querying
@@ -28,7 +30,7 @@ void Swapchain::initSurface(VkSurfaceKHR surface)
     // Find graphics and present queue families
     // Start with the graphics queue family from Context
     uint32_t graphicsQueueIndex = ctx_.queueFamilyIndices().graphics;
-    uint32_t presentQueueIndex = UINT32_MAX;
+    uint32_t presentQueueIndex = INVALID_INDEX;
 
     // Check if the graphics queue supports presentation
     if (supportsPresent[graphicsQueueIndex] == VK_TRUE) {
@@ -44,7 +46,7 @@ void Swapchain::initSurface(VkSurfaceKHR surface)
     }
 
     // Validate queue families found
-    if (graphicsQueueIndex == UINT32_MAX || presentQueueIndex == UINT32_MAX) {
+    if (graphicsQueueIndex == INVALID_INDEX || presentQueueIndex == INVALID_INDEX) {
         exitWithMessage("Could not find a graphics and/or presenting queue!");
     }
 
