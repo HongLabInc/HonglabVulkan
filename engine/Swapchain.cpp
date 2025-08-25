@@ -52,7 +52,7 @@ void Swapchain::initSurface(VkSurfaceKHR surface)
         exitWithMessage("Separate graphics and presenting queues are not supported yet!");
     }
 
-    // Surface format selection (this logic could potentially be moved to Context as well)
+    // Surface format selection
     uint32_t formatCount;
     check(
         vkGetPhysicalDeviceSurfaceFormatsKHR(ctx_.physicalDevice(), surface_, &formatCount, NULL));
