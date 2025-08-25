@@ -4,10 +4,12 @@ namespace hlab {
 
 using namespace std;
 
-Swapchain::Swapchain(Context& ctx, VkSurfaceKHR surface, VkExtent2D& windowSize) : ctx_(ctx)
+Swapchain::Swapchain(Context& ctx, VkSurfaceKHR surface, VkExtent2D& windowSize, bool vsync,
+                     bool fullscreen)
+    : ctx_(ctx)
 {
     initSurface(surface);
-    create(windowSize, false, false);
+    create(windowSize, vsync, fullscreen);
 }
 
 void Swapchain::initSurface(VkSurfaceKHR surface)

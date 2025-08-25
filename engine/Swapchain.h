@@ -17,7 +17,8 @@ using namespace std;
 class Swapchain
 {
   public:
-    Swapchain(Context& ctx, VkSurfaceKHR surface, VkExtent2D& windowSize);
+    Swapchain(Context& ctx, VkSurfaceKHR surface, VkExtent2D& windowSize, bool vsync = false,
+              bool fullscreen = false);
     ~Swapchain()
     {
         cleanup();

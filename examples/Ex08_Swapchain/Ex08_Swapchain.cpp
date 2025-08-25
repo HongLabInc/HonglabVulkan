@@ -94,7 +94,7 @@ int main()
     Window window;
     VkExtent2D windowSize = window.getFramebufferSize();
     Context ctx(window.getRequiredExtensions(), true);
-    Swapchain swapchain(ctx, window.createSurface(ctx.instance()), windowSize);
+    Swapchain swapchain(ctx, window.createSurface(ctx.instance()), windowSize, true);
 
     const uint32_t MAX_FRAMES_IN_FLIGHT = 2;
 
