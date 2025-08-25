@@ -34,21 +34,23 @@ void CommandBuffer::submitAndWait()
 
     check(vkEndCommandBuffer(handle_));
 
-    VkSubmitInfo submitInfo{};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &handle_;
+    // New VkCommandBufferSubmitInfo
+    VkCommandBufferSubmitInfo cmdBufferInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
+    cmdBufferInfo.commandBuffer = handle_;
+    cmdBufferInfo.deviceMask = 0;
 
-    VkFenceCreateInfo fenceCreateInfo{};
-    fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fenceCreateInfo.flags = 0;
+    // New VkSubmitInfo2
+    VkSubmitInfo2 submitInfo{VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
+    submitInfo.commandBufferInfoCount = 1;
+    submitInfo.pCommandBufferInfos = &cmdBufferInfo;
 
+    VkFenceCreateInfo fenceCreateInfo{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
     VkFence fence;
     check(vkCreateFence(device_, &fenceCreateInfo, nullptr, &fence));
 
-    check(vkQueueSubmit(queue_, 1, &submitInfo, fence));
+    check(vkQueueSubmit2(queue_, 1, &submitInfo, fence));
 
-    check(vkWaitForFences(device_, 1, &fence, VK_TRUE, 1000000000)); // nanoseconds
+    check(vkWaitForFences(device_, 1, &fence, VK_TRUE, 1000000000));
     vkDestroyFence(device_, fence, nullptr);
 }
 

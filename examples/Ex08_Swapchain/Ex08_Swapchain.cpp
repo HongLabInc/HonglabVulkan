@@ -138,19 +138,33 @@ int main()
 
         recordCommandBuffer(commandBuffers_[currentFrame], swapchain, imageIndex, windowSize);
 
-        VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        // Create semaphore submit infos
+        VkSemaphoreSubmitInfo waitSemaphoreInfo{VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
+        waitSemaphoreInfo.semaphore = presentSemaphores_[currentSemaphore];
+        waitSemaphoreInfo.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+        waitSemaphoreInfo.value = 0; // Binary semaphore
+        waitSemaphoreInfo.deviceIndex = 0;
 
-        VkSubmitInfo submitInfo{VK_STRUCTURE_TYPE_SUBMIT_INFO};
-        submitInfo.waitSemaphoreCount = 1;
-        submitInfo.pWaitSemaphores = &presentSemaphores_[currentSemaphore];
-        submitInfo.pWaitDstStageMask = &waitStage;
-        submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &commandBuffers_[currentFrame].handle();
-        submitInfo.signalSemaphoreCount = 1;
-        submitInfo.pSignalSemaphores = &renderSemaphores_[currentSemaphore];
+        VkSemaphoreSubmitInfo signalSemaphoreInfo{VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
+        signalSemaphoreInfo.semaphore = renderSemaphores_[currentSemaphore];
+        signalSemaphoreInfo.stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+        signalSemaphoreInfo.value = 0; // Binary semaphore
+        signalSemaphoreInfo.deviceIndex = 0;
 
-        check(vkQueueSubmit(commandBuffers_[currentFrame].queue(), 1, &submitInfo,
-                            inFlightFences_[currentFrame]));
+        VkCommandBufferSubmitInfo cmdBufferInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
+        cmdBufferInfo.commandBuffer = commandBuffers_[currentFrame].handle();
+        cmdBufferInfo.deviceMask = 0;
+
+        VkSubmitInfo2 submitInfo{VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
+        submitInfo.waitSemaphoreInfoCount = 1;
+        submitInfo.pWaitSemaphoreInfos = &waitSemaphoreInfo;
+        submitInfo.commandBufferInfoCount = 1;
+        submitInfo.pCommandBufferInfos = &cmdBufferInfo;
+        submitInfo.signalSemaphoreInfoCount = 1;
+        submitInfo.pSignalSemaphoreInfos = &signalSemaphoreInfo;
+
+        check(vkQueueSubmit2(commandBuffers_[currentFrame].queue(), 1, &submitInfo,
+                             inFlightFences_[currentFrame]));
 
         VkResult presentResult = swapchain.queuePresent(ctx.graphicsQueue(), imageIndex,
                                                         renderSemaphores_[currentSemaphore]);
