@@ -19,7 +19,7 @@ void Swapchain::initSurface(VkSurfaceKHR surface)
     uint32_t queueCount = static_cast<uint32_t>(queueFamilyProps.size());
 
     // Check surface support for each queue family
-    std::vector<VkBool32> supportsPresent(queueCount);
+    vector<VkBool32> supportsPresent(queueCount);
     for (uint32_t i = 0; i < queueCount; i++) {
         vkGetPhysicalDeviceSurfaceSupportKHR(ctx_.physicalDevice(), i, surface_,
                                              &supportsPresent[i]);
@@ -58,14 +58,14 @@ void Swapchain::initSurface(VkSurfaceKHR surface)
         vkGetPhysicalDeviceSurfaceFormatsKHR(ctx_.physicalDevice(), surface_, &formatCount, NULL));
     assert(formatCount > 0);
 
-    std::vector<VkSurfaceFormatKHR> surfaceFormats(formatCount);
+    vector<VkSurfaceFormatKHR> surfaceFormats(formatCount);
     check(vkGetPhysicalDeviceSurfaceFormatsKHR(ctx_.physicalDevice(), surface_, &formatCount,
                                                surfaceFormats.data()));
 
-    std::vector<VkFormat> preferredImageFormats = {
-        VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_R8G8B8A8_SRGB, VK_FORMAT_B8G8R8A8_UNORM,
-        VK_FORMAT_B8G8R8A8_SRGB, // for linux
-        VK_FORMAT_A8B8G8R8_UNORM_PACK32};
+    vector<VkFormat> preferredImageFormats = {VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_R8G8B8A8_SRGB,
+                                              VK_FORMAT_B8G8R8A8_UNORM,
+                                              VK_FORMAT_B8G8R8A8_SRGB, // for linux
+                                              VK_FORMAT_A8B8G8R8_UNORM_PACK32};
 
     VkSurfaceFormatKHR selectedFormat;
     selectedFormat.format = VK_FORMAT_UNDEFINED;
@@ -116,7 +116,7 @@ void Swapchain::create(VkExtent2D& exectedWindowSize, bool vsync, bool fullscree
                                                     &presentModeCount, NULL));
     assert(presentModeCount > 0);
 
-    std::vector<VkPresentModeKHR> presentModes(presentModeCount);
+    vector<VkPresentModeKHR> presentModes(presentModeCount);
     check(vkGetPhysicalDeviceSurfacePresentModesKHR(ctx_.physicalDevice(), surface_,
                                                     &presentModeCount, presentModes.data()));
 
@@ -150,7 +150,7 @@ void Swapchain::create(VkExtent2D& exectedWindowSize, bool vsync, bool fullscree
 
     VkCompositeAlphaFlagBitsKHR compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 
-    std::vector<VkCompositeAlphaFlagBitsKHR> compositeAlphaFlags = {
+    vector<VkCompositeAlphaFlagBitsKHR> compositeAlphaFlags = {
         VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
         VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,
         VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR,
