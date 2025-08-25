@@ -99,7 +99,6 @@ void Swapchain::create(VkExtent2D& exectedWindowSize, bool vsync, bool fullscree
     // Check for storage bit support
     bool storageSupported = (surfCaps.supportedUsageFlags & VK_IMAGE_USAGE_STORAGE_BIT) != 0;
     printLog("Swapchain Storage Bit Support: {}", storageSupported ? "YES" : "NO");
-    storageSupported = false;
 
     VkExtent2D swapchainExtent = {};
 
