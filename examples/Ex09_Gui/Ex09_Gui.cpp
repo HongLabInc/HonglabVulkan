@@ -25,101 +25,167 @@ struct MouseState
 };
 
 // Global variables
-glm::vec3 clearColor = glm::vec3(0.2f, 0.3f, 0.5f); // Default blue-ish color
+glm::vec4 clearColor = glm::vec4(0.2f, 0.3f, 0.5f, 1.0f); // Default blue-ish color with alpha
 MouseState mouseState;
 
-VkClearColorValue generateAnimatedColor()
+// Forward declarations
+void renderColorControlWindow();
+void renderColorPresets();
+
+// Separate preset rendering for clarity
+void renderColorPresets()
 {
-    static auto startTime = chrono::high_resolution_clock::now();
-    auto currentTime = chrono::high_resolution_clock::now();
-    float time = chrono::duration<float>(currentTime - startTime).count();
+    const struct ColorPreset
+    {
+        const char* name;
+        glm::vec4 color;
+    } presets[] = {{"Sky Blue", {0.53f, 0.81f, 0.92f, 1.0f}},
+                   {"Sunset", {1.0f, 0.65f, 0.0f, 1.0f}},
+                   {"Night", {0.05f, 0.05f, 0.15f, 1.0f}},
+                   {"Forest", {0.13f, 0.55f, 0.13f, 1.0f}},
+                   {"Reset", {0.2f, 0.3f, 0.5f, 1.0f}}};
 
-    float red = (sin(time * 0.5f) + 1.0f) * 0.5f;
-    float green = (sin(time * 0.7f + 1.0f) + 1.0f) * 0.5f;
-    float blue = (sin(time * 0.9f + 2.0f) + 1.0f) * 0.5f;
+    constexpr int buttonsPerRow = 2;
+    for (int i = 0; i < std::size(presets); ++i) {
+        if (ImGui::Button(presets[i].name)) {
+            clearColor = presets[i].color;
+        }
 
-    return {{red, green, blue, 1.0f}};
+        if ((i + 1) % buttonsPerRow != 0 && i < std::size(presets) - 1) {
+            ImGui::SameLine();
+        }
+    }
 }
 
-VkClearColorValue getGuiControlledColor()
+// Separate the GUI window rendering for better organization
+void renderColorControlWindow()
 {
-    return {{clearColor.r, clearColor.g, clearColor.b, 1.0f}};
-}
-
-void updateGui(VkExtent2D windowSize)
-{
-    ImGuiIO& io = ImGui::GetIO();
-
-    // Set display size and mouse input for ImGui
-    io.DisplaySize = ImVec2(float(windowSize.width), float(windowSize.height));
-
-    // Pass mouse input to ImGui - let ImGui decide if it wants to capture it
-    io.MousePos = ImVec2(mouseState.position.x, mouseState.position.y);
-    io.MouseDown[0] = mouseState.buttons.left;   // Left mouse button
-    io.MouseDown[1] = mouseState.buttons.right;  // Right mouse button
-    io.MouseDown[2] = mouseState.buttons.middle; // Middle mouse button
-
-    ImGui::NewFrame();
     ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(300, 250), ImGuiCond_FirstUseEver);
-    ImGui::Begin("Clear Color Control");
+
+    if (!ImGui::Begin("Clear Color Control")) {
+        ImGui::End();
+        return;
+    }
 
     ImGui::Text("Control the background clear color:");
     ImGui::Separator();
 
-    // Color picker for clear color
-    ImGui::ColorEdit3("Clear Color", &clearColor.r);
+    // Color picker (using ColorEdit4 to include alpha channel)
+    ImGui::ColorEdit4("Clear Color", &clearColor.r);
 
     ImGui::Separator();
     ImGui::Text("Individual Controls:");
 
-    // Individual RGB sliders for more precise control
+    // RGBA sliders
     ImGui::SliderFloat("Red", &clearColor.r, 0.0f, 1.0f, "%.3f");
     ImGui::SliderFloat("Green", &clearColor.g, 0.0f, 1.0f, "%.3f");
     ImGui::SliderFloat("Blue", &clearColor.b, 0.0f, 1.0f, "%.3f");
+    ImGui::SliderFloat("Alpha", &clearColor.a, 0.0f, 1.0f, "%.3f");
 
     ImGui::Separator();
     ImGui::Text("Color Preview:");
 
-    // Color preview
-    ImGui::ColorButton("Preview", ImVec4(clearColor.r, clearColor.g, clearColor.b, 1.0f),
-                       ImGuiColorEditFlags_NoAlpha, ImVec2(50, 50));
+    // Preview button
+    ImGui::ColorButton("Preview", ImVec4(clearColor.r, clearColor.g, clearColor.b, clearColor.a), 0,
+                       ImVec2(50, 50));
 
     ImGui::Separator();
     ImGui::Text("Presets:");
 
-    // Preset colors
-    if (ImGui::Button("Sky Blue")) {
-        clearColor = glm::vec3(0.53f, 0.81f, 0.92f);
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Sunset")) {
-        clearColor = glm::vec3(1.0f, 0.65f, 0.0f);
-    }
-
-    if (ImGui::Button("Night")) {
-        clearColor = glm::vec3(0.05f, 0.05f, 0.15f);
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Forest")) {
-        clearColor = glm::vec3(0.13f, 0.55f, 0.13f);
-    }
-
-    if (ImGui::Button("Reset")) {
-        clearColor = glm::vec3(0.2f, 0.3f, 0.5f);
-    }
+    // Preset buttons with better layout
+    renderColorPresets();
 
     ImGui::End();
+}
+
+// Enhanced GUI function with better structure
+void updateGui(VkExtent2D windowSize)
+{
+    ImGuiIO& io = ImGui::GetIO();
+
+    // Update ImGui IO state
+    io.DisplaySize = ImVec2(float(windowSize.width), float(windowSize.height));
+    io.MousePos = ImVec2(mouseState.position.x, mouseState.position.y);
+    io.MouseDown[0] = mouseState.buttons.left;
+    io.MouseDown[1] = mouseState.buttons.right;
+    io.MouseDown[2] = mouseState.buttons.middle;
+
+    // Begin GUI frame
+    ImGui::NewFrame();
+
+    // Render color control window
+    renderColorControlWindow();
+
     ImGui::Render();
 }
 
-void handleMouseMove(int32_t x, int32_t y)
+// Helper functions for better organization
+void initializeSynchronization(Context& ctx, uint32_t maxFramesInFlight, uint32_t imageCount,
+                               vector<VkSemaphore>& presentSemaphores,
+                               vector<VkSemaphore>& renderSemaphores,
+                               vector<VkFence>& inFlightFences)
 {
-    // Update mouse position
-    mouseState.position = glm::vec2((float)x, (float)y);
+    // Create semaphores
+    presentSemaphores.resize(imageCount);
+    renderSemaphores.resize(imageCount);
+    for (size_t i = 0; i < imageCount; i++) {
+        VkSemaphoreCreateInfo semaphoreCI{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+        check(vkCreateSemaphore(ctx.device(), &semaphoreCI, nullptr, &presentSemaphores[i]));
+        check(vkCreateSemaphore(ctx.device(), &semaphoreCI, nullptr, &renderSemaphores[i]));
+    }
 
-    // Note: We don't need to handle camera movement here since this is just a GUI example
-    // In a full application, you might check ImGui::GetIO().WantCaptureMouse here
+    // Create fences
+    inFlightFences.resize(maxFramesInFlight);
+    for (size_t i = 0; i < maxFramesInFlight; i++) {
+        VkFenceCreateInfo fenceCreateInfo{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
+        fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+        check(vkCreateFence(ctx.device(), &fenceCreateInfo, nullptr, &inFlightFences[i]));
+    }
+}
+
+void cleanupSynchronization(Context& ctx, vector<VkSemaphore>& presentSemaphores,
+                            vector<VkSemaphore>& renderSemaphores, vector<VkFence>& inFlightFences)
+{
+    for (auto& semaphore : presentSemaphores) {
+        vkDestroySemaphore(ctx.device(), semaphore, nullptr);
+    }
+    for (auto& semaphore : renderSemaphores) {
+        vkDestroySemaphore(ctx.device(), semaphore, nullptr);
+    }
+    for (auto& fence : inFlightFences) {
+        vkDestroyFence(ctx.device(), fence, nullptr);
+    }
+}
+
+void submitFrame(CommandBuffer& commandBuffer, VkSemaphore waitSemaphore,
+                 VkSemaphore signalSemaphore, VkFence fence)
+{
+    VkSemaphoreSubmitInfo waitSemaphoreInfo{VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
+    waitSemaphoreInfo.semaphore = waitSemaphore;
+    waitSemaphoreInfo.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+    waitSemaphoreInfo.value = 0;
+    waitSemaphoreInfo.deviceIndex = 0;
+
+    VkSemaphoreSubmitInfo signalSemaphoreInfo{VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
+    signalSemaphoreInfo.semaphore = signalSemaphore;
+    signalSemaphoreInfo.stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+    signalSemaphoreInfo.value = 0;
+    signalSemaphoreInfo.deviceIndex = 0;
+
+    VkCommandBufferSubmitInfo cmdBufferInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
+    cmdBufferInfo.commandBuffer = commandBuffer.handle();
+    cmdBufferInfo.deviceMask = 0;
+
+    VkSubmitInfo2 submitInfo{VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
+    submitInfo.waitSemaphoreInfoCount = 1;
+    submitInfo.pWaitSemaphoreInfos = &waitSemaphoreInfo;
+    submitInfo.commandBufferInfoCount = 1;
+    submitInfo.pCommandBufferInfos = &cmdBufferInfo;
+    submitInfo.signalSemaphoreInfoCount = 1;
+    submitInfo.pSignalSemaphoreInfos = &signalSemaphoreInfo;
+
+    check(vkQueueSubmit2(commandBuffer.queue(), 1, &submitInfo, fence));
 }
 
 void recordCommandBuffer(CommandBuffer& cmd, Swapchain& swapchain, uint32_t imageIndex,
@@ -134,8 +200,8 @@ void recordCommandBuffer(CommandBuffer& cmd, Swapchain& swapchain, uint32_t imag
                       VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                       VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
 
-    // Use GUI-controlled clear color instead of animated color
-    VkClearColorValue clearColorValue = getGuiControlledColor();
+    // Use clearColor directly - no need for conversion function
+    VkClearColorValue clearColorValue = {{clearColor.r, clearColor.g, clearColor.b, clearColor.a}};
 
     VkRenderingAttachmentInfo colorAttachment{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
     colorAttachment.imageView = swapchain.imageView(imageIndex);
@@ -205,17 +271,19 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
     }
 }
 
-// Mouse position callback - captures mouse movement
+// Mouse position callback - captures mouse movement and updates position directly
 void cursorPosCallback(GLFWwindow* window, double xpos, double ypos)
 {
-    handleMouseMove(static_cast<int32_t>(xpos), static_cast<int32_t>(ypos));
+    // Update mouse position directly - no need for separate handleMouseMove function
+    mouseState.position = glm::vec2(static_cast<float>(xpos), static_cast<float>(ypos));
+
+    // Note: In a full application, you might check ImGui::GetIO().WantCaptureMouse here
+    // to determine if mouse events should be handled by ImGui or the application
 }
 
 int main()
 {
     Window window;
-
-    // Set up callbacks
     window.setKeyCallback(keyCallback);
     window.setMouseButtonCallback(mouseButtonCallback);
     window.setCursorPosCallback(cursorPosCallback);
@@ -224,94 +292,58 @@ int main()
     Context ctx(window.getRequiredExtensions(), true);
     Swapchain swapchain(ctx, window.createSurface(ctx.instance()), windowSize, true);
 
-    // Create ShaderManager and GuiRenderer
     ShaderManager shaderManager(ctx, "../../assets/shaders/",
                                 {{"gui", {"imgui.vert", "imgui.frag"}}});
     GuiRenderer guiRenderer(ctx, shaderManager, swapchain.colorFormat());
 
+    // Setup frame resources
     const uint32_t MAX_FRAMES_IN_FLIGHT = 2;
+    vector<CommandBuffer> commandBuffers = ctx.createGraphicsCommandBuffers(MAX_FRAMES_IN_FLIGHT);
 
-    vector<CommandBuffer> commandBuffers_ = ctx.createGraphicsCommandBuffers(MAX_FRAMES_IN_FLIGHT);
+    vector<VkSemaphore> presentSemaphores;
+    vector<VkSemaphore> renderSemaphores;
+    vector<VkFence> inFlightFences;
 
-    vector<VkSemaphore> presentSemaphores_(swapchain.imageCount());
-    vector<VkSemaphore> renderSemaphores_(swapchain.imageCount());
-
-    for (size_t i = 0; i < swapchain.imageCount(); i++) {
-        VkSemaphoreCreateInfo semaphoreCI{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-        check(vkCreateSemaphore(ctx.device(), &semaphoreCI, nullptr, &presentSemaphores_[i]));
-        check(vkCreateSemaphore(ctx.device(), &semaphoreCI, nullptr, &renderSemaphores_[i]));
-    }
-
-    vector<VkFence> inFlightFences_(MAX_FRAMES_IN_FLIGHT);
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        VkFenceCreateInfo fenceCreateInfo{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
-        fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-        check(vkCreateFence(ctx.device(), &fenceCreateInfo, nullptr, &inFlightFences_[i]));
-    }
+    initializeSynchronization(ctx, MAX_FRAMES_IN_FLIGHT, swapchain.imageCount(), presentSemaphores,
+                              renderSemaphores, inFlightFences);
 
     uint32_t currentFrame = 0;
     uint32_t currentSemaphore = 0;
 
-    // Initialize ImGui display size
+    // Initialize GUI
     guiRenderer.resize(windowSize.width, windowSize.height);
 
     while (!window.isCloseRequested()) {
         window.pollEvents();
 
-        // Update GUI with window size information
         updateGui(windowSize);
         guiRenderer.update();
 
-        check(
-            vkWaitForFences(ctx.device(), 1, &inFlightFences_[currentFrame], VK_TRUE, UINT64_MAX));
-        check(vkResetFences(ctx.device(), 1, &inFlightFences_[currentFrame]));
+        check(vkWaitForFences(ctx.device(), 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX));
+        check(vkResetFences(ctx.device(), 1, &inFlightFences[currentFrame]));
 
         uint32_t imageIndex = 0;
-        VkResult result =
-            swapchain.acquireNextImage(presentSemaphores_[currentSemaphore], imageIndex);
+        VkResult acquireResult =
+            swapchain.acquireNextImage(presentSemaphores[currentSemaphore], imageIndex);
 
-        if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-            continue;
-        } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+        if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR) {
+            exitWithMessage("Window resize not implemented");
+        } else if (acquireResult != VK_SUCCESS && acquireResult != VK_SUBOPTIMAL_KHR) {
             exitWithMessage("Failed to acquire swapchain image!");
         }
 
-        recordCommandBuffer(commandBuffers_[currentFrame], swapchain, imageIndex, windowSize,
+        recordCommandBuffer(commandBuffers[currentFrame], swapchain, imageIndex, windowSize,
                             guiRenderer);
 
-        // Create semaphore submit infos
-        VkSemaphoreSubmitInfo waitSemaphoreInfo{VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-        waitSemaphoreInfo.semaphore = presentSemaphores_[currentSemaphore];
-        waitSemaphoreInfo.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
-        waitSemaphoreInfo.value = 0;
-        waitSemaphoreInfo.deviceIndex = 0;
+        submitFrame(commandBuffers[currentFrame], presentSemaphores[currentSemaphore],
+                    renderSemaphores[currentSemaphore], inFlightFences[currentFrame]);
 
-        VkSemaphoreSubmitInfo signalSemaphoreInfo{VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-        signalSemaphoreInfo.semaphore = renderSemaphores_[currentSemaphore];
-        signalSemaphoreInfo.stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
-        signalSemaphoreInfo.value = 0;
-        signalSemaphoreInfo.deviceIndex = 0;
-
-        VkCommandBufferSubmitInfo cmdBufferInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
-        cmdBufferInfo.commandBuffer = commandBuffers_[currentFrame].handle();
-        cmdBufferInfo.deviceMask = 0;
-
-        VkSubmitInfo2 submitInfo{VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
-        submitInfo.waitSemaphoreInfoCount = 1;
-        submitInfo.pWaitSemaphoreInfos = &waitSemaphoreInfo;
-        submitInfo.commandBufferInfoCount = 1;
-        submitInfo.pCommandBufferInfos = &cmdBufferInfo;
-        submitInfo.signalSemaphoreInfoCount = 1;
-        submitInfo.pSignalSemaphoreInfos = &signalSemaphoreInfo;
-
-        check(vkQueueSubmit2(commandBuffers_[currentFrame].queue(), 1, &submitInfo,
-                             inFlightFences_[currentFrame]));
-
+        // Present frame
         VkResult presentResult = swapchain.queuePresent(ctx.graphicsQueue(), imageIndex,
-                                                        renderSemaphores_[currentSemaphore]);
+                                                        renderSemaphores[currentSemaphore]);
 
         if (presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR) {
-
+            exitWithMessage("Window resize not implemented");
         } else if (presentResult != VK_SUCCESS) {
             exitWithMessage("Failed to present swapchain image!");
         }
@@ -322,15 +354,7 @@ int main()
 
     ctx.waitIdle();
 
-    for (auto& semaphore : presentSemaphores_) {
-        vkDestroySemaphore(ctx.device(), semaphore, nullptr);
-    }
-    for (auto& semaphore : renderSemaphores_) {
-        vkDestroySemaphore(ctx.device(), semaphore, nullptr);
-    }
-    for (auto& fence : inFlightFences_) {
-        vkDestroyFence(ctx.device(), fence, nullptr);
-    }
+    cleanupSynchronization(ctx, presentSemaphores, renderSemaphores, inFlightFences);
 
     return 0;
 }
