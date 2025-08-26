@@ -317,6 +317,7 @@ int main()
         window.pollEvents();
 
         updateGui(windowSize);
+
         guiRenderer.update();
 
         check(vkWaitForFences(ctx.device(), 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX));

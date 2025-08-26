@@ -46,7 +46,6 @@ class GuiRenderer
     Image2D fontImage_;
     Sampler fontSampler_;
     Pipeline guiPipeline_;
-    // vector<DescriptorSet> descriptorSets_{};
 
     DescriptorSet fontSet_;
     PushConstants<PushConstBlock> pushConsts_;

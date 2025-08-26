@@ -82,16 +82,8 @@ auto GuiRenderer::imguiPipeline() -> Pipeline&
     return guiPipeline_;
 }
 
-// auto GuiRenderer::descriptorSet(uint32_t setIndex) -> DescriptorSet&
-//{
-//     return descriptorSets_[setIndex];
-// }
-
 bool GuiRenderer::update()
 {
-    // true이면 command buffer를 새로 빌드
-    // 일단 여기서는 매번 만드는 식으로 랜더링
-
     ImDrawData* imDrawData = ImGui::GetDrawData();
     bool updateCmdBuffers = false;
 
