@@ -89,9 +89,21 @@ void recordCommandBuffer(CommandBuffer& cmd, Swapchain& swapchain, uint32_t imag
     check(vkEndCommandBuffer(cmd.handle()));
 }
 
+// Keyboard callback function to handle ESC key press
+void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+        glfwSetWindowShouldClose(window, GLFW_TRUE);
+    }
+}
+
 int main()
 {
     Window window;
+
+    // Set up keyboard callback to close application when ESC is pressed
+    window.setKeyCallback(keyCallback);
+
     VkExtent2D windowSize = window.getFramebufferSize();
     Context ctx(window.getRequiredExtensions(), true);
     Swapchain swapchain(ctx, window.createSurface(ctx.instance()), windowSize, true);
