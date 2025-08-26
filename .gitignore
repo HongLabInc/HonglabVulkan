@@ -9,6 +9,7 @@ assets/characters
 assets/models
 assets/Noto_Sans_KR
 assets/textures
+**/imgui.ini
 
 # User-specific files
 *.rsuser
