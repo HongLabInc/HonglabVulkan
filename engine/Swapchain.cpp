@@ -153,7 +153,7 @@ void Swapchain::create(VkExtent2D& expectedWindowSize, bool vsync)
     VkPresentModeKHR swapchainPresentMode = VK_PRESENT_MODE_FIFO_KHR;
 
     if (vsync) {
-        // When vsync is enabled, prioritize MAILBOX over FIFO
+        // When vsync is enabled, prioritize MAILBOX over FIFO for smoother experience
         for (size_t i = 0; i < presentModeCount; i++) {
             if (presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR) {
                 swapchainPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
@@ -162,14 +162,15 @@ void Swapchain::create(VkExtent2D& expectedWindowSize, bool vsync)
         }
         // If MAILBOX is not available, FIFO is already set as default
     } else {
-        // When vsync is disabled, prioritize performance modes
+        // When vsync is disabled, prioritize non-sync modes for maximum performance
         for (size_t i = 0; i < presentModeCount; i++) {
-            if (presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR) {
-                swapchainPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
-                break;
-            }
             if (presentModes[i] == VK_PRESENT_MODE_IMMEDIATE_KHR) {
                 swapchainPresentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+                break; // IMMEDIATE is the true non-vsync mode, use it first
+            }
+            if (presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR) {
+                swapchainPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+                // Fallback: MAILBOX is still better than FIFO for performance
             }
         }
     }
