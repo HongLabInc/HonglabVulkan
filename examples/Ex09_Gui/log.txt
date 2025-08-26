@@ -94,11 +94,3 @@ ShaderManager: Created 1 unique layout(s)
   Layout 0 (0x100000000010): 1 binding(s), used by:
     - Pipeline 'gui', Set 0
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
-Saved descriptor pool statistics to DescriptorPoolSize.txt
-
-=== DescriptorPool Allocated Statistics ===
-Total Pools Created: 1
-Total Allocated Sets: 1
-  COMBINED_IMAGE_SAMPLER: 1
-============================================
-

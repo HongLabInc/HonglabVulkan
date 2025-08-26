@@ -30,7 +30,6 @@ class GuiRenderer
     void draw(const VkCommandBuffer cmd, VkImageView swapchainImageView, VkViewport viewport);
     void resize(uint32_t width, uint32_t height);
 
-    // auto descriptorSet(uint32_t setIndex) -> DescriptorSet&;
     auto update() -> bool;
     auto imguiPipeline() -> Pipeline&;
 
