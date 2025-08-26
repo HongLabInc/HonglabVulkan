@@ -19,7 +19,6 @@ auto descriptorTypeToString(uint32_t type) -> string;
 auto getFormatSize(VkFormat format) -> uint32_t;
 auto vkFormatToString(VkFormat format) -> string;
 auto convertShaderStageToPS2(VkShaderStageFlags shaderStageFlags) -> VkPipelineStageFlags2;
-auto determineAccessFlags(const DescriptorRequirement& req) -> VkAccessFlags2;
 auto getSpvReflectResultString(SpvReflectResult result) -> string;
 auto getVkFormatFromSpvReflectFormat(SpvReflectFormat format) -> VkFormat;
 auto shaderStageFlagsToString(VkShaderStageFlags flags) -> string;

@@ -92,7 +92,29 @@ void Swapchain::initSurface(VkSurfaceKHR surface)
     colorSpace_ = selectedFormat.colorSpace;
 }
 
-void Swapchain::create(VkExtent2D& exectedWindowSize, bool vsync)
+const char* presentModeToString(VkPresentModeKHR mode)
+{
+    switch (mode) {
+    case VK_PRESENT_MODE_IMMEDIATE_KHR:
+        return "IMMEDIATE_KHR";
+    case VK_PRESENT_MODE_MAILBOX_KHR:
+        return "MAILBOX_KHR";
+    case VK_PRESENT_MODE_FIFO_KHR:
+        return "FIFO_KHR";
+    case VK_PRESENT_MODE_FIFO_RELAXED_KHR:
+        return "FIFO_RELAXED_KHR";
+    case VK_PRESENT_MODE_SHARED_DEMAND_REFRESH_KHR:
+        return "SHARED_DEMAND_REFRESH_KHR";
+    case VK_PRESENT_MODE_SHARED_CONTINUOUS_REFRESH_KHR:
+        return "SHARED_CONTINUOUS_REFRESH_KHR";
+    case VK_PRESENT_MODE_FIFO_LATEST_READY_KHR:
+        return "FIFO_LATEST_READY_KHR";
+    default:
+        return "UNKNOWN";
+    }
+}
+
+void Swapchain::create(VkExtent2D& expectedWindowSize, bool vsync)
 {
     VkSwapchainKHR oldSwapchain = swapchain_;
 
@@ -106,26 +128,41 @@ void Swapchain::create(VkExtent2D& exectedWindowSize, bool vsync)
     VkExtent2D swapchainExtent = {};
 
     if (surfCaps.currentExtent.width == (uint32_t)-1) {
-        swapchainExtent.width = exectedWindowSize.width;
-        swapchainExtent.height = exectedWindowSize.height;
+        swapchainExtent.width = expectedWindowSize.width;
+        swapchainExtent.height = expectedWindowSize.height;
     } else {
         swapchainExtent = surfCaps.currentExtent;
-        exectedWindowSize.width = surfCaps.currentExtent.width;
-        exectedWindowSize.height = surfCaps.currentExtent.height;
+        expectedWindowSize.width = surfCaps.currentExtent.width;
+        expectedWindowSize.height = surfCaps.currentExtent.height;
     }
 
     uint32_t presentModeCount;
     check(vkGetPhysicalDeviceSurfacePresentModesKHR(ctx_.physicalDevice(), surface_,
-                                                    &presentModeCount, NULL));
+                                                    &presentModeCount, nullptr));
     assert(presentModeCount > 0);
 
     vector<VkPresentModeKHR> presentModes(presentModeCount);
     check(vkGetPhysicalDeviceSurfacePresentModesKHR(ctx_.physicalDevice(), surface_,
                                                     &presentModeCount, presentModes.data()));
 
+    printLog("Available Present Modes: {}", presentModeCount);
+    for (const auto& mode : presentModes) {
+        printLog("  VK_PRESENT_MODE_{}", presentModeToString(mode));
+    }
+
     VkPresentModeKHR swapchainPresentMode = VK_PRESENT_MODE_FIFO_KHR;
 
-    if (!vsync) {
+    if (vsync) {
+        // When vsync is enabled, prioritize MAILBOX over FIFO
+        for (size_t i = 0; i < presentModeCount; i++) {
+            if (presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR) {
+                swapchainPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+                break;
+            }
+        }
+        // If MAILBOX is not available, FIFO is already set as default
+    } else {
+        // When vsync is disabled, prioritize performance modes
         for (size_t i = 0; i < presentModeCount; i++) {
             if (presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR) {
                 swapchainPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
@@ -137,15 +174,17 @@ void Swapchain::create(VkExtent2D& exectedWindowSize, bool vsync)
         }
     }
 
+    printLog("Selected Present Mode: VK_PRESENT_MODE_{}",
+             presentModeToString(swapchainPresentMode));
+
     uint32_t desiredNumberOfSwapchainImages = surfCaps.minImageCount + 1;
     if ((surfCaps.maxImageCount > 0) && (desiredNumberOfSwapchainImages > surfCaps.maxImageCount)) {
         desiredNumberOfSwapchainImages = surfCaps.maxImageCount;
     }
-    printLog("Designed Num of Swamchain Images: {}\n", desiredNumberOfSwapchainImages);
+    printLog("Designed Num of Swapchain Images: {}", desiredNumberOfSwapchainImages);
 
     VkSurfaceTransformFlagsKHR preTransform;
     if (surfCaps.supportedTransforms & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR) {
-
         preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
     } else {
         preTransform = surfCaps.currentTransform;
@@ -163,7 +202,7 @@ void Swapchain::create(VkExtent2D& exectedWindowSize, bool vsync)
         if (surfCaps.supportedCompositeAlpha & compositeAlphaFlag) {
             compositeAlpha = compositeAlphaFlag;
             break;
-        };
+        }
     }
 
     VkSwapchainCreateInfoKHR swapchainCI = {};
@@ -174,9 +213,7 @@ void Swapchain::create(VkExtent2D& exectedWindowSize, bool vsync)
     swapchainCI.imageColorSpace = colorSpace_;
     swapchainCI.imageExtent = swapchainExtent;
     swapchainCI.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-
-    // ADD TRANSFORM AND COMPOSITE ALPHA
-    swapchainCI.preTransform = (VkSurfaceTransformFlagBitsKHR)preTransform;
+    swapchainCI.preTransform = static_cast<VkSurfaceTransformFlagBitsKHR>(preTransform);
     swapchainCI.imageArrayLayers = 1;
     swapchainCI.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
     swapchainCI.queueFamilyIndexCount = 0;
@@ -198,15 +235,15 @@ void Swapchain::create(VkExtent2D& exectedWindowSize, bool vsync)
     // ADD STORAGE BIT IF SUPPORTED (Compute shader에서 직접 swapchain으로 출력할때 사용)
     if (surfCaps.supportedUsageFlags & VK_IMAGE_USAGE_STORAGE_BIT) {
         swapchainCI.imageUsage |= VK_IMAGE_USAGE_STORAGE_BIT;
-        printLog("Added VK_IMAGE_USAGE_STORAGE_BIT to swapchain\n");
+        printLog("Added VK_IMAGE_USAGE_STORAGE_BIT to swapchain");
     } else {
-        printLog("VK_IMAGE_USAGE_STORAGE_BIT not supported for swapchain\n");
+        printLog("VK_IMAGE_USAGE_STORAGE_BIT not supported for swapchain");
     }
 
     check(vkCreateSwapchainKHR(ctx_.device(), &swapchainCI, nullptr, &swapchain_));
 
     if (oldSwapchain != VK_NULL_HANDLE) {
-        for (auto i = 0; i < images_.size(); i++) {
+        for (uint32_t i = 0; i < images_.size(); i++) {
             vkDestroyImageView(ctx_.device(), imageViews_[i], nullptr);
         }
         vkDestroySwapchainKHR(ctx_.device(), oldSwapchain, nullptr);
@@ -217,10 +254,10 @@ void Swapchain::create(VkExtent2D& exectedWindowSize, bool vsync)
     check(vkGetSwapchainImagesKHR(ctx_.device(), swapchain_, &imageCount_, images_.data()));
 
     imageViews_.resize(imageCount_);
-    for (auto i = 0; i < images_.size(); i++) {
+    for (uint32_t i = 0; i < images_.size(); i++) {
         VkImageViewCreateInfo colorAttachmentView = {};
         colorAttachmentView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        colorAttachmentView.pNext = NULL;
+        colorAttachmentView.pNext = nullptr;
         colorAttachmentView.format = colorFormat_;
         colorAttachmentView.components = {VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G,
                                           VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A};
