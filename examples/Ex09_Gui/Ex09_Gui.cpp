@@ -4,9 +4,11 @@
 #include "engine/CommandBuffer.h"
 #include "engine/GuiRenderer.h"
 #include "engine/ShaderManager.h"
+#include "engine/Logger.h"
 
 #include <chrono>
 #include <thread>
+#include <filesystem>
 #include <glm/glm.hpp>
 
 using namespace hlab;
@@ -292,8 +294,12 @@ int main()
     Context ctx(window.getRequiredExtensions(), true);
     Swapchain swapchain(ctx, window.createSurface(ctx.instance()), windowSize, true);
 
-    ShaderManager shaderManager(ctx, "../../assets/shaders/",
-                                {{"gui", {"imgui.vert", "imgui.frag"}}});
+    printLog("Current working directory: {}", std::filesystem::current_path().string());
+
+    const string kAssetsPathPrefix = "../../assets/";
+    const string kShaderPathPrefix = kAssetsPathPrefix + "shaders/";
+
+    ShaderManager shaderManager(ctx, kShaderPathPrefix, {{"gui", {"imgui.vert", "imgui.frag"}}});
     GuiRenderer guiRenderer(ctx, shaderManager, swapchain.colorFormat());
 
     // Setup frame resources

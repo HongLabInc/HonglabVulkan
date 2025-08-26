@@ -90,7 +90,16 @@ Available Present Modes: 5
 Selected Present Mode: VK_PRESENT_MODE_MAILBOX_KHR
 Designed Num of Swapchain Images: 3
 Added VK_IMAGE_USAGE_STORAGE_BIT to swapchain
+Current working directory: D:\Projects\00_Vulkan\repos\HonglabVulkan\examples\Ex09_Gui
 ShaderManager: Created 1 unique layout(s)
   Layout 0 (0x100000000010): 1 binding(s), used by:
     - Pipeline 'gui', Set 0
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
+Saved descriptor pool statistics to DescriptorPoolSize.txt
+
+=== DescriptorPool Allocated Statistics ===
+Total Pools Created: 1
+Total Allocated Sets: 1
+  COMBINED_IMAGE_SAMPLER: 1
+============================================
+
