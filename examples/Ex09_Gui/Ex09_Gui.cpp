@@ -9,33 +9,6 @@
 using namespace hlab;
 using namespace std;
 
-void transitionImageLayout(VkCommandBuffer cmd, VkImage image, VkPipelineStageFlags2 srcStage,
-                           VkPipelineStageFlags2 dstStage, VkAccessFlags2 srcAccess,
-                           VkAccessFlags2 dstAccess, VkImageLayout oldLayout,
-                           VkImageLayout newLayout)
-{
-    VkImageMemoryBarrier2 barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
-    barrier.srcStageMask = srcStage;
-    barrier.dstStageMask = dstStage;
-    barrier.srcAccessMask = srcAccess;
-    barrier.dstAccessMask = dstAccess;
-    barrier.oldLayout = oldLayout;
-    barrier.newLayout = newLayout;
-    barrier.image = image;
-    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    barrier.subresourceRange.baseMipLevel = 0;
-    barrier.subresourceRange.levelCount = 1;
-    barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = 1;
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-
-    VkDependencyInfo depInfo{VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-    depInfo.imageMemoryBarrierCount = 1;
-    depInfo.pImageMemoryBarriers = &barrier;
-    vkCmdPipelineBarrier2(cmd, &depInfo);
-}
-
 VkClearColorValue generateAnimatedColor()
 {
     static auto startTime = chrono::high_resolution_clock::now();
@@ -56,11 +29,10 @@ void recordCommandBuffer(CommandBuffer& cmd, Swapchain& swapchain, uint32_t imag
     VkCommandBufferBeginInfo cmdBufferBeginInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
     check(vkBeginCommandBuffer(cmd.handle(), &cmdBufferBeginInfo));
 
-    transitionImageLayout(cmd.handle(), swapchain.image(imageIndex),
-                          VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
-                          VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_NONE,
-                          VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
-                          VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    swapchain.barrierHelper(imageIndex)
+        .transitionTo(cmd.handle(), VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                      VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                      VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
 
     VkClearColorValue clearColor = generateAnimatedColor();
 
@@ -80,16 +52,13 @@ void recordCommandBuffer(CommandBuffer& cmd, Swapchain& swapchain, uint32_t imag
     vkCmdBeginRendering(cmd.handle(), &renderingInfo);
     vkCmdEndRendering(cmd.handle());
 
-    transitionImageLayout(
-        cmd.handle(), swapchain.image(imageIndex), VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-        VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-        VK_ACCESS_2_NONE, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+    swapchain.barrierHelper(imageIndex)
+        .transitionTo(cmd.handle(), VK_ACCESS_2_NONE, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                      VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT);
 
     check(vkEndCommandBuffer(cmd.handle()));
 }
 
-// Keyboard callback function to handle ESC key press
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
@@ -101,7 +70,6 @@ int main()
 {
     Window window;
 
-    // Set up keyboard callback to close application when ESC is pressed
     window.setKeyCallback(keyCallback);
 
     VkExtent2D windowSize = window.getFramebufferSize();
@@ -154,13 +122,13 @@ int main()
         VkSemaphoreSubmitInfo waitSemaphoreInfo{VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
         waitSemaphoreInfo.semaphore = presentSemaphores_[currentSemaphore];
         waitSemaphoreInfo.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
-        waitSemaphoreInfo.value = 0; // Binary semaphore
+        waitSemaphoreInfo.value = 0;
         waitSemaphoreInfo.deviceIndex = 0;
 
         VkSemaphoreSubmitInfo signalSemaphoreInfo{VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
         signalSemaphoreInfo.semaphore = renderSemaphores_[currentSemaphore];
         signalSemaphoreInfo.stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
-        signalSemaphoreInfo.value = 0; // Binary semaphore
+        signalSemaphoreInfo.value = 0;
         signalSemaphoreInfo.deviceIndex = 0;
 
         VkCommandBufferSubmitInfo cmdBufferInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
