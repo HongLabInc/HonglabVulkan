@@ -15,26 +15,6 @@ Ex10_Example::Ex10_Example()
       shaderManager_{ctx_, kShaderPathPrefix, {{"gui", {"imgui.vert", "imgui.frag"}}}},
       guiRenderer_{ctx_, shaderManager_, swapchain_.colorFormat()}
 {
-    initialize();
-}
-
-Ex10_Example::~Ex10_Example()
-{
-    cleanup();
-}
-
-void Ex10_Example::run()
-{
-    printLog("Current working directory: {}", std::filesystem::current_path().string());
-
-    // Initialize GUI
-    guiRenderer_.resize(windowSize_.width, windowSize_.height);
-
-    mainLoop();
-}
-
-void Ex10_Example::initialize()
-{
     // Set up GLFW callbacks
     window_.setKeyCallback(keyCallback);
     window_.setMouseButtonCallback(mouseButtonCallback);
@@ -46,13 +26,49 @@ void Ex10_Example::initialize()
     // Setup frame resources
     commandBuffers_ = ctx_.createGraphicsCommandBuffers(kMaxFramesInFlight);
 
-    initializeSynchronization();
+    uint32_t imageCount = swapchain_.imageCount();
+
+    // Create semaphores
+    presentSemaphores_.resize(imageCount);
+    renderSemaphores_.resize(imageCount);
+    for (size_t i = 0; i < imageCount; i++) {
+        VkSemaphoreCreateInfo semaphoreCI{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+        check(vkCreateSemaphore(ctx_.device(), &semaphoreCI, nullptr, &presentSemaphores_[i]));
+        check(vkCreateSemaphore(ctx_.device(), &semaphoreCI, nullptr, &renderSemaphores_[i]));
+    }
+
+    // Create fences
+    inFlightFences_.resize(kMaxFramesInFlight);
+    for (size_t i = 0; i < kMaxFramesInFlight; i++) {
+        VkFenceCreateInfo fenceCreateInfo{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
+        fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+        check(vkCreateFence(ctx_.device(), &fenceCreateInfo, nullptr, &inFlightFences_[i]));
+    }
 }
 
-void Ex10_Example::cleanup()
+Ex10_Example::~Ex10_Example()
 {
     ctx_.waitIdle();
-    cleanupSynchronization();
+
+    for (auto& semaphore : presentSemaphores_) {
+        vkDestroySemaphore(ctx_.device(), semaphore, nullptr);
+    }
+    for (auto& semaphore : renderSemaphores_) {
+        vkDestroySemaphore(ctx_.device(), semaphore, nullptr);
+    }
+    for (auto& fence : inFlightFences_) {
+        vkDestroyFence(ctx_.device(), fence, nullptr);
+    }
+}
+
+void Ex10_Example::run()
+{
+    printLog("Current working directory: {}", std::filesystem::current_path().string());
+
+    // Initialize GUI
+    guiRenderer_.resize(windowSize_.width, windowSize_.height);
+
+    mainLoop();
 }
 
 void Ex10_Example::mainLoop()
@@ -257,41 +273,6 @@ void Ex10_Example::submitFrame(CommandBuffer& commandBuffer, VkSemaphore waitSem
     submitInfo.pSignalSemaphoreInfos = &signalSemaphoreInfo;
 
     check(vkQueueSubmit2(commandBuffer.queue(), 1, &submitInfo, fence));
-}
-
-void Ex10_Example::initializeSynchronization()
-{
-    uint32_t imageCount = swapchain_.imageCount();
-
-    // Create semaphores
-    presentSemaphores_.resize(imageCount);
-    renderSemaphores_.resize(imageCount);
-    for (size_t i = 0; i < imageCount; i++) {
-        VkSemaphoreCreateInfo semaphoreCI{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-        check(vkCreateSemaphore(ctx_.device(), &semaphoreCI, nullptr, &presentSemaphores_[i]));
-        check(vkCreateSemaphore(ctx_.device(), &semaphoreCI, nullptr, &renderSemaphores_[i]));
-    }
-
-    // Create fences
-    inFlightFences_.resize(kMaxFramesInFlight);
-    for (size_t i = 0; i < kMaxFramesInFlight; i++) {
-        VkFenceCreateInfo fenceCreateInfo{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
-        fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-        check(vkCreateFence(ctx_.device(), &fenceCreateInfo, nullptr, &inFlightFences_[i]));
-    }
-}
-
-void Ex10_Example::cleanupSynchronization()
-{
-    for (auto& semaphore : presentSemaphores_) {
-        vkDestroySemaphore(ctx_.device(), semaphore, nullptr);
-    }
-    for (auto& semaphore : renderSemaphores_) {
-        vkDestroySemaphore(ctx_.device(), semaphore, nullptr);
-    }
-    for (auto& fence : inFlightFences_) {
-        vkDestroyFence(ctx_.device(), fence, nullptr);
-    }
 }
 
 // Static callback implementations

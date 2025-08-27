@@ -59,8 +59,6 @@ class Ex10_Example
     bool shouldClose_{false};
 
     // Methods
-    void initialize();
-    void cleanup();
     void mainLoop();
     void renderFrame();
     void updateGui(VkExtent2D windowSize);
@@ -69,8 +67,6 @@ class Ex10_Example
     void recordCommandBuffer(CommandBuffer& cmd, uint32_t imageIndex, VkExtent2D windowSize);
     void submitFrame(CommandBuffer& commandBuffer, VkSemaphore waitSemaphore,
                      VkSemaphore signalSemaphore, VkFence fence);
-    void initializeSynchronization();
-    void cleanupSynchronization();
 
     // Static callbacks (will delegate to instance methods)
     static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
