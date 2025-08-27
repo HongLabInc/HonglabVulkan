@@ -30,7 +30,7 @@ class Ex10_Example
     Ex10_Example();
     ~Ex10_Example();
 
-    void run();
+    void mainLoop();
 
   private:
     const uint32_t kMaxFramesInFlight = 2;
@@ -59,7 +59,6 @@ class Ex10_Example
     bool shouldClose_{false};
 
     // Methods
-    void mainLoop();
     void renderFrame();
     void updateGui(VkExtent2D windowSize);
     void renderColorControlWindow();

@@ -7,7 +7,7 @@ using namespace hlab;
 
 int main()
 {
-    Ex10_Example example;
-    example.run();
+    Ex10_Example().mainLoop();
+
     return 0;
 }

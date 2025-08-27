@@ -86,6 +86,8 @@ bool GuiRenderer::update()
 {
     ImDrawData* imDrawData = ImGui::GetDrawData();
     bool updateCmdBuffers = false;
+    // 안내: CommandBuffer를 한 번 녹화해서 재사용하는 방식일때
+    //      새로 만들라는 플래그로 사용 가능
 
     if (!imDrawData) {
         return false;

@@ -15,6 +15,8 @@ Ex10_Example::Ex10_Example()
       shaderManager_{ctx_, kShaderPathPrefix, {{"gui", {"imgui.vert", "imgui.frag"}}}},
       guiRenderer_{ctx_, shaderManager_, swapchain_.colorFormat()}
 {
+    printLog("Current working directory: {}", std::filesystem::current_path().string());
+
     // Set up GLFW callbacks
     window_.setKeyCallback(keyCallback);
     window_.setMouseButtonCallback(mouseButtonCallback);
@@ -44,6 +46,9 @@ Ex10_Example::Ex10_Example()
         fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
         check(vkCreateFence(ctx_.device(), &fenceCreateInfo, nullptr, &inFlightFences_[i]));
     }
+
+    // Initialize GUI
+    guiRenderer_.resize(windowSize_.width, windowSize_.height);
 }
 
 Ex10_Example::~Ex10_Example()
@@ -61,29 +66,20 @@ Ex10_Example::~Ex10_Example()
     }
 }
 
-void Ex10_Example::run()
-{
-    printLog("Current working directory: {}", std::filesystem::current_path().string());
-
-    // Initialize GUI
-    guiRenderer_.resize(windowSize_.width, windowSize_.height);
-
-    mainLoop();
-}
-
 void Ex10_Example::mainLoop()
 {
     while (!window_.isCloseRequested() && !shouldClose_) {
         window_.pollEvents();
+
+        updateGui(windowSize_);
+        guiRenderer_.update();
+
         renderFrame();
     }
 }
 
 void Ex10_Example::renderFrame()
 {
-    updateGui(windowSize_);
-    guiRenderer_.update();
-
     check(vkWaitForFences(ctx_.device(), 1, &inFlightFences_[currentFrame_], VK_TRUE, UINT64_MAX));
     check(vkResetFences(ctx_.device(), 1, &inFlightFences_[currentFrame_]));
 
