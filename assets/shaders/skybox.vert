@@ -23,11 +23,6 @@ layout(set = 0, binding = 1) uniform OptionsUBO {
     float ssaoPower;
 } options;
 
-layout(set = 0, binding = 2) uniform BoneDataUBO {
-    mat4 boneMatrices[256];  // Support up to 256 bones (16,384 bytes)
-    vec4 animationData;      // x = hasAnimation (0.0/1.0), y,z,w = future use
-} boneData;
-
 layout(location = 0) out vec3 outLocalPos;
 
 out gl_PerVertex {

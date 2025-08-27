@@ -90,16 +90,32 @@ Available Present Modes: 5
 Selected Present Mode: VK_PRESENT_MODE_MAILBOX_KHR
 Designed Num of Swapchain Images: 3
 Added VK_IMAGE_USAGE_STORAGE_BIT to swapchain
-ShaderManager: Created 1 unique layout(s)
-  Layout 0 (0x100000000010): 1 binding(s), used by:
+ShaderManager: Created 3 unique layout(s)
+  Layout 0 (0x120000000012): 3 binding(s), used by:
+    - Pipeline 'sky', Set 1
+    Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
+    Binding 1: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
+    Binding 2: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
+  Layout 1 (0x130000000013): 2 binding(s), used by:
+    - Pipeline 'sky', Set 0
+    Binding 0: type=UNIFORM_BUFFER, count=1, stages=VERTEX
+    Binding 1: type=UNIFORM_BUFFER, count=1, stages=VERTEX
+  Layout 2 (0x140000000014): 1 binding(s), used by:
     - Pipeline 'gui', Set 0
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
 Current working directory: D:\Projects\00_Vulkan\repos\HonglabVulkan\examples\Ex10_Skybox
+Creating a graphics pipeline: sky
+
+Loading IBL textures...
+  Prefiltered: ../../assets/textures/golden_gate_hills_4k/specularGGX.ktx2
+  Irradiance: ../../assets/textures/golden_gate_hills_4k/diffuseLambertian.ktx2
+  BRDF LUT: ../../assets/textures/golden_gate_hills_4k/outputLUT.png
 Saved descriptor pool statistics to DescriptorPoolSize.txt
 
 === DescriptorPool Allocated Statistics ===
-Total Pools Created: 1
-Total Allocated Sets: 1
-  COMBINED_IMAGE_SAMPLER: 1
+Total Pools Created: 4
+Total Allocated Sets: 4
+  COMBINED_IMAGE_SAMPLER: 4
+  UNIFORM_BUFFER: 4
 ============================================
 
