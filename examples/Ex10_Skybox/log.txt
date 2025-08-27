@@ -98,8 +98,8 @@ ShaderManager: Created 3 unique layout(s)
     Binding 2: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
   Layout 1 (0x130000000013): 2 binding(s), used by:
     - Pipeline 'sky', Set 0
-    Binding 0: type=UNIFORM_BUFFER, count=1, stages=VERTEX
-    Binding 1: type=UNIFORM_BUFFER, count=1, stages=VERTEX
+    Binding 0: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
+    Binding 1: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
   Layout 2 (0x140000000014): 1 binding(s), used by:
     - Pipeline 'gui', Set 0
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT

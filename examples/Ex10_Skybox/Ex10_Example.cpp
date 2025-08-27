@@ -99,17 +99,21 @@ void Ex10_Example::initializeSkybox()
         sceneDataUniforms_.emplace_back(ctx_, sceneDataUBO_);
     }
 
-    optionsUniforms_.clear();
-    optionsUniforms_.reserve(kMaxFramesInFlight);
+    // Create HDR sky options uniform buffers
+    skyOptionsUniforms_.clear();
+    skyOptionsUniforms_.reserve(kMaxFramesInFlight);
     for (uint32_t i = 0; i < kMaxFramesInFlight; ++i) {
-        optionsUniforms_.emplace_back(ctx_, optionsUBO_);
+        skyOptionsUniforms_.emplace_back(ctx_, skyOptionsUBO_);
     }
 
     // Create descriptor sets for scene data and options (set 0)
     sceneDescriptorSets_.resize(kMaxFramesInFlight);
     for (size_t i = 0; i < kMaxFramesInFlight; i++) {
-        sceneDescriptorSets_[i].create(
-            ctx_, {sceneDataUniforms_[i].resourceBinding(), optionsUniforms_[i].resourceBinding()});
+        sceneDescriptorSets_[i].create(ctx_,
+                                       {
+                                           sceneDataUniforms_[i].resourceBinding(), // binding 0
+                                           skyOptionsUniforms_[i].resourceBinding() // binding 1
+                                       });
     }
 
     // Create descriptor set for skybox textures (set 1)
@@ -141,7 +145,7 @@ void Ex10_Example::mainLoop()
         sceneDataUBO_.view = camera_.matrices.view;
         sceneDataUBO_.cameraPos = camera_.position;
         sceneDataUniforms_[currentFrame_].updateData();
-        optionsUniforms_[currentFrame_].updateData();
+        skyOptionsUniforms_[currentFrame_].updateData(); // Update HDR options
 
         updateGui(windowSize_);
         guiRenderer_.update();
@@ -223,7 +227,118 @@ void Ex10_Example::updateGui(VkExtent2D windowSize)
     }
     ImGui::End();
 
+    // HDR Control window
+    renderHDRControlWindow();
+
     ImGui::Render();
+}
+
+void Ex10_Example::renderHDRControlWindow()
+{
+    ImGui::SetNextWindowPos(ImVec2(320, 10), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(350, 500), ImGuiCond_FirstUseEver);
+
+    if (!ImGui::Begin("HDR Environmental Mapping")) {
+        ImGui::End();
+        return;
+    }
+
+    // Exposure Controls
+    if (ImGui::CollapsingHeader("Exposure", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::SliderFloat("Exposure Value", &skyOptionsUBO_.exposure, 0.1f, 5.0f, "%.2f");
+        ImGui::SliderFloat("Environment Intensity", &skyOptionsUBO_.environmentIntensity, 0.0f,
+                           3.0f, "%.2f");
+    }
+
+    // Environment Map Controls
+    if (ImGui::CollapsingHeader("Environment Map", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::SliderFloat("Roughness Level", &skyOptionsUBO_.roughnessLevel, 0.0f, 8.0f, "%.1f");
+
+        bool useIrradiance = skyOptionsUBO_.useIrradianceMap != 0;
+        if (ImGui::Checkbox("Use Irradiance Map", &useIrradiance)) {
+            skyOptionsUBO_.useIrradianceMap = useIrradiance ? 1 : 0;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("?")) {
+            // Optional: Add click action here if needed
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Toggle between prefiltered environment map (sharp reflections) and "
+                              "irradiance map (diffuse lighting)");
+        }
+    }
+
+    // Tone Mapping Controls
+    if (ImGui::CollapsingHeader("Tone Mapping", ImGuiTreeNodeFlags_DefaultOpen)) {
+        bool enableToneMapping = skyOptionsUBO_.enableToneMapping != 0;
+        if (ImGui::Checkbox("Enable Tone Mapping", &enableToneMapping)) {
+            skyOptionsUBO_.enableToneMapping = enableToneMapping ? 1 : 0;
+        }
+
+        if (skyOptionsUBO_.enableToneMapping) {
+            const char* toneMappingModes[] = {"Reinhard", "ACES", "Filmic"};
+            int currentMode = static_cast<int>(skyOptionsUBO_.toneMappingMode);
+            if (ImGui::Combo("Tone Mapping Mode", &currentMode, toneMappingModes, 3)) {
+                skyOptionsUBO_.toneMappingMode = static_cast<uint32_t>(currentMode);
+            }
+
+            ImGui::SliderFloat("Gamma", &skyOptionsUBO_.gamma, 1.0f, 3.0f, "%.2f");
+            ImGui::SliderFloat("White Point", &skyOptionsUBO_.whitePoint, 0.5f, 2.0f, "%.2f");
+        }
+    }
+
+    // Color Grading Controls
+    if (ImGui::CollapsingHeader("Color Grading")) {
+        ImGui::ColorEdit3("Color Tint", &skyOptionsUBO_.colorTint.r);
+        ImGui::SliderFloat("Saturation", &skyOptionsUBO_.saturation, 0.0f, 2.0f, "%.2f");
+        ImGui::SliderFloat("Contrast", &skyOptionsUBO_.contrast, 0.5f, 2.0f, "%.2f");
+        ImGui::SliderFloat("Brightness", &skyOptionsUBO_.brightness, -1.0f, 1.0f, "%.2f");
+    }
+
+    // Debug Controls
+    if (ImGui::CollapsingHeader("Debug Visualization")) {
+        bool showMipLevels = skyOptionsUBO_.showMipLevels != 0;
+        if (ImGui::Checkbox("Show Mip Levels", &showMipLevels)) {
+            skyOptionsUBO_.showMipLevels = showMipLevels ? 1 : 0;
+        }
+
+        bool showCubeFaces = skyOptionsUBO_.showCubeFaces != 0;
+        if (ImGui::Checkbox("Show Cube Faces", &showCubeFaces)) {
+            skyOptionsUBO_.showCubeFaces = showCubeFaces ? 1 : 0;
+        }
+    }
+
+    // Preset Controls
+    if (ImGui::CollapsingHeader("Presets")) {
+        if (ImGui::Button("Default")) {
+            skyOptionsUBO_.exposure = 1.0f;
+            skyOptionsUBO_.roughnessLevel = 0.5f;
+            skyOptionsUBO_.environmentIntensity = 1.0f;
+            skyOptionsUBO_.enableToneMapping = 1;
+            skyOptionsUBO_.toneMappingMode = 0; // Reinhard
+            skyOptionsUBO_.gamma = 2.2f;
+            skyOptionsUBO_.colorTint = glm::vec3(1.0f);
+            skyOptionsUBO_.saturation = 1.0f;
+            skyOptionsUBO_.contrast = 1.0f;
+            skyOptionsUBO_.brightness = 0.0f;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("High Contrast")) {
+            skyOptionsUBO_.exposure = 1.5f;
+            skyOptionsUBO_.contrast = 1.5f;
+            skyOptionsUBO_.saturation = 1.3f;
+            skyOptionsUBO_.toneMappingMode = 1; // ACES
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cinematic")) {
+            skyOptionsUBO_.exposure = 0.8f;
+            skyOptionsUBO_.toneMappingMode = 2;                     // Filmic
+            skyOptionsUBO_.colorTint = glm::vec3(1.1f, 1.0f, 0.9f); // Slightly warm
+            skyOptionsUBO_.contrast = 1.2f;
+        }
+    }
+
+    ImGui::End();
 }
 
 void Ex10_Example::recordCommandBuffer(CommandBuffer& cmd, uint32_t imageIndex,
@@ -239,7 +354,7 @@ void Ex10_Example::recordCommandBuffer(CommandBuffer& cmd, uint32_t imageIndex,
                       VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
 
     // Use fixed sky blue clear color
-    VkClearColorValue clearColorValue = {0.53f, 0.81f, 0.92f, 1.0f};
+    VkClearColorValue clearColorValue = {{0.53f, 0.81f, 0.92f, 1.0f}};
 
     VkRenderingAttachmentInfo colorAttachment{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
     colorAttachment.imageView = swapchain_.imageView(imageIndex);
@@ -265,7 +380,7 @@ void Ex10_Example::recordCommandBuffer(CommandBuffer& cmd, uint32_t imageIndex,
     // Render skybox
     vkCmdBindPipeline(cmd.handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, skyPipeline_->pipeline());
 
-    // Bind descriptor sets: set 0 (scene data), set 1 (skybox textures)
+    // Bind descriptor sets: set 0 (scene data + options + HDR options), set 1 (skybox textures)
     const auto descriptorSets =
         std::vector{sceneDescriptorSets_[currentFrame_].handle(), skyDescriptorSet_.handle()};
 

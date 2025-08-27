@@ -12,16 +12,24 @@ layout(set = 0, binding = 0) uniform SceneDataUBO {
     mat4 lightSpaceMatrix;
 } sceneData;
 
-layout(set = 0, binding = 1) uniform OptionsUBO {
-    bool textureOn;
-    bool shadowOn;
-    bool discardOn;
-    bool animationOn;
-    float ssaoRadius;
-    float ssaoBias;
-    int ssaoSampleCount;
-    float ssaoPower;
-} options;
+layout(set = 0, binding = 1) uniform SkyOptionsUBO {
+    float exposure;
+    float roughnessLevel;
+    uint useIrradianceMap;
+    float environmentIntensity;
+    uint enableToneMapping;
+    uint toneMappingMode;
+    float gamma;
+    float whitePoint;
+    vec3 colorTint;
+    float saturation;
+    float contrast;
+    float brightness;
+    uint showMipLevels;
+    uint showCubeFaces;
+    float padding1;
+    float padding2;
+} skyOptions;
 
 layout(location = 0) out vec3 outLocalPos;
 
