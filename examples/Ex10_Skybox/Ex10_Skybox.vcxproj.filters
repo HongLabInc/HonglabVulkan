@@ -2,8 +2,12 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="Ex10_Skybox.cpp" />
+    <ClCompile Include="Ex10_Example.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="log.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Ex10_Example.h" />
   </ItemGroup>
 </Project>

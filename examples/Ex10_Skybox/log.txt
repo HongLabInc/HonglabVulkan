@@ -78,7 +78,8 @@ Queue Family Properties: 6
   Queue Family 3: 1 queues, flags: TRANSFER SPARSE_BINDING VIDEO_DECODE 
   Queue Family 4: 2 queues, flags: TRANSFER SPARSE_BINDING VIDEO_ENCODE 
   Queue Family 5: 1 queues, flags: TRANSFER SPARSE_BINDING OPTICAL_FLOW 
-DescriptorPoolSize.txt not found, will create pools on-demand
+Found DescriptorPoolSize.txt, loading previous statistics...
+Created initial pool with 1 sets and 1 descriptor types
 Swapchain Storage Bit Support: YES
 Available Present Modes: 5
   VK_PRESENT_MODE_FIFO_KHR
@@ -89,11 +90,11 @@ Available Present Modes: 5
 Selected Present Mode: VK_PRESENT_MODE_MAILBOX_KHR
 Designed Num of Swapchain Images: 3
 Added VK_IMAGE_USAGE_STORAGE_BIT to swapchain
-Current working directory: D:\Projects\00_Vulkan\repos\HonglabVulkan\examples\Ex10_Skybox
 ShaderManager: Created 1 unique layout(s)
-  Layout 0 (0xf000000000f): 1 binding(s), used by:
+  Layout 0 (0x100000000010): 1 binding(s), used by:
     - Pipeline 'gui', Set 0
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
+Current working directory: D:\Projects\00_Vulkan\repos\HonglabVulkan\examples\Ex10_Skybox
 Saved descriptor pool statistics to DescriptorPoolSize.txt
 
 === DescriptorPool Allocated Statistics ===
