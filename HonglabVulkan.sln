@@ -46,6 +46,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Ex09_Gui", "examples\Ex09_G
 		{471EE89E-A14C-4152-8042-BB386391C80A} = {471EE89E-A14C-4152-8042-BB386391C80A}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Ex10_Skybox", "examples\Ex10_Skybox\Ex10_Skybox.vcxproj", "{C9FC78AE-C253-45A6-B16E-427F8FF006AB}"
+	ProjectSection(ProjectDependencies) = postProject
+		{471EE89E-A14C-4152-8042-BB386391C80A} = {471EE89E-A14C-4152-8042-BB386391C80A}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -142,6 +147,14 @@ Global
 		{99FD2835-A4EA-46BE-8456-0F247865AC47}.Release|x64.Build.0 = Release|x64
 		{99FD2835-A4EA-46BE-8456-0F247865AC47}.Release|x86.ActiveCfg = Release|Win32
 		{99FD2835-A4EA-46BE-8456-0F247865AC47}.Release|x86.Build.0 = Release|Win32
+		{C9FC78AE-C253-45A6-B16E-427F8FF006AB}.Debug|x64.ActiveCfg = Debug|x64
+		{C9FC78AE-C253-45A6-B16E-427F8FF006AB}.Debug|x64.Build.0 = Debug|x64
+		{C9FC78AE-C253-45A6-B16E-427F8FF006AB}.Debug|x86.ActiveCfg = Debug|Win32
+		{C9FC78AE-C253-45A6-B16E-427F8FF006AB}.Debug|x86.Build.0 = Debug|Win32
+		{C9FC78AE-C253-45A6-B16E-427F8FF006AB}.Release|x64.ActiveCfg = Release|x64
+		{C9FC78AE-C253-45A6-B16E-427F8FF006AB}.Release|x64.Build.0 = Release|x64
+		{C9FC78AE-C253-45A6-B16E-427F8FF006AB}.Release|x86.ActiveCfg = Release|Win32
+		{C9FC78AE-C253-45A6-B16E-427F8FF006AB}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
