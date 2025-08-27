@@ -76,8 +76,9 @@ void Camera::setPerspective(float fov, float aspect, float znear, float zfar)
     this->zfar = zfar;
     matrices.perspective = glm::perspectiveRH_ZO(glm::radians(fov), aspect, znear, zfar);
     matrices.perspective[1][1] *= -1.0f;
-    // 안내: 뷰스페이스에서 y 방향이 아래를 향하는 것이 직관적이지 않을 수 있어서
-    //      여기서는 P 행렬에서 뒤집었습니다.
+    // 안내: 시점공간(view space)에서 y 방향이 아래를 향하는 것이 직관적이지 않기 때문에
+    //      y방향을 뒤집었습니다.
+
     if (matrices.perspective != currentMatrix) {
         updated = true;
     }

@@ -84,7 +84,6 @@ class Ex10_Example
     std::vector<VkFence> inFlightFences_;
 
     // Application state
-    glm::vec4 clearColor_{0.2f, 0.3f, 0.5f, 1.0f};
     MouseState mouseState_;
     uint32_t currentFrame_{0};
     uint32_t currentSemaphore_{0};
@@ -107,8 +106,6 @@ class Ex10_Example
     void initializeSkybox();
     void renderFrame();
     void updateGui(VkExtent2D windowSize);
-    void renderColorControlWindow();
-    void renderColorPresets();
     void recordCommandBuffer(CommandBuffer& cmd, uint32_t imageIndex, VkExtent2D windowSize);
     void submitFrame(CommandBuffer& commandBuffer, VkSemaphore waitSemaphore,
                      VkSemaphore signalSemaphore, VkFence fence);

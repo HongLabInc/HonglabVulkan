@@ -198,11 +198,8 @@ void Ex10_Example::updateGui(VkExtent2D windowSize)
     // Begin GUI frame
     ImGui::NewFrame();
 
-    // Render color control window
-    renderColorControlWindow();
-
-    // Add camera info window
-    ImGui::SetNextWindowPos(ImVec2(320, 10), ImGuiCond_FirstUseEver);
+    // Camera info window
+    ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(300, 150), ImGuiCond_FirstUseEver);
 
     if (ImGui::Begin("Camera Control")) {
@@ -229,72 +226,6 @@ void Ex10_Example::updateGui(VkExtent2D windowSize)
     ImGui::Render();
 }
 
-void Ex10_Example::renderColorControlWindow()
-{
-    ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(300, 250), ImGuiCond_FirstUseEver);
-
-    if (!ImGui::Begin("Clear Color Control")) {
-        ImGui::End();
-        return;
-    }
-
-    ImGui::Text("Control the background clear color:");
-    ImGui::Separator();
-
-    // Color picker (using ColorEdit4 to include alpha channel)
-    ImGui::ColorEdit4("Clear Color", &clearColor_.r);
-
-    ImGui::Separator();
-    ImGui::Text("Individual Controls:");
-
-    // RGBA sliders
-    ImGui::SliderFloat("Red", &clearColor_.r, 0.0f, 1.0f, "%.3f");
-    ImGui::SliderFloat("Green", &clearColor_.g, 0.0f, 1.0f, "%.3f");
-    ImGui::SliderFloat("Blue", &clearColor_.b, 0.0f, 1.0f, "%.3f");
-    ImGui::SliderFloat("Alpha", &clearColor_.a, 0.0f, 1.0f, "%.3f");
-
-    ImGui::Separator();
-    ImGui::Text("Color Preview:");
-
-    // Preview button
-    ImGui::ColorButton("Preview",
-                       ImVec4(clearColor_.r, clearColor_.g, clearColor_.b, clearColor_.a), 0,
-                       ImVec2(50, 50));
-
-    ImGui::Separator();
-    ImGui::Text("Presets:");
-
-    // Preset buttons with better layout
-    renderColorPresets();
-
-    ImGui::End();
-}
-
-void Ex10_Example::renderColorPresets()
-{
-    const struct ColorPreset
-    {
-        const char* name;
-        glm::vec4 color;
-    } presets[] = {{"Sky Blue", {0.53f, 0.81f, 0.92f, 1.0f}},
-                   {"Sunset", {1.0f, 0.65f, 0.0f, 1.0f}},
-                   {"Night", {0.05f, 0.05f, 0.15f, 1.0f}},
-                   {"Forest", {0.13f, 0.55f, 0.13f, 1.0f}},
-                   {"Reset", {0.2f, 0.3f, 0.5f, 1.0f}}};
-
-    constexpr int buttonsPerRow = 2;
-    for (int i = 0; i < std::size(presets); ++i) {
-        if (ImGui::Button(presets[i].name)) {
-            clearColor_ = presets[i].color;
-        }
-
-        if ((i + 1) % buttonsPerRow != 0 && i < std::size(presets) - 1) {
-            ImGui::SameLine();
-        }
-    }
-}
-
 void Ex10_Example::recordCommandBuffer(CommandBuffer& cmd, uint32_t imageIndex,
                                        VkExtent2D windowSize)
 {
@@ -307,9 +238,8 @@ void Ex10_Example::recordCommandBuffer(CommandBuffer& cmd, uint32_t imageIndex,
                       VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                       VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
 
-    // Use clearColor directly
-    VkClearColorValue clearColorValue = {
-        {clearColor_.r, clearColor_.g, clearColor_.b, clearColor_.a}};
+    // Use fixed sky blue clear color
+    VkClearColorValue clearColorValue = {0.53f, 0.81f, 0.92f, 1.0f};
 
     VkRenderingAttachmentInfo colorAttachment{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
     colorAttachment.imageView = swapchain_.imageView(imageIndex);

@@ -79,7 +79,7 @@ Queue Family Properties: 6
   Queue Family 4: 2 queues, flags: TRANSFER SPARSE_BINDING VIDEO_ENCODE 
   Queue Family 5: 1 queues, flags: TRANSFER SPARSE_BINDING OPTICAL_FLOW 
 Found DescriptorPoolSize.txt, loading previous statistics...
-Created initial pool with 1 sets and 1 descriptor types
+Created initial pool with 4 sets and 2 descriptor types
 Swapchain Storage Bit Support: YES
 Available Present Modes: 5
   VK_PRESENT_MODE_FIFO_KHR
@@ -113,7 +113,7 @@ Loading IBL textures...
 Saved descriptor pool statistics to DescriptorPoolSize.txt
 
 === DescriptorPool Allocated Statistics ===
-Total Pools Created: 4
+Total Pools Created: 1
 Total Allocated Sets: 4
   COMBINED_IMAGE_SAMPLER: 4
   UNIFORM_BUFFER: 4
