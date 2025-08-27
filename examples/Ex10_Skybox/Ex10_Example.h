@@ -31,30 +31,16 @@ struct SceneDataUBO
     glm::mat4 lightSpaceMatrix{1.0f};
 };
 
-// HDR control options for skybox environmental mapping
+// HDR skybox-specific control options
 struct SkyOptionsUBO
 {
-    // HDR Exposure control
-    float exposure = 1.0f;
-
-    // Environment map selection and blending
+    // HDR Environment mapping controls
+    float exposure = 1.0f;             // HDR exposure adjustment
+    float environmentIntensity = 1.0f; // Environment map intensity multiplier
     float roughnessLevel = 0.5f;       // Mip level for prefiltered map (0.0 = sharpest)
     uint32_t useIrradianceMap = 0;     // 0 = use prefiltered, 1 = use irradiance
-    float environmentIntensity = 1.0f; // Overall intensity multiplier
 
-    // Tone mapping controls
-    uint32_t enableToneMapping = 1; // Enable/disable tone mapping
-    uint32_t toneMappingMode = 0;   // 0 = Reinhard, 1 = ACES, 2 = Filmic
-    float gamma = 2.2f;             // Gamma correction value
-    float whitePoint = 1.0f;        // White point for tone mapping
-
-    // Color grading
-    glm::vec3 colorTint{1.0f, 1.0f, 1.0f}; // RGB color tint
-    float saturation = 1.0f;               // Color saturation multiplier
-    float contrast = 1.0f;                 // Contrast adjustment
-    float brightness = 0.0f;               // Brightness offset
-
-    // Debug and visualization
+    // Skybox visualization and debug
     uint32_t showMipLevels = 0; // Visualize mip levels as colors
     uint32_t showCubeFaces = 0; // Visualize cube faces as colors
     float padding1;
@@ -113,9 +99,9 @@ class Ex10_Example
     std::unique_ptr<Pipeline> skyPipeline_;
     SkyTextures skyTextures_;
     SceneDataUBO sceneDataUBO_;
-    SkyOptionsUBO skyOptionsUBO_; // New HDR options
+    SkyOptionsUBO skyOptionsUBO_;
     std::vector<UniformBuffer<SceneDataUBO>> sceneDataUniforms_;
-    std::vector<UniformBuffer<SkyOptionsUBO>> skyOptionsUniforms_; // New HDR uniforms
+    std::vector<UniformBuffer<SkyOptionsUBO>> skyOptionsUniforms_;
     std::vector<DescriptorSet> sceneDescriptorSets_;
     DescriptorSet skyDescriptorSet_;
 
@@ -123,7 +109,7 @@ class Ex10_Example
     void initializeSkybox();
     void renderFrame();
     void updateGui(VkExtent2D windowSize);
-    void renderHDRControlWindow(); // New HDR control window
+    void renderHDRControlWindow();
     void recordCommandBuffer(CommandBuffer& cmd, uint32_t imageIndex, VkExtent2D windowSize);
     void submitFrame(CommandBuffer& commandBuffer, VkSemaphore waitSemaphore,
                      VkSemaphore signalSemaphore, VkFence fence);

@@ -236,16 +236,16 @@ void Ex10_Example::updateGui(VkExtent2D windowSize)
 void Ex10_Example::renderHDRControlWindow()
 {
     ImGui::SetNextWindowPos(ImVec2(320, 10), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(350, 500), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(350, 350), ImGuiCond_FirstUseEver);
 
-    if (!ImGui::Begin("HDR Environmental Mapping")) {
+    if (!ImGui::Begin("HDR Skybox Controls")) {
         ImGui::End();
         return;
     }
 
-    // Exposure Controls
-    if (ImGui::CollapsingHeader("Exposure", ImGuiTreeNodeFlags_DefaultOpen)) {
-        ImGui::SliderFloat("Exposure Value", &skyOptionsUBO_.exposure, 0.1f, 5.0f, "%.2f");
+    // HDR Environment Controls
+    if (ImGui::CollapsingHeader("HDR Environment", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::SliderFloat("Exposure", &skyOptionsUBO_.exposure, 0.1f, 5.0f, "%.2f");
         ImGui::SliderFloat("Environment Intensity", &skyOptionsUBO_.environmentIntensity, 0.0f,
                            3.0f, "%.2f");
     }
@@ -268,34 +268,7 @@ void Ex10_Example::renderHDRControlWindow()
         }
     }
 
-    // Tone Mapping Controls
-    if (ImGui::CollapsingHeader("Tone Mapping", ImGuiTreeNodeFlags_DefaultOpen)) {
-        bool enableToneMapping = skyOptionsUBO_.enableToneMapping != 0;
-        if (ImGui::Checkbox("Enable Tone Mapping", &enableToneMapping)) {
-            skyOptionsUBO_.enableToneMapping = enableToneMapping ? 1 : 0;
-        }
-
-        if (skyOptionsUBO_.enableToneMapping) {
-            const char* toneMappingModes[] = {"Reinhard", "ACES", "Filmic"};
-            int currentMode = static_cast<int>(skyOptionsUBO_.toneMappingMode);
-            if (ImGui::Combo("Tone Mapping Mode", &currentMode, toneMappingModes, 3)) {
-                skyOptionsUBO_.toneMappingMode = static_cast<uint32_t>(currentMode);
-            }
-
-            ImGui::SliderFloat("Gamma", &skyOptionsUBO_.gamma, 1.0f, 3.0f, "%.2f");
-            ImGui::SliderFloat("White Point", &skyOptionsUBO_.whitePoint, 0.5f, 2.0f, "%.2f");
-        }
-    }
-
-    // Color Grading Controls
-    if (ImGui::CollapsingHeader("Color Grading")) {
-        ImGui::ColorEdit3("Color Tint", &skyOptionsUBO_.colorTint.r);
-        ImGui::SliderFloat("Saturation", &skyOptionsUBO_.saturation, 0.0f, 2.0f, "%.2f");
-        ImGui::SliderFloat("Contrast", &skyOptionsUBO_.contrast, 0.5f, 2.0f, "%.2f");
-        ImGui::SliderFloat("Brightness", &skyOptionsUBO_.brightness, -1.0f, 1.0f, "%.2f");
-    }
-
-    // Debug Controls
+    // Debug Visualization
     if (ImGui::CollapsingHeader("Debug Visualization")) {
         bool showMipLevels = skyOptionsUBO_.showMipLevels != 0;
         if (ImGui::Checkbox("Show Mip Levels", &showMipLevels)) {
@@ -308,33 +281,34 @@ void Ex10_Example::renderHDRControlWindow()
         }
     }
 
-    // Preset Controls
+    // Simplified Presets
     if (ImGui::CollapsingHeader("Presets")) {
         if (ImGui::Button("Default")) {
             skyOptionsUBO_.exposure = 1.0f;
-            skyOptionsUBO_.roughnessLevel = 0.5f;
             skyOptionsUBO_.environmentIntensity = 1.0f;
-            skyOptionsUBO_.enableToneMapping = 1;
-            skyOptionsUBO_.toneMappingMode = 0; // Reinhard
-            skyOptionsUBO_.gamma = 2.2f;
-            skyOptionsUBO_.colorTint = glm::vec3(1.0f);
-            skyOptionsUBO_.saturation = 1.0f;
-            skyOptionsUBO_.contrast = 1.0f;
-            skyOptionsUBO_.brightness = 0.0f;
+            skyOptionsUBO_.roughnessLevel = 0.5f;
+            skyOptionsUBO_.useIrradianceMap = 0;
+            skyOptionsUBO_.showMipLevels = 0;
+            skyOptionsUBO_.showCubeFaces = 0;
         }
         ImGui::SameLine();
-        if (ImGui::Button("High Contrast")) {
-            skyOptionsUBO_.exposure = 1.5f;
-            skyOptionsUBO_.contrast = 1.5f;
-            skyOptionsUBO_.saturation = 1.3f;
-            skyOptionsUBO_.toneMappingMode = 1; // ACES
+        if (ImGui::Button("High Exposure")) {
+            skyOptionsUBO_.exposure = 2.0f;
+            skyOptionsUBO_.environmentIntensity = 1.5f;
         }
         ImGui::SameLine();
-        if (ImGui::Button("Cinematic")) {
-            skyOptionsUBO_.exposure = 0.8f;
-            skyOptionsUBO_.toneMappingMode = 2;                     // Filmic
-            skyOptionsUBO_.colorTint = glm::vec3(1.1f, 1.0f, 0.9f); // Slightly warm
-            skyOptionsUBO_.contrast = 1.2f;
+        if (ImGui::Button("Low Exposure")) {
+            skyOptionsUBO_.exposure = 0.5f;
+            skyOptionsUBO_.environmentIntensity = 0.8f;
+        }
+
+        if (ImGui::Button("Sharp Reflections")) {
+            skyOptionsUBO_.roughnessLevel = 0.0f;
+            skyOptionsUBO_.useIrradianceMap = 0;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Diffuse Lighting")) {
+            skyOptionsUBO_.useIrradianceMap = 1;
         }
     }
 
