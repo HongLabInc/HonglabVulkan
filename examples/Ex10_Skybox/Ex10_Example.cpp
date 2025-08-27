@@ -12,7 +12,7 @@ Ex10_Example::Ex10_Example()
     : window_{}, ctx_{window_.getRequiredExtensions(), true},
       windowSize_{window_.getFramebufferSize()},
       swapchain_{ctx_, window_.createSurface(ctx_.instance()), windowSize_, true},
-      shaderManager_{ctx_, "../../assets/shaders/", {{"gui", {"imgui.vert", "imgui.frag"}}}},
+      shaderManager_{ctx_, kShaderPathPrefix, {{"gui", {"imgui.vert", "imgui.frag"}}}},
       guiRenderer_{ctx_, shaderManager_, swapchain_.colorFormat()}
 {
     initialize();
@@ -44,7 +44,7 @@ void Ex10_Example::initialize()
     window_.setUserPointer(this);
 
     // Setup frame resources
-    commandBuffers_ = ctx_.createGraphicsCommandBuffers(MAX_FRAMES_IN_FLIGHT);
+    commandBuffers_ = ctx_.createGraphicsCommandBuffers(kMaxFramesInFlight);
 
     initializeSynchronization();
 }
@@ -96,7 +96,7 @@ void Ex10_Example::renderFrame()
         exitWithMessage("Failed to present swapchain image!");
     }
 
-    currentFrame_ = (currentFrame_ + 1) % MAX_FRAMES_IN_FLIGHT;
+    currentFrame_ = (currentFrame_ + 1) % kMaxFramesInFlight;
     currentSemaphore_ = (currentSemaphore_ + 1) % swapchain_.imageCount();
 }
 
@@ -273,8 +273,8 @@ void Ex10_Example::initializeSynchronization()
     }
 
     // Create fences
-    inFlightFences_.resize(MAX_FRAMES_IN_FLIGHT);
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+    inFlightFences_.resize(kMaxFramesInFlight);
+    for (size_t i = 0; i < kMaxFramesInFlight; i++) {
         VkFenceCreateInfo fenceCreateInfo{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
         fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
         check(vkCreateFence(ctx_.device(), &fenceCreateInfo, nullptr, &inFlightFences_[i]));

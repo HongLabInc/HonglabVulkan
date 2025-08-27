@@ -33,6 +33,10 @@ class Ex10_Example
     void run();
 
   private:
+    const uint32_t kMaxFramesInFlight = 2;
+    const string kAssetsPathPrefix = "../../assets/";
+    const string kShaderPathPrefix = kAssetsPathPrefix + "shaders/";
+
     // Core Vulkan objects
     Window window_;
     Context ctx_;
@@ -53,9 +57,6 @@ class Ex10_Example
     uint32_t currentFrame_{0};
     uint32_t currentSemaphore_{0};
     bool shouldClose_{false};
-
-    // Constants
-    static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
 
     // Methods
     void initialize();
