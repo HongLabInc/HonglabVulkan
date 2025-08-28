@@ -79,7 +79,9 @@ Queue Family Properties: 6
   Queue Family 4: 2 queues, flags: TRANSFER SPARSE_BINDING VIDEO_ENCODE 
   Queue Family 5: 1 queues, flags: TRANSFER SPARSE_BINDING OPTICAL_FLOW 
 Found DescriptorPoolSize.txt, loading previous statistics...
-Created initial pool with 4 sets and 2 descriptor types
+Created initial pool with 6 sets and 2 descriptor types
+Selected Surface Format: R8G8B8A8_UNORM
+Selected Color Space: VK_COLOR_SPACE_SRGB_NONLINEAR_KHR
 Swapchain Storage Bit Support: YES
 Available Present Modes: 5
   VK_PRESENT_MODE_FIFO_KHR
@@ -90,32 +92,38 @@ Available Present Modes: 5
 Selected Present Mode: VK_PRESENT_MODE_MAILBOX_KHR
 Designed Num of Swapchain Images: 3
 Added VK_IMAGE_USAGE_STORAGE_BIT to swapchain
-ShaderManager: Created 3 unique layout(s)
-  Layout 0 (0x120000000012): 3 binding(s), used by:
+ShaderManager: Created 4 unique layout(s)
+  Layout 0 (0x140000000014): 3 binding(s), used by:
     - Pipeline 'sky', Set 1
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 1: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 2: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
-  Layout 1 (0x130000000013): 2 binding(s), used by:
+  Layout 1 (0x150000000015): 2 binding(s), used by:
     - Pipeline 'sky', Set 0
     Binding 0: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
-  Layout 2 (0x140000000014): 1 binding(s), used by:
+  Layout 2 (0x160000000016): 1 binding(s), used by:
     - Pipeline 'gui', Set 0
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
-Current working directory: D:\Projects\00_Vulkan\repos\HonglabVulkan\examples\Ex10_Skybox
+  Layout 3 (0x170000000017): 2 binding(s), used by:
+    - Pipeline 'post', Set 0
+    Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
+    Binding 1: type=UNIFORM_BUFFER, count=1, stages=FRAGMENT
+Current working directory: D:\Projects\00_Vulkan\repos\HonglabVulkan\examples\Ex11_PostProcessing
 Creating a graphics pipeline: sky
 
 Loading IBL textures...
   Prefiltered: ../../assets/textures/golden_gate_hills_4k/specularGGX.ktx2
   Irradiance: ../../assets/textures/golden_gate_hills_4k/diffuseLambertian.ktx2
   BRDF LUT: ../../assets/textures/golden_gate_hills_4k/outputLUT.png
+Creating a graphics pipeline: post
+
 Saved descriptor pool statistics to DescriptorPoolSize.txt
 
 === DescriptorPool Allocated Statistics ===
 Total Pools Created: 1
-Total Allocated Sets: 4
-  COMBINED_IMAGE_SAMPLER: 4
-  UNIFORM_BUFFER: 4
+Total Allocated Sets: 6
+  COMBINED_IMAGE_SAMPLER: 6
+  UNIFORM_BUFFER: 6
 ============================================
 

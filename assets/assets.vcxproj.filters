@@ -27,6 +27,12 @@
     <None Include="shaders\skybox.vert">
       <Filter>shaders</Filter>
     </None>
+    <None Include="shaders\post.frag">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\post.vert">
+      <Filter>shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Image Include="image.jpg" />

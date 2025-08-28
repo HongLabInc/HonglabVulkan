@@ -137,6 +137,21 @@ auto getRequiredAccess(VkDescriptorType type, bool readOnly, bool writeOnly) -> 
     return targetAccess;
 }
 
+const char* colorSpaceToString(VkColorSpaceKHR colorSpace)
+{
+    switch (colorSpace) {
+    case VK_COLOR_SPACE_SRGB_NONLINEAR_KHR:
+        return "SRGB_NONLINEAR_KHR";
+    case VK_COLOR_SPACE_DISPLAY_P3_NONLINEAR_EXT:
+        return "DISPLAY_P3_NONLINEAR_EXT";
+    case VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT:
+        return "EXTENDED_SRGB_LINEAR_EXT";
+    // Add other color spaces as needed
+    default:
+        return "UNKNOWN";
+    }
+}
+
 string descriptorTypeToString(VkDescriptorType type)
 {
     switch (type) {

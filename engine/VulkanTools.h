@@ -28,6 +28,7 @@ auto getVkFormatFromTypeName(const string& typeName) -> VkFormat;
 auto getVkFormatSize(VkFormat format) -> uint32_t;
 auto getRequiredImageLayout(VkDescriptorType type_) -> VkImageLayout;
 auto getRequiredAccess(VkDescriptorType type_, bool readOnly_, bool writeOnly_) -> VkAccessFlags2;
+auto colorSpaceToString(VkColorSpaceKHR colorSpace) -> const char*;
 
 // Custom comparator for vector<VkDescriptorSetLayoutBinding>
 struct BindingComp

@@ -88,6 +88,11 @@ void Swapchain::initSurface(VkSurfaceKHR surface)
         exitWithMessage(
             "No preferred swapchain image format found! Please check your GPU and driver support.");
 
+    // Print selected format and color space
+    printLog("Selected Surface Format: {}", vkFormatToString(selectedFormat.format));
+    printLog("Selected Color Space: VK_COLOR_SPACE_{}",
+             colorSpaceToString(selectedFormat.colorSpace));
+
     colorFormat_ = selectedFormat.format;
     colorSpace_ = selectedFormat.colorSpace;
 }

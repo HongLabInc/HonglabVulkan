@@ -11,6 +11,8 @@
 #include "engine/SkyTextures.h"
 #include "engine/UniformBuffer.h"
 #include "engine/DescriptorSet.h"
+#include "engine/Image2D.h"
+#include "engine/Sampler.h"
 
 #include <vector>
 #include <glm/glm.hpp>
@@ -45,6 +47,36 @@ struct SkyOptionsUBO
     float padding1;
     float padding2;
     float padding3;
+};
+
+// Post-processing options uniform buffer structure
+struct PostProcessingOptionsUBO
+{
+    // Tone mapping options
+    int32_t toneMappingType = 2; // 0=None, 1=Reinhard, 2=ACES, 3=Uncharted2, 4=GT, 5=Lottes,
+                                 // 6=Exponential, 7=ReinhardExtended, 8=Luminance, 9=Hable
+    float exposure = 1.0f;       // HDR exposure adjustment
+    float gamma = 2.2f;          // Gamma correction value
+    float maxWhite = 11.2f;      // For extended Reinhard tone mapping
+
+    // Color grading
+    float contrast = 1.0f;   // Contrast adjustment
+    float brightness = 0.0f; // Brightness adjustment
+    float saturation = 1.0f; // Color saturation
+    float vibrance = 0.0f;   // Vibrance (smart saturation)
+
+    // Effects
+    float vignetteStrength = 0.0f;    // Vignette effect strength
+    float vignetteRadius = 0.8f;      // Vignette radius
+    float filmGrainStrength = 0.0f;   // Film grain noise strength
+    float chromaticAberration = 0.0f; // Chromatic aberration strength
+
+    // Debug and visualization
+    int32_t debugMode =
+        0; // 0=Off, 1=Show tone mapping comparison, 2=Show color channels, 3=Split comparison
+    float debugSplit = 0.5f;     // Split position for comparison (0.0-1.0)
+    int32_t showOnlyChannel = 0; // 0=All, 1=Red, 2=Green, 3=Blue, 4=Alpha, 5=Luminance
+    float padding1 = 0.0f;
 };
 
 // Mouse state structure
@@ -95,21 +127,39 @@ class Ex11_PostProcessingExample
     // Camera
     Camera camera_;
 
-    // Skybox rendering
+    // Rendering pipelines
     Pipeline skyPipeline_;
+    Pipeline postPipeline_;
+
+    // Render targets and textures
     SkyTextures skyTextures_;
+    Image2D hdrColorBuffer_; // HDR color buffer for post-processing input
+
+    Sampler samplerLinearRepeat_;
+    Sampler samplerLinearClamp_;
+
+    // Uniform buffer objects
     SceneDataUBO sceneDataUBO_;
     SkyOptionsUBO skyOptionsUBO_;
+    PostProcessingOptionsUBO postProcessingOptionsUBO_;
+
+    // Uniform buffers
     std::vector<UniformBuffer<SceneDataUBO>> sceneDataUniforms_;
     std::vector<UniformBuffer<SkyOptionsUBO>> skyOptionsUniforms_;
+    std::vector<UniformBuffer<PostProcessingOptionsUBO>> postProcessingOptionsUniforms_;
+
+    // Descriptor sets
     std::vector<DescriptorSet> sceneDescriptorSets_;
+    std::vector<DescriptorSet> postProcessingDescriptorSets_;
     DescriptorSet skyDescriptorSet_;
 
     // Methods
     void initializeSkybox();
+    void initializePostProcessing();
     void renderFrame();
     void updateGui(VkExtent2D windowSize);
     void renderHDRControlWindow();
+    void renderPostProcessingControlWindow();
     void recordCommandBuffer(CommandBuffer& cmd, uint32_t imageIndex, VkExtent2D windowSize);
     void submitFrame(CommandBuffer& commandBuffer, VkSemaphore waitSemaphore,
                      VkSemaphore signalSemaphore, VkFence fence);
