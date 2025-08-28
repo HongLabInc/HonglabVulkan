@@ -129,11 +129,11 @@ class Ex11_PostProcessingExample
 
     // Rendering pipelines
     Pipeline skyPipeline_;
-    Pipeline postPipeline_;
+    // TODO: postPipeline_;
 
     // Render targets and textures
     SkyTextures skyTextures_;
-    Image2D hdrColorBuffer_; // HDR color buffer for post-processing input
+    // TODO: Image2D hdrColorBuffer_; // HDR color buffer for post-processing input
 
     Sampler samplerLinearRepeat_;
     Sampler samplerLinearClamp_;
@@ -141,16 +141,13 @@ class Ex11_PostProcessingExample
     // Uniform buffer objects
     SceneDataUBO sceneDataUBO_;
     SkyOptionsUBO skyOptionsUBO_;
-    PostProcessingOptionsUBO postProcessingOptionsUBO_;
 
     // Uniform buffers
     std::vector<UniformBuffer<SceneDataUBO>> sceneDataUniforms_;
     std::vector<UniformBuffer<SkyOptionsUBO>> skyOptionsUniforms_;
-    std::vector<UniformBuffer<PostProcessingOptionsUBO>> postProcessingOptionsUniforms_;
 
     // Descriptor sets
     std::vector<DescriptorSet> sceneDescriptorSets_;
-    std::vector<DescriptorSet> postProcessingDescriptorSets_;
     DescriptorSet skyDescriptorSet_;
 
     // Methods

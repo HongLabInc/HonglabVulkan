@@ -18,8 +18,7 @@ Ex11_PostProcessingExample::Ex11_PostProcessingExample()
                       {"sky", {"skybox.vert.spv", "skybox.frag.spv"}},
                       {"post", {"post.vert", "post.frag"}}}},
       guiRenderer_{ctx_, shaderManager_, swapchain_.colorFormat()}, skyTextures_{ctx_},
-      skyPipeline_(ctx_, shaderManager_), postPipeline_(ctx_, shaderManager_),
-      hdrColorBuffer_(ctx_), samplerLinearRepeat_(ctx_), samplerLinearClamp_(ctx_)
+      skyPipeline_(ctx_, shaderManager_), samplerLinearRepeat_(ctx_), samplerLinearClamp_(ctx_)
 {
     printLog("Current working directory: {}", std::filesystem::current_path().string());
 
@@ -90,14 +89,8 @@ Ex11_PostProcessingExample::~Ex11_PostProcessingExample()
 
 void Ex11_PostProcessingExample::initializeSkybox()
 {
-    // Create HDR color buffer for skybox rendering
-    hdrColorBuffer_.createImage(VK_FORMAT_R16G16B16A16_SFLOAT, windowSize_.width,
-                                windowSize_.height, VK_SAMPLE_COUNT_1_BIT,
-                                VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-                                VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, 0, VK_IMAGE_VIEW_TYPE_2D);
-
     // Create skybox pipeline (now renders to HDR buffer instead of swapchain)
-    skyPipeline_.createByName("sky", VK_FORMAT_R16G16B16A16_SFLOAT, ctx_.depthFormat(),
+    skyPipeline_.createByName("sky", swapchain_.colorFormat(), ctx_.depthFormat(),
                               VK_SAMPLE_COUNT_1_BIT);
 
     // Load IBL textures
@@ -137,31 +130,15 @@ void Ex11_PostProcessingExample::initializeSkybox()
 
 void Ex11_PostProcessingExample::initializePostProcessing()
 {
+    // TODO:
+
     // Create post-processing pipeline
-    postPipeline_.createByName("post", swapchain_.colorFormat(), ctx_.depthFormat(),
-                               VK_SAMPLE_COUNT_1_BIT);
 
     // Set up HDR color buffer sampler
-    hdrColorBuffer_.setSampler(samplerLinearClamp_.handle());
 
     // Create post-processing uniform buffers for each frame
-    postProcessingOptionsUniforms_.clear();
-    postProcessingOptionsUniforms_.reserve(kMaxFramesInFlight);
-    for (uint32_t i = 0; i < kMaxFramesInFlight; ++i) {
-        postProcessingOptionsUniforms_.emplace_back(ctx_, postProcessingOptionsUBO_);
-    }
 
     // Create descriptor sets for post-processing (set 0: HDR texture + options uniform)
-    postProcessingDescriptorSets_.resize(kMaxFramesInFlight);
-    for (size_t i = 0; i < kMaxFramesInFlight; i++) {
-        postProcessingDescriptorSets_[i].create(
-            ctx_,
-            {
-                hdrColorBuffer_.resourceBinding(), // binding 0: sampler2D hdrColorBuffer
-                postProcessingOptionsUniforms_[i]
-                    .resourceBinding() // binding 1: PostProcessingOptions uniform
-            });
-    }
 }
 
 void Ex11_PostProcessingExample::mainLoop()
@@ -202,7 +179,6 @@ void Ex11_PostProcessingExample::renderFrame()
     // Update uniform buffers
     sceneDataUniforms_[currentFrame_].updateData();
     skyOptionsUniforms_[currentFrame_].updateData();
-    postProcessingOptionsUniforms_[currentFrame_].updateData(); // Update post-processing options
 
     uint32_t imageIndex = 0;
     VkResult acquireResult =
@@ -371,109 +347,29 @@ void Ex11_PostProcessingExample::renderPostProcessingControlWindow()
 
     // Tone Mapping Controls
     if (ImGui::CollapsingHeader("Tone Mapping", ImGuiTreeNodeFlags_DefaultOpen)) {
-        const char* toneMappingNames[] = {"None",        "Reinhard",          "ACES",
-                                          "Uncharted 2", "GT (Gran Turismo)", "Lottes",
-                                          "Exponential", "Reinhard Extended", "Luminance",
-                                          "Hable"};
-        ImGui::Combo("Tone Mapping Type", &postProcessingOptionsUBO_.toneMappingType,
-                     toneMappingNames, IM_ARRAYSIZE(toneMappingNames));
-
-        ImGui::SliderFloat("Exposure", &postProcessingOptionsUBO_.exposure, 0.1f, 5.0f, "%.2f");
-        ImGui::SliderFloat("Gamma", &postProcessingOptionsUBO_.gamma, 1.0f / 2.2f, 2.2f, "%.2f");
-
-        if (postProcessingOptionsUBO_.toneMappingType == 7) { // Reinhard Extended
-            ImGui::SliderFloat("Max White", &postProcessingOptionsUBO_.maxWhite, 1.0f, 20.0f,
-                               "%.1f");
-        }
+        // TODO:
     }
 
     // Color Grading Controls
     if (ImGui::CollapsingHeader("Color Grading", ImGuiTreeNodeFlags_DefaultOpen)) {
-        ImGui::SliderFloat("Contrast", &postProcessingOptionsUBO_.contrast, 0.0f, 3.0f, "%.2f");
-        ImGui::SliderFloat("Brightness", &postProcessingOptionsUBO_.brightness, -1.0f, 1.0f,
-                           "%.2f");
-        ImGui::SliderFloat("Saturation", &postProcessingOptionsUBO_.saturation, 0.0f, 2.0f, "%.2f");
-        ImGui::SliderFloat("Vibrance", &postProcessingOptionsUBO_.vibrance, -1.0f, 1.0f, "%.2f");
+        // TODO:
     }
 
     // Effects Controls
     if (ImGui::CollapsingHeader("Effects")) {
-        ImGui::SliderFloat("Vignette Strength", &postProcessingOptionsUBO_.vignetteStrength, 0.0f,
-                           1.0f, "%.2f");
-        if (postProcessingOptionsUBO_.vignetteStrength > 0.0f) {
-            ImGui::SliderFloat("Vignette Radius", &postProcessingOptionsUBO_.vignetteRadius, 0.1f,
-                               1.5f, "%.2f");
-        }
-
-        ImGui::SliderFloat("Film Grain", &postProcessingOptionsUBO_.filmGrainStrength, 0.0f, 0.2f,
-                           "%.3f");
-        ImGui::SliderFloat("Chromatic Aberration", &postProcessingOptionsUBO_.chromaticAberration,
-                           0.0f, 5.0f, "%.1f");
+        // TODO:
     }
 
     // Debug Controls
     if (ImGui::CollapsingHeader("Debug Visualization")) {
         const char* debugModeNames[] = {"Off", "Tone Mapping Comparison", "Color Channels",
                                         "Split Comparison"};
-        ImGui::Combo("Debug Mode", &postProcessingOptionsUBO_.debugMode, debugModeNames,
-                     IM_ARRAYSIZE(debugModeNames));
-
-        if (postProcessingOptionsUBO_.debugMode == 2) { // Color Channels
-            const char* channelNames[] = {"All",       "Red Only", "Green Only",
-                                          "Blue Only", "Alpha",    "Luminance"};
-            ImGui::Combo("Show Channel", &postProcessingOptionsUBO_.showOnlyChannel, channelNames,
-                         IM_ARRAYSIZE(channelNames));
-        }
-
-        if (postProcessingOptionsUBO_.debugMode == 3) { // Split Comparison
-            ImGui::SliderFloat("Split Position", &postProcessingOptionsUBO_.debugSplit, 0.0f, 1.0f,
-                               "%.2f");
-        }
+        // TODO:
     }
 
     // Presets
     if (ImGui::CollapsingHeader("Presets")) {
-        if (ImGui::Button("Default")) {
-            postProcessingOptionsUBO_.toneMappingType = 2; // ACES
-            postProcessingOptionsUBO_.exposure = 1.0f;
-            postProcessingOptionsUBO_.gamma = 2.2f;
-            postProcessingOptionsUBO_.contrast = 1.0f;
-            postProcessingOptionsUBO_.brightness = 0.0f;
-            postProcessingOptionsUBO_.saturation = 1.0f;
-            postProcessingOptionsUBO_.vibrance = 0.0f;
-            postProcessingOptionsUBO_.vignetteStrength = 0.0f;
-            postProcessingOptionsUBO_.filmGrainStrength = 0.0f;
-            postProcessingOptionsUBO_.chromaticAberration = 0.0f;
-            postProcessingOptionsUBO_.debugMode = 0;
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Cinematic")) {
-            postProcessingOptionsUBO_.toneMappingType = 3; // Uncharted 2
-            postProcessingOptionsUBO_.exposure = 1.2f;
-            postProcessingOptionsUBO_.contrast = 1.1f;
-            postProcessingOptionsUBO_.saturation = 0.9f;
-            postProcessingOptionsUBO_.vignetteStrength = 0.3f;
-            postProcessingOptionsUBO_.vignetteRadius = 0.8f;
-            postProcessingOptionsUBO_.filmGrainStrength = 0.02f;
-        }
-
-        if (ImGui::Button("High Contrast")) {
-            postProcessingOptionsUBO_.contrast = 1.5f;
-            postProcessingOptionsUBO_.brightness = 0.1f;
-            postProcessingOptionsUBO_.saturation = 1.3f;
-            postProcessingOptionsUBO_.vignetteStrength = 0.2f;
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Low Contrast")) {
-            postProcessingOptionsUBO_.contrast = 0.7f;
-            postProcessingOptionsUBO_.brightness = 0.05f;
-            postProcessingOptionsUBO_.saturation = 0.8f;
-        }
-
-        if (ImGui::Button("Show Tone Mapping")) {
-            postProcessingOptionsUBO_.debugMode = 1;
-            postProcessingOptionsUBO_.exposure = 2.0f;
-        }
+        // TODO:
     }
 
     ImGui::End();
@@ -486,18 +382,15 @@ void Ex11_PostProcessingExample::recordCommandBuffer(CommandBuffer& cmd, uint32_
     VkCommandBufferBeginInfo cmdBufferBeginInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
     check(vkBeginCommandBuffer(cmd.handle(), &cmdBufferBeginInfo));
 
-    // === PASS 1: Render skybox to HDR color buffer ===
+    swapchain_.barrierHelper(imageIndex)
+        .transitionTo(cmd.handle(), VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                      VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                      VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
 
-    // Transition HDR color buffer to color attachment
-    hdrColorBuffer_.transitionTo(cmd.handle(), VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-                                 VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                                 VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
-
-    // HDR skybox rendering pass
     VkClearColorValue hdrClearColorValue = {{0.0f, 0.0f, 0.0f, 1.0f}}; // Black clear for HDR
 
     VkRenderingAttachmentInfo hdrColorAttachment{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
-    hdrColorAttachment.imageView = hdrColorBuffer_.view();
+    hdrColorAttachment.imageView = swapchain_.imageView(imageIndex);
     hdrColorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     hdrColorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     hdrColorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -531,57 +424,6 @@ void Ex11_PostProcessingExample::recordCommandBuffer(CommandBuffer& cmd, uint32_
     vkCmdDraw(cmd.handle(), 36, 1, 0, 0);
 
     vkCmdEndRendering(cmd.handle());
-
-    // === PASS 2: Post-process HDR buffer to swapchain ===
-
-    // Transition HDR color buffer to shader read
-    hdrColorBuffer_.transitionTo(cmd.handle(), VK_ACCESS_2_SHADER_READ_BIT,
-                                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                 VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT);
-
-    // Transition swapchain image to color attachment
-    swapchain_.barrierHelper(imageIndex)
-        .transitionTo(cmd.handle(), VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-                      VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                      VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
-
-    // Post-processing rendering pass
-    VkClearColorValue postClearColorValue = {{0.0f, 0.0f, 0.0f, 1.0f}};
-
-    VkRenderingAttachmentInfo postColorAttachment{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
-    postColorAttachment.imageView = swapchain_.imageView(imageIndex);
-    postColorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    postColorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    postColorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    postColorAttachment.clearValue.color = postClearColorValue;
-
-    VkRenderingInfo postRenderingInfo{VK_STRUCTURE_TYPE_RENDERING_INFO};
-    postRenderingInfo.renderArea = {0, 0, windowSize.width, windowSize.height};
-    postRenderingInfo.layerCount = 1;
-    postRenderingInfo.colorAttachmentCount = 1;
-    postRenderingInfo.pColorAttachments = &postColorAttachment;
-
-    vkCmdBeginRendering(cmd.handle(), &postRenderingInfo);
-
-    vkCmdSetViewport(cmd.handle(), 0, 1, &viewport);
-    vkCmdSetScissor(cmd.handle(), 0, 1, &scissor);
-
-    // Render post-processing fullscreen quad
-    vkCmdBindPipeline(cmd.handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, postPipeline_.pipeline());
-
-    const auto postDescriptorSets =
-        std::vector{postProcessingDescriptorSets_[currentFrame_].handle()};
-
-    vkCmdBindDescriptorSets(
-        cmd.handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, postPipeline_.pipelineLayout(), 0,
-        static_cast<uint32_t>(postDescriptorSets.size()), postDescriptorSets.data(), 0, nullptr);
-
-    // Draw fullscreen quad - 6 vertices from hardcoded data in post.vert
-    vkCmdDraw(cmd.handle(), 6, 1, 0, 0);
-
-    vkCmdEndRendering(cmd.handle());
-
-    // === PASS 3: Draw GUI on top ===
 
     // Draw GUI on top of the post-processed image
     guiRenderer_.draw(cmd.handle(), swapchain_.imageView(imageIndex), viewport);

@@ -116,14 +116,12 @@ Loading IBL textures...
   Prefiltered: ../../assets/textures/golden_gate_hills_4k/specularGGX.ktx2
   Irradiance: ../../assets/textures/golden_gate_hills_4k/diffuseLambertian.ktx2
   BRDF LUT: ../../assets/textures/golden_gate_hills_4k/outputLUT.png
-Creating a graphics pipeline: post
-
 Saved descriptor pool statistics to DescriptorPoolSize.txt
 
 === DescriptorPool Allocated Statistics ===
 Total Pools Created: 1
-Total Allocated Sets: 6
-  COMBINED_IMAGE_SAMPLER: 6
-  UNIFORM_BUFFER: 6
+Total Allocated Sets: 4
+  COMBINED_IMAGE_SAMPLER: 4
+  UNIFORM_BUFFER: 4
 ============================================
 
