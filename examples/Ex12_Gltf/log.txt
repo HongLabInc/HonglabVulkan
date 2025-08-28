@@ -1,0 +1,128 @@
+GlfwRequiredInstanceExtensions: 2
+  VK_KHR_surface
+  VK_KHR_win32_surface
+Supported Instance Extensions:
+  VK_KHR_surface
+  VK_KHR_win32_surface
+  VK_KHR_external_memory_capabilities
+  VK_KHR_external_semaphore_capabilities
+  VK_KHR_external_fence_capabilities
+  VK_KHR_get_physical_device_properties2
+  VK_KHR_get_surface_capabilities2
+  VK_KHR_device_group_creation
+  VK_EXT_swapchain_colorspace
+  VK_EXT_debug_utils
+  VK_KHR_display
+  VK_KHR_get_display_properties2
+  VK_KHR_surface_protected_capabilities
+  VK_EXT_debug_report
+  VK_EXT_direct_mode_display
+  VK_EXT_surface_maintenance1
+  VK_NV_external_memory_capabilities
+  VK_KHR_portability_enumeration
+  VK_LUNARG_direct_driver_loading
+Required Instance Extensions:
+  VK_KHR_surface
+  VK_KHR_win32_surface
+  VK_KHR_portability_enumeration
+  VK_EXT_debug_utils
+Available instance layers:
+  VK_LAYER_EOS_Overlay
+  VK_LAYER_EOS_Overlay
+  VK_LAYER_KHRONOS_profiles
+  VK_LAYER_KHRONOS_shader_object
+  VK_LAYER_KHRONOS_synchronization2
+  VK_LAYER_KHRONOS_validation
+  VK_LAYER_LUNARG_api_dump
+  VK_LAYER_LUNARG_crash_diagnostic
+  VK_LAYER_LUNARG_gfxreconstruct
+  VK_LAYER_LUNARG_monitor
+  VK_LAYER_LUNARG_screenshot
+  VK_LAYER_NV_optimus
+  VK_LAYER_NV_present
+  VK_LAYER_OBS_HOOK
+  VK_LAYER_RENDERDOC_Capture
+  VK_LAYER_RTSS
+  VK_LAYER_VALVE_steam_fossilize
+  VK_LAYER_VALVE_steam_overlay
+
+Available physical devices: 2
+  0 NVIDIA GeForce RTX 4090 Laptop GPU (Discrete GPU)
+  1 Intel(R) RaptorLake-S Mobile Graphics Controller (Integrated GPU)
+Selected NVIDIA GeForce RTX 4090 Laptop GPU (Discrete GPU)
+  nonCoherentAtomSize: 64
+  Max UBO size: 64 KBytes
+  Max SSBO size: 4194303 KBytes
+  UBO offset alignment: 64
+  SSBO offset alignment: 16
+
+Device Features:
+  geometryShader: YES
+  tessellationShader: YES
+
+Device Memory Properties:
+  Memory Type Count: 5
+    Memory Type 0: heap 1, flags: NONE 
+    Memory Type 1: heap 0, flags: DEVICE_LOCAL 
+    Memory Type 2: heap 1, flags: HOST_VISIBLE HOST_COHERENT 
+    Memory Type 3: heap 1, flags: HOST_VISIBLE HOST_COHERENT HOST_CACHED 
+    Memory Type 4: heap 0, flags: DEVICE_LOCAL HOST_VISIBLE HOST_COHERENT 
+  Memory Heap Count: 2
+    Memory Heap 0: 16050 MB, flags: DEVICE_LOCAL 
+    Memory Heap 1: 16253 MB, flags: NONE 
+
+Queue Family Properties: 6
+  Queue Family 0: 16 queues, flags: GRAPHICS COMPUTE TRANSFER SPARSE_BINDING 
+  Queue Family 1: 2 queues, flags: TRANSFER SPARSE_BINDING 
+  Queue Family 2: 8 queues, flags: COMPUTE TRANSFER SPARSE_BINDING 
+  Queue Family 3: 1 queues, flags: TRANSFER SPARSE_BINDING VIDEO_DECODE 
+  Queue Family 4: 2 queues, flags: TRANSFER SPARSE_BINDING VIDEO_ENCODE 
+  Queue Family 5: 1 queues, flags: TRANSFER SPARSE_BINDING OPTICAL_FLOW 
+DescriptorPoolSize.txt not found, will create pools on-demand
+Selected Surface Format: R8G8B8A8_UNORM
+Selected Color Space: VK_COLOR_SPACE_SRGB_NONLINEAR_KHR
+Swapchain Storage Bit Support: YES
+Available Present Modes: 5
+  VK_PRESENT_MODE_FIFO_KHR
+  VK_PRESENT_MODE_FIFO_RELAXED_KHR
+  VK_PRESENT_MODE_MAILBOX_KHR
+  VK_PRESENT_MODE_IMMEDIATE_KHR
+  VK_PRESENT_MODE_FIFO_LATEST_READY_KHR
+Selected Present Mode: VK_PRESENT_MODE_MAILBOX_KHR
+Designed Num of Swapchain Images: 3
+Added VK_IMAGE_USAGE_STORAGE_BIT to swapchain
+ShaderManager: Created 4 unique layout(s)
+  Layout 0 (0x130000000013): 3 binding(s), used by:
+    - Pipeline 'sky', Set 1
+    Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
+    Binding 1: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
+    Binding 2: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
+  Layout 1 (0x140000000014): 2 binding(s), used by:
+    - Pipeline 'sky', Set 0
+    Binding 0: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
+    Binding 1: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
+  Layout 2 (0x150000000015): 1 binding(s), used by:
+    - Pipeline 'gui', Set 0
+    Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
+  Layout 3 (0x160000000016): 2 binding(s), used by:
+    - Pipeline 'post', Set 0
+    Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
+    Binding 1: type=UNIFORM_BUFFER, count=1, stages=FRAGMENT
+Current working directory: D:\Projects\00_Vulkan\repos\HonglabVulkan\examples\Ex12_Gltf
+Creating a graphics pipeline: sky
+
+Loading IBL textures...
+  Prefiltered: ../../assets/textures/golden_gate_hills_4k/specularGGX.ktx2
+  Irradiance: ../../assets/textures/golden_gate_hills_4k/diffuseLambertian.ktx2
+  BRDF LUT: ../../assets/textures/golden_gate_hills_4k/outputLUT.png
+Creating a graphics pipeline: post
+
+Saved descriptor pool statistics to DescriptorPoolSize.txt
+
+=== DescriptorPool Allocated Statistics ===
+Total Pools Created: 6
+Total Allocated Sets: 6
+  COMBINED_IMAGE_SAMPLER: 6
+  UNIFORM_BUFFER: 6
+============================================
+
