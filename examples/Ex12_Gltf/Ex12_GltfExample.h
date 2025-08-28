@@ -13,6 +13,9 @@
 #include "engine/DescriptorSet.h"
 #include "engine/Image2D.h"
 #include "engine/Sampler.h"
+#include "engine/Model.h"
+#include "engine/DepthStencil.h"
+#include "engine/ShadowMap.h"
 
 #include <vector>
 #include <glm/glm.hpp>
@@ -47,6 +50,20 @@ struct SkyOptionsUBO
     float padding1;
     float padding2;
     float padding3;
+};
+
+// Bone data UBO structure for animation (matching Renderer)
+struct BoneDataUBO
+{
+    glm::vec4 animationData{0.0f}; // x = hasAnimation (float)
+    glm::mat4 boneMatrices[256];   // Up to 256 bone matrices
+
+    BoneDataUBO() {
+        // Initialize bone matrices to identity
+        for (int i = 0; i < 256; ++i) {
+            boneMatrices[i] = glm::mat4(1.0f);
+        }
+    }
 };
 
 // Post-processing options uniform buffer structure
@@ -130,36 +147,52 @@ class Ex12_GltfExample
     // Rendering pipelines
     Pipeline skyPipeline_;
     Pipeline postPipeline_;
+    Pipeline pbrForwardPipeline_;
 
     // Render targets and textures
     SkyTextures skyTextures_;
     Image2D hdrColorBuffer_; // HDR color buffer for post-processing input
+    DepthStencil depthStencil_;
 
     Sampler samplerLinearRepeat_;
     Sampler samplerLinearClamp_;
+
+    // Model and PBR rendering
+    std::vector<Model> models_;
+    Image2D dummyTexture_;
+    ShadowMap shadowMap_;
 
     // Uniform buffer objects
     SceneDataUBO sceneDataUBO_;
     SkyOptionsUBO skyOptionsUBO_;
     PostProcessingOptionsUBO postProcessingOptionsUBO_;
+    BoneDataUBO boneDataUBO_;
 
     // Uniform buffers
     std::vector<UniformBuffer<SceneDataUBO>> sceneDataUniforms_;
     std::vector<UniformBuffer<SkyOptionsUBO>> skyOptionsUniforms_;
     std::vector<UniformBuffer<PostProcessingOptionsUBO>> postProcessingOptionsUniforms_;
+    std::vector<UniformBuffer<BoneDataUBO>> boneDataUniforms_;
 
     // Descriptor sets
-    std::vector<DescriptorSet> sceneDescriptorSets_;
+    std::vector<DescriptorSet> sceneDescriptorSets_; // For PBR models (3 bindings)
+    std::vector<DescriptorSet> skySceneDescriptorSets_; // For skybox (2 bindings)
     std::vector<DescriptorSet> postProcessingDescriptorSets_;
     DescriptorSet skyDescriptorSet_;
+    DescriptorSet shadowMapSet_; // Add shadow map descriptor set
 
     // Methods
     void initializeSkybox();
     void initializePostProcessing();
+    void initializeModelRendering();
+    void initializeShadowMap();
+    void loadModel();
+    void updateBoneData();
     void renderFrame();
     void updateGui(VkExtent2D windowSize);
     void renderHDRControlWindow();
     void renderPostProcessingControlWindow();
+    void renderModelControlWindow();
     void recordCommandBuffer(CommandBuffer& cmd, uint32_t imageIndex, VkExtent2D windowSize);
     void submitFrame(CommandBuffer& commandBuffer, VkSemaphore waitSemaphore,
                      VkSemaphore signalSemaphore, VkFence fence);

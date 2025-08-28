@@ -78,7 +78,8 @@ Queue Family Properties: 6
   Queue Family 3: 1 queues, flags: TRANSFER SPARSE_BINDING VIDEO_DECODE 
   Queue Family 4: 2 queues, flags: TRANSFER SPARSE_BINDING VIDEO_ENCODE 
   Queue Family 5: 1 queues, flags: TRANSFER SPARSE_BINDING OPTICAL_FLOW 
-DescriptorPoolSize.txt not found, will create pools on-demand
+Found DescriptorPoolSize.txt, loading previous statistics...
+Created initial pool with 11 sets and 2 descriptor types
 Selected Surface Format: R8G8B8A8_UNORM
 Selected Color Space: VK_COLOR_SPACE_SRGB_NONLINEAR_KHR
 Swapchain Storage Bit Support: YES
@@ -91,23 +92,39 @@ Available Present Modes: 5
 Selected Present Mode: VK_PRESENT_MODE_MAILBOX_KHR
 Designed Num of Swapchain Images: 3
 Added VK_IMAGE_USAGE_STORAGE_BIT to swapchain
-ShaderManager: Created 4 unique layout(s)
-  Layout 0 (0x130000000013): 3 binding(s), used by:
+ShaderManager: Created 6 unique layout(s)
+  Layout 0 (0x160000000016): 3 binding(s), used by:
     - Pipeline 'sky', Set 1
+    - Pipeline 'pbrForward', Set 2
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 1: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 2: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
-  Layout 1 (0x140000000014): 2 binding(s), used by:
+  Layout 1 (0x170000000017): 2 binding(s), used by:
     - Pipeline 'sky', Set 0
     Binding 0: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
-  Layout 2 (0x150000000015): 1 binding(s), used by:
+  Layout 2 (0x180000000018): 1 binding(s), used by:
     - Pipeline 'gui', Set 0
+    - Pipeline 'pbrForward', Set 3
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
-  Layout 3 (0x160000000016): 2 binding(s), used by:
+  Layout 3 (0x190000000019): 3 binding(s), used by:
+    - Pipeline 'pbrForward', Set 0
+    Binding 0: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
+    Binding 1: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
+    Binding 2: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
+  Layout 4 (0x1a000000001a): 2 binding(s), used by:
     - Pipeline 'post', Set 0
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=FRAGMENT
+  Layout 5 (0x1b000000001b): 7 binding(s), used by:
+    - Pipeline 'pbrForward', Set 1
+    Binding 0: type=UNIFORM_BUFFER, count=1, stages=FRAGMENT
+    Binding 1: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
+    Binding 2: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
+    Binding 3: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
+    Binding 4: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
+    Binding 5: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
+    Binding 6: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
 Current working directory: D:\Projects\00_Vulkan\repos\HonglabVulkan\examples\Ex12_Gltf
 Creating a graphics pipeline: sky
 
@@ -117,12 +134,37 @@ Loading IBL textures...
   BRDF LUT: ../../assets/textures/golden_gate_hills_4k/outputLUT.png
 Creating a graphics pipeline: post
 
+Shadow map initialized with proper layout
+Model directory: ../../assets/models
+Processing animations and bones before mesh processing...
+No animations found in the model
+No bones found in any mesh
+Synchronized global inverse transform between Model and Animation systems
+Loaded embedded texture 0 (2048x2048) with sRGB format
+Loaded embedded texture 1 (2048x2048) with linear format
+Loaded embedded texture 2 (2048x2048) with linear format
+Loaded embedded texture 3 (2048x2048) with linear format
+Loaded embedded texture 4 (2048x2048) with linear format
+Successfully loaded model: ../../assets/models/DamagedHelmet.glb
+  Meshes: 1
+  Materials: 2
+  Loading time: 355 ms
+Successfully loaded model: Damaged Helmet
+  Meshes: 1
+  Materials: 2
+  Bounding box: min(-0.95, -1.19, -0.90), max(0.94, 0.81, 0.90)
+Ex12_GltfExample initialization complete
+  Window size: 3072x1728
+  Swapchain images: 3
+  Models loaded: 1
 Saved descriptor pool statistics to DescriptorPoolSize.txt
 
 === DescriptorPool Allocated Statistics ===
-Total Pools Created: 6
-Total Allocated Sets: 6
-  COMBINED_IMAGE_SAMPLER: 6
-  UNIFORM_BUFFER: 6
+Total Pools Created: 1
+Total Allocated Sets: 11
+  COMBINED_IMAGE_SAMPLER: 19
+  UNIFORM_BUFFER: 14
 ============================================
 
+[ERROR] [1215490720][VUID-vkDestroyDevice-device-05137] : vkDestroyDevice(): Object Tracking - For VkDevice 0x20fb66c85b0, VkBuffer 0x960000000096 has not been destroyed.
+The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)

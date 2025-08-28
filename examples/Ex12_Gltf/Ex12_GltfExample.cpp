@@ -5,6 +5,8 @@
 #include <thread>
 #include <filesystem>
 #include <stdexcept>
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/transform.hpp>
 
 using namespace hlab;
 
@@ -16,10 +18,12 @@ Ex12_GltfExample::Ex12_GltfExample()
                      kShaderPathPrefix,
                      {{"gui", {"imgui.vert", "imgui.frag"}},
                       {"sky", {"skybox.vert.spv", "skybox.frag.spv"}},
+                      {"pbrForward", {"pbrForward.vert.spv", "pbrForward.frag.spv"}},
                       {"post", {"post.vert", "post.frag"}}}},
       guiRenderer_{ctx_, shaderManager_, swapchain_.colorFormat()}, skyTextures_{ctx_},
       skyPipeline_(ctx_, shaderManager_), postPipeline_(ctx_, shaderManager_),
-      hdrColorBuffer_(ctx_), samplerLinearRepeat_(ctx_), samplerLinearClamp_(ctx_)
+      pbrForwardPipeline_(ctx_, shaderManager_), hdrColorBuffer_(ctx_), depthStencil_(ctx_),
+      samplerLinearRepeat_(ctx_), samplerLinearClamp_(ctx_), dummyTexture_(ctx_), shadowMap_(ctx_)
 {
     printLog("Current working directory: {}", std::filesystem::current_path().string());
 
@@ -71,12 +75,52 @@ Ex12_GltfExample::Ex12_GltfExample()
     // Initialize skybox and post-processing
     initializeSkybox();
     initializePostProcessing();
+
+    // Initialize model rendering and load model
+    initializeModelRendering();
+    loadModel();
 }
 
 Ex12_GltfExample::~Ex12_GltfExample()
 {
+    // Wait for device to be idle before cleanup
     ctx_.waitIdle();
 
+    // Clean up models first to ensure VkBuffer objects are destroyed before the Context/Device
+    for (auto& model : models_) {
+        model.cleanup();
+    }
+    models_.clear();
+
+    // Clean up uniform buffers explicitly to ensure VkBuffer objects are destroyed
+    // before the Context/Device
+    sceneDataUniforms_.clear();
+    skyOptionsUniforms_.clear();
+    postProcessingOptionsUniforms_.clear();
+    boneDataUniforms_.clear();
+
+    // Clean up descriptor sets
+    sceneDescriptorSets_.clear();
+    skySceneDescriptorSets_.clear();
+    postProcessingDescriptorSets_.clear();
+
+    // Clean up images and other resources
+    hdrColorBuffer_.cleanup();
+    dummyTexture_.cleanup();
+    depthStencil_.cleanup();
+    skyTextures_.cleanup();
+
+    // Clean up samplers
+    samplerLinearRepeat_.cleanup();
+    samplerLinearClamp_.cleanup();
+
+    // Clean up command buffers
+    for (auto& cmd : commandBuffers_) {
+        cmd.cleanup();
+    }
+    commandBuffers_.clear();
+
+    // Clean up fences and semaphores
     for (auto& semaphore : presentSemaphores_) {
         vkDestroySemaphore(ctx_.device(), semaphore, nullptr);
     }
@@ -86,6 +130,8 @@ Ex12_GltfExample::~Ex12_GltfExample()
     for (auto& fence : inFlightFences_) {
         vkDestroyFence(ctx_.device(), fence, nullptr);
     }
+
+    // Context destructor will be called last, which will clean up the device
 }
 
 void Ex12_GltfExample::initializeSkybox()
@@ -119,13 +165,31 @@ void Ex12_GltfExample::initializeSkybox()
         skyOptionsUniforms_.emplace_back(ctx_, skyOptionsUBO_);
     }
 
-    // Create descriptor sets for scene data and options (set 0)
+    // Create bone data uniform buffers (for compatibility with PBR pipeline)
+    boneDataUniforms_.clear();
+    boneDataUniforms_.reserve(kMaxFramesInFlight);
+    for (uint32_t i = 0; i < kMaxFramesInFlight; ++i) {
+        boneDataUniforms_.emplace_back(ctx_, boneDataUBO_);
+    }
+
+    // Create separate descriptor sets for skybox (only scene + sky options - 2 bindings)
+    skySceneDescriptorSets_.resize(kMaxFramesInFlight);
+    for (size_t i = 0; i < kMaxFramesInFlight; i++) {
+        skySceneDescriptorSets_[i].create(ctx_,
+                                          {
+                                              sceneDataUniforms_[i].resourceBinding(), // binding 0
+                                              skyOptionsUniforms_[i].resourceBinding() // binding 1
+                                          });
+    }
+
+    // Create descriptor sets for PBR models (scene + sky options + bone data - 3 bindings)
     sceneDescriptorSets_.resize(kMaxFramesInFlight);
     for (size_t i = 0; i < kMaxFramesInFlight; i++) {
         sceneDescriptorSets_[i].create(ctx_,
                                        {
-                                           sceneDataUniforms_[i].resourceBinding(), // binding 0
-                                           skyOptionsUniforms_[i].resourceBinding() // binding 1
+                                           sceneDataUniforms_[i].resourceBinding(),  // binding 0
+                                           skyOptionsUniforms_[i].resourceBinding(), // binding 1
+                                           boneDataUniforms_[i].resourceBinding()    // binding 2
                                        });
     }
 
@@ -164,6 +228,101 @@ void Ex12_GltfExample::initializePostProcessing()
     }
 }
 
+void Ex12_GltfExample::initializeModelRendering()
+{
+    // Create depth buffer
+    depthStencil_.create(windowSize_.width, windowSize_.height, VK_SAMPLE_COUNT_1_BIT);
+
+    // Create PBR forward pipeline
+    pbrForwardPipeline_.createByName("pbrForward", VK_FORMAT_R16G16B16A16_SFLOAT,
+                                     ctx_.depthFormat(), VK_SAMPLE_COUNT_1_BIT);
+
+    // Create a simple dummy texture (white 1x1 texture) for materials that don't have textures
+    unsigned char whitePixel[] = {255, 255, 255, 255};
+    dummyTexture_.createFromPixelData(whitePixel, 1, 1, 4, false);
+    dummyTexture_.setSampler(samplerLinearRepeat_.handle());
+
+    // Initialize shadow map layout properly
+    initializeShadowMap();
+
+    // Create shadow map descriptor set
+    shadowMapSet_.create(ctx_, {shadowMap_.resourceBinding()});
+}
+
+void Ex12_GltfExample::initializeShadowMap()
+{
+    // Create a command buffer to transition the shadow map layout
+    CommandBuffer initCmd = ctx_.createGraphicsCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+
+    // Transition shadow map from UNDEFINED to SHADER_READ_ONLY_OPTIMAL
+    // Since this is a dummy shadow map, we'll clear it to white (no shadows)
+    VkImageMemoryBarrier2 shadowMapBarrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
+    shadowMapBarrier.srcStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT;
+    shadowMapBarrier.dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+    shadowMapBarrier.srcAccessMask = VK_ACCESS_2_NONE;
+    shadowMapBarrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
+    shadowMapBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    shadowMapBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    shadowMapBarrier.image = shadowMap_.image();
+    shadowMapBarrier.subresourceRange = {VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1};
+    shadowMapBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    shadowMapBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+    VkDependencyInfo depInfo{VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+    depInfo.imageMemoryBarrierCount = 1;
+    depInfo.pImageMemoryBarriers = &shadowMapBarrier;
+    vkCmdPipelineBarrier2(initCmd.handle(), &depInfo);
+
+    // Submit and wait for completion
+    initCmd.submitAndWait();
+
+    printLog("Shadow map initialized with proper layout");
+}
+
+void Ex12_GltfExample::loadModel()
+{
+    models_.emplace_back(ctx_);
+
+    try {
+        models_[0].loadFromModelFile(kAssetsPathPrefix + "models/DamagedHelmet.glb", false);
+        models_[0].name() = "Damaged Helmet";
+        models_[0].modelMatrix() = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f));
+        models_[0].visible() = true;
+
+        // Create Vulkan resources for the model
+        models_[0].createVulkanResources();
+        models_[0].createDescriptorSets(samplerLinearRepeat_, dummyTexture_);
+
+        printLog("Successfully loaded model: {}", models_[0].name());
+        printLog("  Meshes: {}", models_[0].meshes().size());
+        printLog("  Materials: {}", models_[0].numMaterials());
+
+        // Log model bounds for debugging
+        auto minBounds = models_[0].boundingBoxMin();
+        auto maxBounds = models_[0].boundingBoxMax();
+        printLog("  Bounding box: min({:.2f}, {:.2f}, {:.2f}), max({:.2f}, {:.2f}, {:.2f})",
+                 minBounds.x, minBounds.y, minBounds.z, maxBounds.x, maxBounds.y, maxBounds.z);
+    } catch (const std::exception& e) {
+        printLog("Failed to load model: {}", e.what());
+        // Clear the failed model
+        models_.clear();
+    }
+}
+
+void Ex12_GltfExample::updateBoneData()
+{
+    // Reset bone data - no animations in this simple example
+    boneDataUBO_.animationData.x = 0.0f; // hasAnimation = false
+
+    // Initialize all bone matrices to identity
+    for (int i = 0; i < 256; ++i) {
+        boneDataUBO_.boneMatrices[i] = glm::mat4(1.0f);
+    }
+
+    // Update the GPU buffer for the current frame
+    boneDataUniforms_[currentFrame_].updateData();
+}
+
 void Ex12_GltfExample::mainLoop()
 {
     auto lastTime = std::chrono::high_resolution_clock::now();
@@ -187,6 +346,9 @@ void Ex12_GltfExample::mainLoop()
         sceneDataUBO_.view = camera_.matrices.view;
         sceneDataUBO_.cameraPos = camera_.position;
 
+        // Update bone data (no animations in this example)
+        updateBoneData();
+
         updateGui(windowSize_);
         guiRenderer_.update();
 
@@ -202,6 +364,7 @@ void Ex12_GltfExample::renderFrame()
     // Update uniform buffers
     sceneDataUniforms_[currentFrame_].updateData();
     skyOptionsUniforms_[currentFrame_].updateData();
+    boneDataUniforms_[currentFrame_].updateData();
     postProcessingOptionsUniforms_[currentFrame_].updateData(); // Update post-processing options
 
     uint32_t imageIndex = 0;
@@ -258,6 +421,11 @@ void Ex12_GltfExample::updateGui(VkExtent2D windowSize)
                     camera_.rotation.z);
 
         ImGui::Separator();
+        ImGui::Text("Performance:");
+        ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
+        ImGui::Text("Frame time: %.3f ms", 1000.0f / ImGui::GetIO().Framerate);
+
+        ImGui::Separator();
         ImGui::Text("Controls:");
         ImGui::Text("Mouse: Look around");
         ImGui::Text("WASD: Move");
@@ -277,6 +445,9 @@ void Ex12_GltfExample::updateGui(VkExtent2D windowSize)
 
     // Post-processing Control window
     renderPostProcessingControlWindow();
+
+    // Model Control window
+    renderModelControlWindow();
 
     ImGui::Render();
 }
@@ -479,6 +650,63 @@ void Ex12_GltfExample::renderPostProcessingControlWindow()
     ImGui::End();
 }
 
+void Ex12_GltfExample::renderModelControlWindow()
+{
+    ImGui::SetNextWindowPos(ImVec2(10, 170), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(300, 200), ImGuiCond_FirstUseEver);
+
+    if (!ImGui::Begin("Model Controls")) {
+        ImGui::End();
+        return;
+    }
+
+    if (!models_.empty()) {
+        ImGui::Checkbox("Show Model", &models_[0].visible());
+
+        // Model transformation controls
+        glm::vec3 position = glm::vec3(models_[0].modelMatrix()[3]);
+        if (ImGui::SliderFloat3("Position", &position.x, -5.0f, 5.0f)) {
+            models_[0].modelMatrix()[3] = glm::vec4(position, 1.0f);
+        }
+
+        static float scale = 1.0f;
+        if (ImGui::SliderFloat("Scale", &scale, 0.1f, 3.0f)) {
+            models_[0].modelMatrix() =
+                glm::scale(glm::translate(glm::mat4(1.0f), position), glm::vec3(scale));
+        }
+
+        static float rotationY = 0.0f;
+        if (ImGui::SliderFloat("Rotation Y", &rotationY, -180.0f, 180.0f, "%.1f°")) {
+            glm::mat4 T = glm::translate(glm::mat4(1.0f), position);
+            glm::mat4 R =
+                glm::rotate(glm::mat4(1.0f), glm::radians(rotationY), glm::vec3(0.0f, 1.0f, 0.0f));
+            glm::mat4 S = glm::scale(glm::mat4(1.0f), glm::vec3(scale));
+            models_[0].modelMatrix() = T * R * S;
+        }
+
+        ImGui::Separator();
+        ImGui::Text("Model Info:");
+        ImGui::Text("Name: %s", models_[0].name().c_str());
+        ImGui::Text("Meshes: %zu", models_[0].meshes().size());
+        ImGui::Text("Materials: %u", models_[0].numMaterials());
+
+        // Display bounding box information
+        auto minBounds = models_[0].boundingBoxMin();
+        auto maxBounds = models_[0].boundingBoxMax();
+        ImGui::Text("Bounds Min: (%.2f, %.2f, %.2f)", minBounds.x, minBounds.y, minBounds.z);
+        ImGui::Text("Bounds Max: (%.2f, %.2f, %.2f)", maxBounds.x, maxBounds.y, maxBounds.z);
+    } else {
+        ImGui::Text("No model loaded");
+        ImGui::TextColored(ImVec4(1.0f, 0.7f, 0.0f, 1.0f), "Check console for loading errors");
+
+        if (ImGui::Button("Retry Loading Model")) {
+            loadModel();
+        }
+    }
+
+    ImGui::End();
+}
+
 void Ex12_GltfExample::recordCommandBuffer(CommandBuffer& cmd, uint32_t imageIndex,
                                            VkExtent2D windowSize)
 {
@@ -486,15 +714,22 @@ void Ex12_GltfExample::recordCommandBuffer(CommandBuffer& cmd, uint32_t imageInd
     VkCommandBufferBeginInfo cmdBufferBeginInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
     check(vkBeginCommandBuffer(cmd.handle(), &cmdBufferBeginInfo));
 
-    // === PASS 1: Render skybox to HDR color buffer ===
+    // === PASS 1: Render skybox and models to HDR color buffer ===
 
     // Transition HDR color buffer to color attachment
     hdrColorBuffer_.transitionTo(cmd.handle(), VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
                                  VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                                  VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
 
-    // HDR skybox rendering pass
+    // Transition depth buffer to depth attachment
+    depthStencil_.barrierHelper_.transitionTo(cmd.handle(),
+                                              VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+                                              VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                                              VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT);
+
+    // HDR rendering pass with depth buffer
     VkClearColorValue hdrClearColorValue = {{0.0f, 0.0f, 0.0f, 1.0f}}; // Black clear for HDR
+    VkClearDepthStencilValue depthClearValue = {1.0f, 0};
 
     VkRenderingAttachmentInfo hdrColorAttachment{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
     hdrColorAttachment.imageView = hdrColorBuffer_.view();
@@ -503,11 +738,19 @@ void Ex12_GltfExample::recordCommandBuffer(CommandBuffer& cmd, uint32_t imageInd
     hdrColorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     hdrColorAttachment.clearValue.color = hdrClearColorValue;
 
+    VkRenderingAttachmentInfo depthAttachment{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
+    depthAttachment.imageView = depthStencil_.view;
+    depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    depthAttachment.clearValue.depthStencil = depthClearValue;
+
     VkRenderingInfo hdrRenderingInfo{VK_STRUCTURE_TYPE_RENDERING_INFO};
     hdrRenderingInfo.renderArea = {0, 0, windowSize.width, windowSize.height};
     hdrRenderingInfo.layerCount = 1;
     hdrRenderingInfo.colorAttachmentCount = 1;
     hdrRenderingInfo.pColorAttachments = &hdrColorAttachment;
+    hdrRenderingInfo.pDepthAttachment = &depthAttachment;
 
     vkCmdBeginRendering(cmd.handle(), &hdrRenderingInfo);
 
@@ -517,11 +760,11 @@ void Ex12_GltfExample::recordCommandBuffer(CommandBuffer& cmd, uint32_t imageInd
     vkCmdSetViewport(cmd.handle(), 0, 1, &viewport);
     vkCmdSetScissor(cmd.handle(), 0, 1, &scissor);
 
-    // Render skybox to HDR buffer
+    // Render skybox first (no depth testing, will be behind everything)
     vkCmdBindPipeline(cmd.handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, skyPipeline_.pipeline());
 
     const auto skyDescriptorSets =
-        std::vector{sceneDescriptorSets_[currentFrame_].handle(), skyDescriptorSet_.handle()};
+        std::vector{skySceneDescriptorSets_[currentFrame_].handle(), skyDescriptorSet_.handle()};
 
     vkCmdBindDescriptorSets(
         cmd.handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, skyPipeline_.pipelineLayout(), 0,
@@ -529,6 +772,59 @@ void Ex12_GltfExample::recordCommandBuffer(CommandBuffer& cmd, uint32_t imageInd
 
     // Draw skybox - 36 vertices from hardcoded data in shader
     vkCmdDraw(cmd.handle(), 36, 1, 0, 0);
+
+    // Render PBR models
+    if (!models_.empty() && models_[0].visible()) {
+        vkCmdBindPipeline(cmd.handle(), VK_PIPELINE_BIND_POINT_GRAPHICS,
+                          pbrForwardPipeline_.pipeline());
+
+        // Render each mesh in the model
+        for (size_t meshIndex = 0; meshIndex < models_[0].meshes().size(); ++meshIndex) {
+            const auto& mesh = models_[0].meshes()[meshIndex];
+            uint32_t matIndex = mesh.materialIndex_;
+
+            // Validate material index
+            if (matIndex >= models_[0].numMaterials()) {
+                printLog("WARNING: Invalid material index {} for mesh {}, using 0", matIndex,
+                         meshIndex);
+                matIndex = 0;
+            }
+
+            // Bind descriptor sets following the same pattern as Renderer.cpp
+            const auto descriptorSets = std::vector{
+                sceneDescriptorSets_[currentFrame_]
+                    .handle(), // Set 0: Scene + options + bone data (3 bindings)
+                models_[0]
+                    .materialDescriptorSet(matIndex)
+                    .handle(),              // Set 1: Material textures (7 bindings) - FIXED!
+                skyDescriptorSet_.handle(), // Set 2: IBL textures (3 bindings)
+                shadowMapSet_.handle()      // Set 3: Shadow map (1 binding)
+            };
+
+            vkCmdBindDescriptorSets(
+                cmd.handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, pbrForwardPipeline_.pipelineLayout(),
+                0, static_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(), 0, nullptr);
+
+            // Push constants: model matrix (64 bytes) + coefficients (64 bytes) = 128 bytes total
+            // This matches the pipeline layout expectation from Renderer.cpp
+            vkCmdPushConstants(cmd.handle(), pbrForwardPipeline_.pipelineLayout(),
+                               VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                               sizeof(glm::mat4), &models_[0].modelMatrix());
+
+            vkCmdPushConstants(cmd.handle(), pbrForwardPipeline_.pipelineLayout(),
+                               VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                               sizeof(glm::mat4), sizeof(float) * 16, models_[0].coeffs());
+
+            // Bind vertex and index buffers
+            VkBuffer vertexBuffers[] = {mesh.vertexBuffer_};
+            VkDeviceSize offsets[] = {0};
+            vkCmdBindVertexBuffers(cmd.handle(), 0, 1, vertexBuffers, offsets);
+            vkCmdBindIndexBuffer(cmd.handle(), mesh.indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
+
+            // Draw the mesh
+            vkCmdDrawIndexed(cmd.handle(), static_cast<uint32_t>(mesh.indices_.size()), 1, 0, 0, 0);
+        }
+    }
 
     vkCmdEndRendering(cmd.handle());
 
