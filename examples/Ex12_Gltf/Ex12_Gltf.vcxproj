@@ -136,7 +136,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Ex12_GltfExample.cpp" />
     <ClCompile Include="Ex12_Gltf.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -146,9 +145,6 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="log.txt" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="Ex12_GltfExample.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

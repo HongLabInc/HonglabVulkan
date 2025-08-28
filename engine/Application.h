@@ -70,6 +70,9 @@ class Application
 
     GuiRenderer guiRenderer_;
     Renderer renderer_;
+
+    void renderHDRControlWindow();
+    void renderPostProcessingControlWindow();
 };
 
 } // namespace hlab

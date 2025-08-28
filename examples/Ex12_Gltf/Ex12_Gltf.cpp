@@ -1,13 +1,10 @@
-#include "Ex12_GltfExample.h"
-#include "engine/Logger.h"
-
-#include <iostream>
+#include "engine/Application.h"
 
 using namespace hlab;
 
 int main()
 {
-    Ex12_GltfExample().mainLoop();
+    Application().run();
 
     return 0;
 }

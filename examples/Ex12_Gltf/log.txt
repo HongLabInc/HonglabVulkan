@@ -79,7 +79,7 @@ Queue Family Properties: 6
   Queue Family 4: 2 queues, flags: TRANSFER SPARSE_BINDING VIDEO_ENCODE 
   Queue Family 5: 1 queues, flags: TRANSFER SPARSE_BINDING OPTICAL_FLOW 
 Found DescriptorPoolSize.txt, loading previous statistics...
-Created initial pool with 11 sets and 2 descriptor types
+Created initial pool with 139 sets and 2 descriptor types
 Selected Surface Format: R8G8B8A8_UNORM
 Selected Color Space: VK_COLOR_SPACE_SRGB_NONLINEAR_KHR
 Swapchain Storage Bit Support: YES
@@ -89,34 +89,21 @@ Available Present Modes: 5
   VK_PRESENT_MODE_MAILBOX_KHR
   VK_PRESENT_MODE_IMMEDIATE_KHR
   VK_PRESENT_MODE_FIFO_LATEST_READY_KHR
-Selected Present Mode: VK_PRESENT_MODE_MAILBOX_KHR
+Selected Present Mode: VK_PRESENT_MODE_IMMEDIATE_KHR
 Designed Num of Swapchain Images: 3
 Added VK_IMAGE_USAGE_STORAGE_BIT to swapchain
-ShaderManager: Created 6 unique layout(s)
-  Layout 0 (0x160000000016): 3 binding(s), used by:
-    - Pipeline 'sky', Set 1
-    - Pipeline 'pbrForward', Set 2
-    Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
-    Binding 1: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
-    Binding 2: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
-  Layout 1 (0x170000000017): 2 binding(s), used by:
-    - Pipeline 'sky', Set 0
-    Binding 0: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
-    Binding 1: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
-  Layout 2 (0x180000000018): 1 binding(s), used by:
-    - Pipeline 'gui', Set 0
-    - Pipeline 'pbrForward', Set 3
-    Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
-  Layout 3 (0x190000000019): 3 binding(s), used by:
+ShaderManager: Created 7 unique layout(s)
+  Layout 0 (0x190000000019): 3 binding(s), used by:
+    - Pipeline 'shadowMap', Set 0
     - Pipeline 'pbrForward', Set 0
     Binding 0: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
     Binding 2: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
-  Layout 4 (0x1a000000001a): 2 binding(s), used by:
+  Layout 1 (0x1a000000001a): 2 binding(s), used by:
     - Pipeline 'post', Set 0
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=FRAGMENT
-  Layout 5 (0x1b000000001b): 7 binding(s), used by:
+  Layout 2 (0x1b000000001b): 7 binding(s), used by:
     - Pipeline 'pbrForward', Set 1
     Binding 0: type=UNIFORM_BUFFER, count=1, stages=FRAGMENT
     Binding 1: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
@@ -125,46 +112,87 @@ ShaderManager: Created 6 unique layout(s)
     Binding 4: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 5: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 6: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
-Current working directory: D:\Projects\00_Vulkan\repos\HonglabVulkan\examples\Ex12_Gltf
+  Layout 3 (0x1c000000001c): 2 binding(s), used by:
+    - Pipeline 'sky', Set 0
+    - Pipeline 'ssao', Set 0
+    Binding 0: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT|COMPUTE
+    Binding 1: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT|COMPUTE
+  Layout 4 (0x1d000000001d): 1 binding(s), used by:
+    - Pipeline 'pbrForward', Set 3
+    - Pipeline 'gui', Set 0
+    Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
+  Layout 5 (0x1e000000001e): 3 binding(s), used by:
+    - Pipeline 'pbrForward', Set 2
+    - Pipeline 'sky', Set 1
+    Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
+    Binding 1: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
+    Binding 2: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
+  Layout 6 (0x1f000000001f): 3 binding(s), used by:
+    - Pipeline 'ssao', Set 2
+    Binding 1: type=STORAGE_IMAGE, count=1, stages=COMPUTE
+    Binding 2: type=STORAGE_IMAGE, count=1, stages=COMPUTE
+    Binding 3: type=COMBINED_IMAGE_SAMPLER, count=1, stages=COMPUTE
+Model directory: ../../assets/characters/Leonard
+Processing animations and bones before mesh processing...
+Processing animations in Model...
+  Scene has 1 animations
+Loading animation data from scene...
+  Animations found: 1
+Building animation scene graph...
+Scene graph built with 217 nodes
+Processing bones for global hierarchy...
+Created 65 global bones from 128 total mesh bones
+Global bone ID assignment complete: 65 bones
+Animation loading complete:
+  Animation clips: 1
+  Bones: 65
+  Scene nodes: 217
+Successfully loaded 1 animation clips
+  Current animation: 'mixamo.com'
+  Duration: 2.20 seconds
+Successfully loaded 65 bones for skeletal animation
+Total bones across all meshes: 128
+Synchronized global inverse transform between Model and Animation systems
+Processing 60 bones for mesh 'Ch31_Body'
+Processing 13 bones for mesh 'Ch31_Pants'
+Processing 28 bones for mesh 'Ch31_Sweater'
+Processing 7 bones for mesh 'Ch31_Collar'
+Processing 6 bones for mesh 'Ch31_Eyelashes'
+Processing 8 bones for mesh 'Ch31_Shoes'
+Processing 6 bones for mesh 'Ch31_Hair'
+Texture filename: ../../assets/characters/Leonard/Ch31_1001_Diffuse.png
+Texture filename: ../../assets/characters/Leonard/Ch31_1001_Specular.png
+Texture filename: ../../assets/characters/Leonard/Ch31_1001_Normal.png
+Texture filename: ../../assets/characters/Leonard/Ch31_1002_Diffuse.png
+Successfully loaded model: ../../assets/characters/Leonard/Bboy Hip Hop Move.fbx
+  Meshes: 7
+  Materials: 2
+  Loading time: 2515 ms
+Successfully loaded model from cache: ../../assets/models/AmazonLumberyardBistroMorganMcGuire\exterior_cache.bin
+  Meshes: 3184
+  Materials: 128
+  Loading time: 1778 ms
+Found 1 animations in model
+Started animation: 'mixamo.com'
+Animation duration: 2.20 seconds
+No animations found in model
 Creating a graphics pipeline: sky
+
+Creating a graphics pipeline: post
+
+Creating a graphics pipeline: shadowMap
 
 Loading IBL textures...
   Prefiltered: ../../assets/textures/golden_gate_hills_4k/specularGGX.ktx2
   Irradiance: ../../assets/textures/golden_gate_hills_4k/diffuseLambertian.ktx2
   BRDF LUT: ../../assets/textures/golden_gate_hills_4k/outputLUT.png
-Creating a graphics pipeline: post
-
-Shadow map initialized with proper layout
-Model directory: ../../assets/models
-Processing animations and bones before mesh processing...
-No animations found in the model
-No bones found in any mesh
-Synchronized global inverse transform between Model and Animation systems
-Loaded embedded texture 0 (2048x2048) with sRGB format
-Loaded embedded texture 1 (2048x2048) with linear format
-Loaded embedded texture 2 (2048x2048) with linear format
-Loaded embedded texture 3 (2048x2048) with linear format
-Loaded embedded texture 4 (2048x2048) with linear format
-Successfully loaded model: ../../assets/models/DamagedHelmet.glb
-  Meshes: 1
-  Materials: 2
-  Loading time: 355 ms
-Successfully loaded model: Damaged Helmet
-  Meshes: 1
-  Materials: 2
-  Bounding box: min(-0.95, -1.19, -0.90), max(0.94, 0.81, 0.90)
-Ex12_GltfExample initialization complete
-  Window size: 3072x1728
-  Swapchain images: 3
-  Models loaded: 1
+hasAnimation changed to: true
 Saved descriptor pool statistics to DescriptorPoolSize.txt
 
 === DescriptorPool Allocated Statistics ===
 Total Pools Created: 1
-Total Allocated Sets: 11
-  COMBINED_IMAGE_SAMPLER: 19
-  UNIFORM_BUFFER: 14
+Total Allocated Sets: 139
+  COMBINED_IMAGE_SAMPLER: 787
+  UNIFORM_BUFFER: 142
 ============================================
 
-[ERROR] [1215490720][VUID-vkDestroyDevice-device-05137] : vkDestroyDevice(): Object Tracking - For VkDevice 0x20fb66c85b0, VkBuffer 0x960000000096 has not been destroyed.
-The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)

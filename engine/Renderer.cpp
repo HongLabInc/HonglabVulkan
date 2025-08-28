@@ -44,14 +44,37 @@ void Renderer::createUniformBuffers()
         optionsUniforms_.emplace_back(ctx_, optionsUBO_);
     }
 
-    // NEW: Create bone data uniform buffers
+    skyOptionsUniforms_.clear();
+    skyOptionsUniforms_.reserve(kMaxFramesInFlight_);
+    for (uint32_t i = 0; i < kMaxFramesInFlight_; ++i) {
+        skyOptionsUniforms_.emplace_back(ctx_, skyOptionsUBO_);
+    }
+
+    postProcessingOptionsUniforms_.clear();
+    postProcessingOptionsUniforms_.reserve(kMaxFramesInFlight_);
+    for (uint32_t i = 0; i < kMaxFramesInFlight_; ++i) {
+        postProcessingOptionsUniforms_.emplace_back(ctx_, postProcessingOptionsUBO_);
+    }
+
     boneDataUniforms_.clear();
     boneDataUniforms_.reserve(kMaxFramesInFlight_);
     for (uint32_t i = 0; i < kMaxFramesInFlight_; ++i) {
         boneDataUniforms_.emplace_back(ctx_, boneDataUBO_);
     }
 
-    // Create descriptor sets (now including bone data)
+    sceneSkyOptionsSets_.resize(kMaxFramesInFlight_);
+    for (size_t i = 0; i < kMaxFramesInFlight_; i++) {
+        sceneSkyOptionsSets_[i].create(
+            ctx_, {sceneUniforms_[i].resourceBinding(), skyOptionsUniforms_[i].resourceBinding()});
+    }
+
+    postProcessingDescriptorSets_.resize(kMaxFramesInFlight_);
+    for (size_t i = 0; i < kMaxFramesInFlight_; i++) {
+        postProcessingDescriptorSets_[i].create(
+            ctx_, {forwardToCompute_.resourceBinding(),
+                   postProcessingOptionsUniforms_[i].resourceBinding()});
+    }
+
     sceneOptionsBoneDataSets_.resize(kMaxFramesInFlight_);
     for (size_t i = 0; i < kMaxFramesInFlight_; i++) {
         sceneOptionsBoneDataSets_[i].create(
@@ -68,6 +91,10 @@ void Renderer::update(Camera& camera, uint32_t currentFrame, double time)
     sceneUniforms_[currentFrame].updateData();
 
     optionsUniforms_[currentFrame].updateData();
+
+    skyOptionsUniforms_[currentFrame].updateData();
+
+    postProcessingOptionsUniforms_[currentFrame].updateData();
 }
 
 void Renderer::updateBoneData(const vector<Model>& models, uint32_t currentFrame)
@@ -115,6 +142,7 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
 {
     VkRect2D renderArea = {0, 0, scissor.extent.width, scissor.extent.height};
 
+    // Forward rendering pass
     {
         forwardToCompute_.resourceBinding().barrierHelper().transitionTo(
             cmd, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -134,6 +162,7 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
 
         VkDeviceSize offsets[1]{0};
 
+        // Render models
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                           pipelines_.at("pbrForward").pipeline());
 
@@ -155,7 +184,6 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
                 auto& mesh = models[j].meshes()[i];
                 uint32_t matIndex = mesh.materialIndex_;
 
-                // NEW: Updated descriptor sets to include bone data (now 3 sets instead of 2)
                 const auto descriptorSets =
                     vector{sceneOptionsBoneDataSets_[currentFrame]
                                .handle(), // Now includes scene, options, and bone data
@@ -175,11 +203,15 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
 
         // Sky rendering pass
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines_.at("sky").pipeline());
-        const auto descriptorSets =
-            vector{sceneOptionsBoneDataSets_[currentFrame].handle(), skyDescriptorSet_.handle()};
+
+        const auto skyDescriptorSets = vector{
+            sceneSkyOptionsSets_[currentFrame].handle(), // Set 0: scene + sky options
+            skyDescriptorSet_.handle()                   // Set 1: sky textures
+        };
+
         vkCmdBindDescriptorSets(
             cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines_.at("sky").pipelineLayout(), 0,
-            static_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(), 0, nullptr);
+            static_cast<uint32_t>(skyDescriptorSets.size()), skyDescriptorSets.data(), 0, nullptr);
         vkCmdDraw(cmd, 36, 1, 0, 0);
         vkCmdEndRendering(cmd);
     }
@@ -197,13 +229,18 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
         auto renderingInfo = createRenderingInfo(renderArea, &colorAttachment, &depthAttachment);
 
         vkCmdBeginRendering(cmd, &renderingInfo);
-        const auto temp = vector{postDescriptorSet_.handle()};
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                pipelines_.at("post").pipelineLayout(), 0,
-                                static_cast<uint32_t>(temp.size()), temp.data(), 0, nullptr);
         vkCmdSetViewport(cmd, 0, 1, &viewport);
         vkCmdSetScissor(cmd, 0, 1, &scissor);
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines_.at("post").pipeline());
+
+        // Bind post-processing descriptor set (follows Ex10 pattern)
+        const auto postDescriptorSets =
+            vector{postProcessingDescriptorSets_[currentFrame].handle()};
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                pipelines_.at("post").pipelineLayout(), 0,
+                                static_cast<uint32_t>(postDescriptorSets.size()),
+                                postDescriptorSets.data(), 0, nullptr);
+
         vkCmdDraw(cmd, 6, 1, 0, 0);
         vkCmdEndRendering(cmd);
     }
@@ -358,20 +395,22 @@ void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight,
     skyTextures_.loadKtxMaps(path + "specularGGX.ktx2", path + "diffuseLambertian.ktx2",
                              path + "outputLUT.png");
 
+    // Create render targets
     msaaColorBuffer_.createMsaaColorBuffer(swapchainWidth, swapchainHeight, msaaSamples);
     msaaDepthStencil_.create(swapchainWidth, swapchainHeight, msaaSamples);
     depthStencil_.create(swapchainWidth, swapchainHeight, VK_SAMPLE_COUNT_1_BIT);
     forwardToCompute_.createGeneralStorage(swapchainWidth, swapchainHeight);
     computeToPost_.createGeneralStorage(swapchainWidth, swapchainHeight);
 
+    // Set samplers
     forwardToCompute_.setSampler(samplerLinearRepeat_.handle());
 
+    // Create descriptor sets for sky textures (set 1 for sky pipeline)
     skyDescriptorSet_.create(ctx_, {skyTextures_.prefiltered().resourceBinding(),
                                     skyTextures_.irradiance().resourceBinding(),
                                     skyTextures_.brdfLUT().resourceBinding()});
 
-    postDescriptorSet_.create(ctx_, {forwardToCompute_.resourceBinding()});
-
+    // Create descriptor set for shadow mapping
     shadowMapSet_.create(ctx_, {shadowMap_.resourceBinding()});
 }
 

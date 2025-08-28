@@ -33,6 +33,19 @@ struct SceneUniform // Layout matches pbrForward.vert
     alignas(16) glm::mat4 lightSpaceMatrix = glm::mat4(1.0f); // 64 bytes - for shadow mapping
 };
 
+struct SkyOptionsUBO
+{
+    float environmentIntensity = 1.0f;
+    float roughnessLevel = 0.5f;
+    uint32_t useIrradianceMap = 0;
+
+    uint32_t showMipLevels = 0;
+    uint32_t showCubeFaces = 0;
+    float padding1;
+    float padding2;
+    float padding3;
+};
+
 struct OptionsUniform
 {
     alignas(4) int textureOn = 1;   // Use int instead of bool, 1 = true, 0 = false
@@ -43,6 +56,34 @@ struct OptionsUniform
     alignas(4) float ssaoBias = 0.025f;
     alignas(4) int ssaoSampleCount = 16;
     alignas(4) float ssaoPower = 2.0f;
+};
+
+// Post-processing options uniform buffer structure
+struct PostProcessingOptionsUBO
+{
+    // Basic tone mapping
+    alignas(4) int toneMappingType = 2; // 0=None, 1=Reinhard, 2=ACES, etc.
+    alignas(4) float exposure = 1.0f;   // Exposure adjustment
+    alignas(4) float gamma = 2.2f;      // Gamma correction
+    alignas(4) float maxWhite = 11.2f;  // For Reinhard extended
+
+    // Color grading
+    alignas(4) float contrast = 1.0f;   // Contrast adjustment
+    alignas(4) float brightness = 0.0f; // Brightness adjustment
+    alignas(4) float saturation = 1.0f; // Saturation adjustment
+    alignas(4) float vibrance = 0.0f;   // Vibrance adjustment
+
+    // Effects
+    alignas(4) float vignetteStrength = 0.0f;    // Vignette effect strength
+    alignas(4) float vignetteRadius = 0.8f;      // Vignette radius
+    alignas(4) float filmGrainStrength = 0.0f;   // Film grain effect
+    alignas(4) float chromaticAberration = 0.0f; // Chromatic aberration
+
+    // Debug options
+    alignas(4) int debugMode = 0;       // Debug visualization mode
+    alignas(4) int showOnlyChannel = 0; // Show specific color channel
+    alignas(4) float debugSplit = 0.5f; // Split screen position for comparison
+    alignas(4) float padding1 = 0.0f;   // Alignment padding
 };
 
 struct BoneDataUniform
@@ -116,6 +157,14 @@ class Renderer
     {
         return optionsUBO_;
     }
+    auto skyOptionsUBO() -> SkyOptionsUBO&
+    {
+        return skyOptionsUBO_;
+    }
+    auto postProcessingOptionsUBO() -> PostProcessingOptionsUBO&
+    {
+        return postProcessingOptionsUBO_;
+    }
 
   private:
     const uint32_t& kMaxFramesInFlight_; // 2;
@@ -127,14 +176,20 @@ class Renderer
 
     // Per frame uniform buffers
     SceneUniform sceneUBO_{};
+    SkyOptionsUBO skyOptionsUBO_{};
     OptionsUniform optionsUBO_{};
     BoneDataUniform boneDataUBO_{};
+    PostProcessingOptionsUBO postProcessingOptionsUBO_{};
 
     vector<UniformBuffer<SceneUniform>> sceneUniforms_{};
+    vector<UniformBuffer<SkyOptionsUBO>> skyOptionsUniforms_;
     vector<UniformBuffer<OptionsUniform>> optionsUniforms_{};
-    vector<UniformBuffer<BoneDataUniform>> boneDataUniforms_; // NEW: Bone data uniforms
+    vector<UniformBuffer<BoneDataUniform>> boneDataUniforms_;
+    vector<UniformBuffer<PostProcessingOptionsUBO>> postProcessingOptionsUniforms_;
 
     vector<DescriptorSet> sceneOptionsBoneDataSets_{};
+    vector<DescriptorSet> sceneSkyOptionsSets_{};
+    vector<DescriptorSet> postProcessingDescriptorSets_;
 
     // Resources
     Image2D msaaColorBuffer_;
