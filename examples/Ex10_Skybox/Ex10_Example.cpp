@@ -245,9 +245,8 @@ void Ex10_Example::renderHDRControlWindow()
 
     // HDR Environment Controls
     if (ImGui::CollapsingHeader("HDR Environment", ImGuiTreeNodeFlags_DefaultOpen)) {
-        ImGui::SliderFloat("Exposure", &skyOptionsUBO_.exposure, 0.1f, 5.0f, "%.2f");
         ImGui::SliderFloat("Environment Intensity", &skyOptionsUBO_.environmentIntensity, 0.0f,
-                           3.0f, "%.2f");
+                           10.0f, "%.2f");
     }
 
     // Environment Map Controls
@@ -284,7 +283,6 @@ void Ex10_Example::renderHDRControlWindow()
     // Simplified Presets
     if (ImGui::CollapsingHeader("Presets")) {
         if (ImGui::Button("Default")) {
-            skyOptionsUBO_.exposure = 1.0f;
             skyOptionsUBO_.environmentIntensity = 1.0f;
             skyOptionsUBO_.roughnessLevel = 0.5f;
             skyOptionsUBO_.useIrradianceMap = 0;
@@ -293,12 +291,10 @@ void Ex10_Example::renderHDRControlWindow()
         }
         ImGui::SameLine();
         if (ImGui::Button("High Exposure")) {
-            skyOptionsUBO_.exposure = 2.0f;
             skyOptionsUBO_.environmentIntensity = 1.5f;
         }
         ImGui::SameLine();
         if (ImGui::Button("Low Exposure")) {
-            skyOptionsUBO_.exposure = 0.5f;
             skyOptionsUBO_.environmentIntensity = 0.8f;
         }
 

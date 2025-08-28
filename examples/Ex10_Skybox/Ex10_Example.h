@@ -35,7 +35,6 @@ struct SceneDataUBO
 struct SkyOptionsUBO
 {
     // HDR Environment mapping controls
-    float exposure = 1.0f;             // HDR exposure adjustment
     float environmentIntensity = 1.0f; // Environment map intensity multiplier
     float roughnessLevel = 0.5f;       // Mip level for prefiltered map (0.0 = sharpest)
     uint32_t useIrradianceMap = 0;     // 0 = use prefiltered, 1 = use irradiance
@@ -45,6 +44,7 @@ struct SkyOptionsUBO
     uint32_t showCubeFaces = 0; // Visualize cube faces as colors
     float padding1;
     float padding2;
+    float padding3;
 };
 
 // Mouse state structure
