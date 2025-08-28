@@ -96,7 +96,7 @@ class Ex10_Example
     Camera camera_;
 
     // Skybox rendering
-    std::unique_ptr<Pipeline> skyPipeline_;
+    Pipeline skyPipeline_;
     SkyTextures skyTextures_;
     SceneDataUBO sceneDataUBO_;
     SkyOptionsUBO skyOptionsUBO_;

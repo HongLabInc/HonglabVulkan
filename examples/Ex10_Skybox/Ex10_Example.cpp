@@ -16,7 +16,8 @@ Ex10_Example::Ex10_Example()
           ctx_,
           kShaderPathPrefix,
           {{"gui", {"imgui.vert", "imgui.frag"}}, {"sky", {"skybox.vert.spv", "skybox.frag.spv"}}}},
-      guiRenderer_{ctx_, shaderManager_, swapchain_.colorFormat()}, skyTextures_{ctx_}
+      guiRenderer_{ctx_, shaderManager_, swapchain_.colorFormat()}, skyTextures_{ctx_},
+      skyPipeline_(ctx_, shaderManager_)
 {
     printLog("Current working directory: {}", std::filesystem::current_path().string());
 
@@ -84,8 +85,8 @@ Ex10_Example::~Ex10_Example()
 void Ex10_Example::initializeSkybox()
 {
     // Create skybox pipeline
-    skyPipeline_ = std::make_unique<Pipeline>(ctx_, shaderManager_, "sky", swapchain_.colorFormat(),
-                                              ctx_.depthFormat(), VK_SAMPLE_COUNT_1_BIT);
+    skyPipeline_.createByName("sky", swapchain_.colorFormat(), ctx_.depthFormat(),
+                              VK_SAMPLE_COUNT_1_BIT);
 
     // Load IBL textures
     string path = kAssetsPathPrefix + "textures/golden_gate_hills_4k/";
@@ -144,8 +145,6 @@ void Ex10_Example::mainLoop()
         sceneDataUBO_.projection = camera_.matrices.perspective;
         sceneDataUBO_.view = camera_.matrices.view;
         sceneDataUBO_.cameraPos = camera_.position;
-        sceneDataUniforms_[currentFrame_].updateData();
-        skyOptionsUniforms_[currentFrame_].updateData(); // Update HDR options
 
         updateGui(windowSize_);
         guiRenderer_.update();
@@ -158,6 +157,9 @@ void Ex10_Example::renderFrame()
 {
     check(vkWaitForFences(ctx_.device(), 1, &inFlightFences_[currentFrame_], VK_TRUE, UINT64_MAX));
     check(vkResetFences(ctx_.device(), 1, &inFlightFences_[currentFrame_]));
+
+    sceneDataUniforms_[currentFrame_].updateData();
+    skyOptionsUniforms_[currentFrame_].updateData(); // Update HDR options
 
     uint32_t imageIndex = 0;
     VkResult acquireResult =
@@ -348,14 +350,14 @@ void Ex10_Example::recordCommandBuffer(CommandBuffer& cmd, uint32_t imageIndex,
     vkCmdSetScissor(cmd.handle(), 0, 1, &scissor);
 
     // Render skybox
-    vkCmdBindPipeline(cmd.handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, skyPipeline_->pipeline());
+    vkCmdBindPipeline(cmd.handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, skyPipeline_.pipeline());
 
-    // Bind descriptor sets: set 0 (scene data + options + HDR options), set 1 (skybox textures)
+    // Bind descriptor sets: set 0 (scene data + HDR options), set 1 (skybox textures)
     const auto descriptorSets =
         std::vector{sceneDescriptorSets_[currentFrame_].handle(), skyDescriptorSet_.handle()};
 
     vkCmdBindDescriptorSets(
-        cmd.handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, skyPipeline_->pipelineLayout(), 0,
+        cmd.handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, skyPipeline_.pipelineLayout(), 0,
         static_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(), 0, nullptr);
 
     // Draw skybox - 36 vertices from hardcoded data in shader

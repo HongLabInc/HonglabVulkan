@@ -49,7 +49,7 @@ class UniformBuffer
 
   private:
     T_DATA& cpuData_;
-    MappedBuffer mappedBuffer_; // Composit pattern
+    MappedBuffer mappedBuffer_; // Composite pattern
 };
 
 } // namespace hlab
