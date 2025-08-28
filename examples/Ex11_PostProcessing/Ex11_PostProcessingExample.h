@@ -134,6 +134,7 @@ class Ex11_PostProcessingExample
     // Render targets and textures
     SkyTextures skyTextures_;
     // TODO: Image2D hdrColorBuffer_; // HDR color buffer for post-processing input
+    // 힌트: 스카이 파이프라인 -> hdrColorBuffer -> 포스트 파이프라인 -> 스왑체인 이미지
 
     Sampler samplerLinearRepeat_;
     Sampler samplerLinearClamp_;
