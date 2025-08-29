@@ -59,7 +59,7 @@ struct OptionsUniform
 };
 
 // Post-processing options uniform buffer structure
-struct PostProcessingOptionsUBO
+struct PostOptionsUBO
 {
     // Basic tone mapping
     alignas(4) int toneMappingType = 2; // 0=None, 1=Reinhard, 2=ACES, etc.
@@ -161,9 +161,9 @@ class Renderer
     {
         return skyOptionsUBO_;
     }
-    auto postProcessingOptionsUBO() -> PostProcessingOptionsUBO&
+    auto postOptionsUBO() -> PostOptionsUBO&
     {
-        return postProcessingOptionsUBO_;
+        return postOptionsUBO_;
     }
 
   private:
@@ -179,13 +179,13 @@ class Renderer
     SkyOptionsUBO skyOptionsUBO_{};
     OptionsUniform optionsUBO_{};
     BoneDataUniform boneDataUBO_{};
-    PostProcessingOptionsUBO postProcessingOptionsUBO_{};
+    PostOptionsUBO postOptionsUBO_{};
 
     vector<UniformBuffer<SceneUniform>> sceneUniforms_{};
     vector<UniformBuffer<SkyOptionsUBO>> skyOptionsUniforms_;
     vector<UniformBuffer<OptionsUniform>> optionsUniforms_{};
     vector<UniformBuffer<BoneDataUniform>> boneDataUniforms_;
-    vector<UniformBuffer<PostProcessingOptionsUBO>> postProcessingOptionsUniforms_;
+    vector<UniformBuffer<PostOptionsUBO>> postOptionsUniforms_;
 
     vector<DescriptorSet> sceneOptionsBoneDataSets_{};
     vector<DescriptorSet> sceneSkyOptionsSets_{};

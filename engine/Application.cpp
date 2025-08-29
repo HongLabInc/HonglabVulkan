@@ -714,112 +714,105 @@ void Application::renderPostProcessingControlWindow()
                                           "Uncharted 2", "GT (Gran Turismo)", "Lottes",
                                           "Exponential", "Reinhard Extended", "Luminance",
                                           "Hable"};
-        ImGui::Combo("Tone Mapping Type", &renderer_.postProcessingOptionsUBO().toneMappingType,
+        ImGui::Combo("Tone Mapping Type", &renderer_.postOptionsUBO().toneMappingType,
                      toneMappingNames, IM_ARRAYSIZE(toneMappingNames));
 
-        ImGui::SliderFloat("Exposure", &renderer_.postProcessingOptionsUBO().exposure, 0.1f, 5.0f,
-                           "%.2f");
-        ImGui::SliderFloat("Gamma", &renderer_.postProcessingOptionsUBO().gamma, 1.0f / 2.2f, 2.2f,
-                           "%.2f");
+        ImGui::SliderFloat("Exposure", &renderer_.postOptionsUBO().exposure, 0.1f, 5.0f, "%.2f");
+        ImGui::SliderFloat("Gamma", &renderer_.postOptionsUBO().gamma, 1.0f / 2.2f, 2.2f, "%.2f");
 
-        if (renderer_.postProcessingOptionsUBO().toneMappingType == 7) { // Reinhard Extended
-            ImGui::SliderFloat("Max White", &renderer_.postProcessingOptionsUBO().maxWhite, 1.0f,
-                               20.0f, "%.1f");
+        if (renderer_.postOptionsUBO().toneMappingType == 7) { // Reinhard Extended
+            ImGui::SliderFloat("Max White", &renderer_.postOptionsUBO().maxWhite, 1.0f, 20.0f,
+                               "%.1f");
         }
     }
 
     // Color Grading Controls
     if (ImGui::CollapsingHeader("Color Grading", ImGuiTreeNodeFlags_DefaultOpen)) {
-        ImGui::SliderFloat("Contrast", &renderer_.postProcessingOptionsUBO().contrast, 0.0f, 3.0f,
+        ImGui::SliderFloat("Contrast", &renderer_.postOptionsUBO().contrast, 0.0f, 3.0f, "%.2f");
+        ImGui::SliderFloat("Brightness", &renderer_.postOptionsUBO().brightness, -1.0f, 1.0f,
                            "%.2f");
-        ImGui::SliderFloat("Brightness", &renderer_.postProcessingOptionsUBO().brightness, -1.0f,
-                           1.0f, "%.2f");
-        ImGui::SliderFloat("Saturation", &renderer_.postProcessingOptionsUBO().saturation, 0.0f,
-                           2.0f, "%.2f");
-        ImGui::SliderFloat("Vibrance", &renderer_.postProcessingOptionsUBO().vibrance, -1.0f, 1.0f,
+        ImGui::SliderFloat("Saturation", &renderer_.postOptionsUBO().saturation, 0.0f, 2.0f,
                            "%.2f");
+        ImGui::SliderFloat("Vibrance", &renderer_.postOptionsUBO().vibrance, -1.0f, 1.0f, "%.2f");
     }
 
     // Effects Controls
     if (ImGui::CollapsingHeader("Effects")) {
-        ImGui::SliderFloat("Vignette Strength",
-                           &renderer_.postProcessingOptionsUBO().vignetteStrength, 0.0f, 1.0f,
-                           "%.2f");
-        if (renderer_.postProcessingOptionsUBO().vignetteStrength > 0.0f) {
-            ImGui::SliderFloat("Vignette Radius",
-                               &renderer_.postProcessingOptionsUBO().vignetteRadius, 0.1f, 1.5f,
-                               "%.2f");
+        ImGui::SliderFloat("Vignette Strength", &renderer_.postOptionsUBO().vignetteStrength, 0.0f,
+                           1.0f, "%.2f");
+        if (renderer_.postOptionsUBO().vignetteStrength > 0.0f) {
+            ImGui::SliderFloat("Vignette Radius", &renderer_.postOptionsUBO().vignetteRadius, 0.1f,
+                               1.5f, "%.2f");
         }
 
-        ImGui::SliderFloat("Film Grain", &renderer_.postProcessingOptionsUBO().filmGrainStrength,
-                           0.0f, 0.2f, "%.3f");
-        ImGui::SliderFloat("Chromatic Aberration",
-                           &renderer_.postProcessingOptionsUBO().chromaticAberration, 0.0f, 5.0f,
-                           "%.1f");
+        ImGui::SliderFloat("Film Grain", &renderer_.postOptionsUBO().filmGrainStrength, 0.0f, 0.2f,
+                           "%.3f");
+        ImGui::SliderFloat("Chromatic Aberration", &renderer_.postOptionsUBO().chromaticAberration,
+                           0.0f, 5.0f, "%.1f");
     }
 
     // Debug Controls
     if (ImGui::CollapsingHeader("Debug Visualization")) {
         const char* debugModeNames[] = {"Off", "Tone Mapping Comparison", "Color Channels",
                                         "Split Comparison"};
-        ImGui::Combo("Debug Mode", &renderer_.postProcessingOptionsUBO().debugMode, debugModeNames,
+        ImGui::Combo("Debug Mode", &renderer_.postOptionsUBO().debugMode, debugModeNames,
                      IM_ARRAYSIZE(debugModeNames));
 
-        if (renderer_.postProcessingOptionsUBO().debugMode == 2) { // Color Channels
+        if (renderer_.postOptionsUBO().debugMode == 2) { // Color Channels
             const char* channelNames[] = {"All",       "Red Only", "Green Only",
                                           "Blue Only", "Alpha",    "Luminance"};
-            ImGui::Combo("Show Channel", &renderer_.postProcessingOptionsUBO().showOnlyChannel,
-                         channelNames, IM_ARRAYSIZE(channelNames));
+            ImGui::Combo("Show Channel", &renderer_.postOptionsUBO().showOnlyChannel, channelNames,
+                         IM_ARRAYSIZE(channelNames));
         }
 
-        if (renderer_.postProcessingOptionsUBO().debugMode == 3) { // Split Comparison
-            ImGui::SliderFloat("Split Position", &renderer_.postProcessingOptionsUBO().debugSplit,
-                               0.0f, 1.0f, "%.2f");
+        if (renderer_.postOptionsUBO().debugMode == 3) { // Split Comparison
+            ImGui::SliderFloat("Split Position", &renderer_.postOptionsUBO().debugSplit, 0.0f, 1.0f,
+                               "%.2f");
         }
     }
 
     // Presets
     if (ImGui::CollapsingHeader("Presets")) {
         if (ImGui::Button("Default")) {
-            renderer_.postProcessingOptionsUBO().toneMappingType = 2; // ACES
-            renderer_.postProcessingOptionsUBO().exposure = 1.0f;
-            renderer_.postProcessingOptionsUBO().gamma = 2.2f;
-            renderer_.postProcessingOptionsUBO().contrast = 1.0f;
-            renderer_.postProcessingOptionsUBO().brightness = 0.0f;
-            renderer_.postProcessingOptionsUBO().saturation = 1.0f;
-            renderer_.postProcessingOptionsUBO().vibrance = 0.0f;
-            renderer_.postProcessingOptionsUBO().vignetteStrength = 0.0f;
-            renderer_.postProcessingOptionsUBO().filmGrainStrength = 0.0f;
-            renderer_.postProcessingOptionsUBO().chromaticAberration = 0.0f;
-            renderer_.postProcessingOptionsUBO().debugMode = 0;
+            renderer_.postOptionsUBO().toneMappingType = 2; // ACES
+            renderer_.postOptionsUBO().exposure = 1.0f;
+            renderer_.postOptionsUBO().gamma = 2.2f;
+            renderer_.postOptionsUBO().contrast = 1.0f;
+            renderer_.postOptionsUBO().brightness = 0.0f;
+            renderer_.postOptionsUBO().saturation = 1.0f;
+            renderer_.postOptionsUBO().vibrance = 0.0f;
+            renderer_.postOptionsUBO().vignetteStrength = 0.0f;
+            renderer_.postOptionsUBO().filmGrainStrength = 0.0f;
+            renderer_.postOptionsUBO().chromaticAberration = 0.0f;
+            renderer_.postOptionsUBO().debugMode = 0;
         }
         ImGui::SameLine();
         if (ImGui::Button("Cinematic")) {
-            renderer_.postProcessingOptionsUBO().toneMappingType = 3; // Uncharted 2
-            renderer_.postProcessingOptionsUBO().exposure = 1.2f;
-            renderer_.postProcessingOptionsUBO().contrast = 1.1f;
-            renderer_.postProcessingOptionsUBO().saturation = 0.9f;
-            renderer_.postProcessingOptionsUBO().vignetteStrength = 0.3f;
-            renderer_.postProcessingOptionsUBO().vignetteRadius = 0.8f;
-            renderer_.postProcessingOptionsUBO().filmGrainStrength = 0.02f;
+            renderer_.postOptionsUBO().toneMappingType = 3; // Uncharted 2
+            renderer_.postOptionsUBO().exposure = 1.2f;
+            renderer_.postOptionsUBO().contrast = 1.1f;
+            renderer_.postOptionsUBO().saturation = 0.9f;
+            renderer_.postOptionsUBO().vignetteStrength = 0.3f;
+            renderer_.postOptionsUBO().vignetteRadius = 0.8f;
+            renderer_.postOptionsUBO().filmGrainStrength = 0.02f;
         }
 
         if (ImGui::Button("High Contrast")) {
-            renderer_.postProcessingOptionsUBO().contrast = 1.5f;
-            renderer_.postProcessingOptionsUBO().brightness = 0.1f;
-            renderer_.postProcessingOptionsUBO().saturation = 1.3f;
-            renderer_.postProcessingOptionsUBO().vignetteStrength = 0.2f;
+            renderer_.postOptionsUBO().contrast = 1.5f;
+            renderer_.postOptionsUBO().brightness = 0.1f;
+            renderer_.postOptionsUBO().saturation = 1.3f;
+            renderer_.postOptionsUBO().vignetteStrength = 0.2f;
         }
         ImGui::SameLine();
         if (ImGui::Button("Low Contrast")) {
-            renderer_.postProcessingOptionsUBO().contrast = 0.7f;
-            renderer_.postProcessingOptionsUBO().brightness = 0.05f;
-            renderer_.postProcessingOptionsUBO().saturation = 0.8f;
+            renderer_.postOptionsUBO().contrast = 0.7f;
+            renderer_.postOptionsUBO().brightness = 0.05f;
+            renderer_.postOptionsUBO().saturation = 0.8f;
         }
 
         if (ImGui::Button("Show Tone Mapping")) {
-            renderer_.postProcessingOptionsUBO().debugMode = 1;
-            renderer_.postProcessingOptionsUBO().exposure = 2.0f;
+            renderer_.postOptionsUBO().debugMode = 1;
+            renderer_.postOptionsUBO().exposure = 2.0f;
         }
     }
 

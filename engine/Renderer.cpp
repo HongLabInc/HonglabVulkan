@@ -50,10 +50,10 @@ void Renderer::createUniformBuffers()
         skyOptionsUniforms_.emplace_back(ctx_, skyOptionsUBO_);
     }
 
-    postProcessingOptionsUniforms_.clear();
-    postProcessingOptionsUniforms_.reserve(kMaxFramesInFlight_);
+    postOptionsUniforms_.clear();
+    postOptionsUniforms_.reserve(kMaxFramesInFlight_);
     for (uint32_t i = 0; i < kMaxFramesInFlight_; ++i) {
-        postProcessingOptionsUniforms_.emplace_back(ctx_, postProcessingOptionsUBO_);
+        postOptionsUniforms_.emplace_back(ctx_, postOptionsUBO_);
     }
 
     boneDataUniforms_.clear();
@@ -71,15 +71,14 @@ void Renderer::createUniformBuffers()
     postProcessingDescriptorSets_.resize(kMaxFramesInFlight_);
     for (size_t i = 0; i < kMaxFramesInFlight_; i++) {
         postProcessingDescriptorSets_[i].create(
-            ctx_, {forwardToCompute_.resourceBinding(),
-                   postProcessingOptionsUniforms_[i].resourceBinding()});
+            ctx_, {forwardToCompute_.resourceBinding(), postOptionsUniforms_[i].resourceBinding()});
     }
 
     sceneOptionsBoneDataSets_.resize(kMaxFramesInFlight_);
     for (size_t i = 0; i < kMaxFramesInFlight_; i++) {
-        sceneOptionsBoneDataSets_[i].create(
-            ctx_, {sceneUniforms_[i].resourceBinding(), optionsUniforms_[i].resourceBinding(),
-                   boneDataUniforms_[i].resourceBinding()}); // NEW: Include bone data
+        sceneOptionsBoneDataSets_[i].create(ctx_, {sceneUniforms_[i].resourceBinding(),
+                                                   optionsUniforms_[i].resourceBinding(),
+                                                   boneDataUniforms_[i].resourceBinding()});
     }
 }
 
@@ -91,7 +90,7 @@ void Renderer::update(Camera& camera, uint32_t currentFrame, double time)
 
     skyOptionsUniforms_[currentFrame].updateData();
 
-    postProcessingOptionsUniforms_[currentFrame].updateData();
+    postOptionsUniforms_[currentFrame].updateData();
 }
 
 void Renderer::updateBoneData(const vector<Model>& models, uint32_t currentFrame)
