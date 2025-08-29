@@ -327,6 +327,9 @@ void Application::run()
         updateGui();
 
         camera_.update(deltaTime);
+        renderer_.sceneUBO().projection = camera_.matrices.perspective;
+        renderer_.sceneUBO().view = camera_.matrices.view;
+        renderer_.sceneUBO().cameraPos = camera_.position;
 
         for (auto& model : models_) {
             if (model.hasAnimations()) {
@@ -393,15 +396,13 @@ void Application::run()
             }
         }
 
-        renderer_.update(camera_, currentFrame, (float)glfwGetTime() * 0.5f);
-
-        renderer_.updateBoneData(models_, currentFrame);
-
-        guiRenderer_.update();
-
         // Wait using currentFrame index (CPU-side fence)
         check(vkWaitForFences(ctx_.device(), 1, &waitFences_[currentFrame], VK_TRUE, UINT64_MAX));
         check(vkResetFences(ctx_.device(), 1, &waitFences_[currentFrame]));
+
+        renderer_.update(camera_, currentFrame, (float)glfwGetTime() * 0.5f);
+        renderer_.updateBoneData(models_, currentFrame);
+        guiRenderer_.update();
 
         // Acquire using currentSemaphore index (GPU-side semaphore)
         uint32_t imageIndex{0};

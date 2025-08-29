@@ -85,9 +85,6 @@ void Renderer::createUniformBuffers()
 
 void Renderer::update(Camera& camera, uint32_t currentFrame, double time)
 {
-    sceneUBO_.projection = camera.matrices.perspective;
-    sceneUBO_.view = camera.matrices.view;
-    sceneUBO_.cameraPos = camera.position;
     sceneUniforms_[currentFrame].updateData();
 
     optionsUniforms_[currentFrame].updateData();

@@ -125,8 +125,12 @@
   <ItemGroup>
     <None Include="shaders\imgui.frag" />
     <None Include="shaders\imgui.vert" />
+    <None Include="shaders\pbrForward.frag" />
+    <None Include="shaders\pbrForward.vert" />
     <None Include="shaders\post.frag" />
     <None Include="shaders\post.vert" />
+    <None Include="shaders\shadowMap.frag" />
+    <None Include="shaders\shadowMap.vert" />
     <None Include="shaders\skybox.frag" />
     <None Include="shaders\skybox.vert" />
     <None Include="shaders\test.comp" />

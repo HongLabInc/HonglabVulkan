@@ -33,6 +33,18 @@
     <None Include="shaders\post.vert">
       <Filter>shaders</Filter>
     </None>
+    <None Include="shaders\pbrForward.frag">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\pbrForward.vert">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\shadowMap.frag">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\shadowMap.vert">
+      <Filter>shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Image Include="image.jpg" />
