@@ -5,11 +5,18 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/string_cast.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <chrono>
 
 namespace hlab {
 
-Application::Application()
+// Default constructor - uses hardcoded configuration
+Application::Application() : Application(ApplicationConfig::createDefault())
+{
+}
+
+// Configuration-based constructor
+Application::Application(const ApplicationConfig& config)
     : window_(), windowSize_(window_.getFramebufferSize()),
       ctx_(window_.getRequiredExtensions(), true),
       swapchain_(ctx_, window_.createSurface(ctx_.instance()), windowSize_),
@@ -23,10 +30,25 @@ Application::Application()
       guiRenderer_(ctx_, shaderManager_, swapchain_.colorFormat()),
       renderer_(ctx_, shaderManager_, kMaxFramesInFlight, kAssetsPathPrefix, kShaderPathPrefix)
 {
-    msaaSamples_ = ctx_.getMaxUsableSampleCount();
+    initializeVulkanResources();
+    setupCallbacks();
+    initializeWithConfig(config);
+}
 
+// Future: Load from file constructor
+Application::Application(const string& configFile)
+    : Application(ApplicationConfig::createDefault()) // Fallback to default
+{
+    // TODO: Implement JSON/Lua file loading
+    printLog("Config file loading not implemented yet, using default configuration");
+}
+
+void Application::initializeVulkanResources()
+{
+    msaaSamples_ = ctx_.getMaxUsableSampleCount();
     commandBuffers_ = ctx_.createGraphicsCommandBuffers(kMaxFramesInFlight);
 
+    // Initialize fences
     waitFences_.resize(kMaxFramesInFlight);
     for (auto& fence : waitFences_) {
         VkFenceCreateInfo fenceCreateInfo{};
@@ -35,7 +57,7 @@ Application::Application()
         check(vkCreateFence(ctx_.device(), &fenceCreateInfo, nullptr, &fence));
     }
 
-    // Synchronization
+    // Initialize semaphores
     presentCompleteSemaphores_.resize(swapchain_.images().size());
     renderCompleteSemaphores_.resize(swapchain_.images().size());
     for (size_t i = 0; i < swapchain_.images().size(); i++) {
@@ -45,10 +67,72 @@ Application::Application()
         check(
             vkCreateSemaphore(ctx_.device(), &semaphoreCI, nullptr, &renderCompleteSemaphores_[i]));
     }
+}
+
+void Application::initializeWithConfig(const ApplicationConfig& config)
+{
+    setupCamera(config.camera);
+    loadModels(config.models);
+
+    renderer_.prepareForModels(models_, swapchain_.colorFormat(), ctx_.depthFormat(), msaaSamples_,
+                               windowSize_.width, windowSize_.height);
+}
+
+void Application::setupCamera(const CameraConfig& cameraConfig)
+{
+    const float aspectRatio = float(windowSize_.width) / windowSize_.height;
+
+    camera_.type = cameraConfig.type;
+    camera_.position = cameraConfig.position;
+    camera_.rotation = cameraConfig.rotation;
+    camera_.viewPos = cameraConfig.viewPos;
+    camera_.setMovementSpeed(cameraConfig.movementSpeed);
+    camera_.setRotationSpeed(cameraConfig.rotationSpeed);
+
+    camera_.updateViewMatrix();
+    camera_.setPerspective(cameraConfig.fov, aspectRatio, cameraConfig.nearPlane,
+                           cameraConfig.farPlane);
+}
+
+void Application::loadModels(const vector<ModelConfig>& modelConfigs)
+{
+    for (const auto& modelConfig : modelConfigs) {
+        models_.emplace_back(ctx_);
+        auto& model = models_.back();
+
+        string fullPath = kAssetsPathPrefix + modelConfig.filePath;
+        model.loadFromModelFile(fullPath, modelConfig.isBistroObj);
+        model.name() = modelConfig.displayName;
+        model.modelMatrix() = modelConfig.transform;
+
+        // Setup animation if model supports it
+        if (model.hasAnimations() && modelConfig.autoPlayAnimation) {
+            printLog("Found {} animations in model '{}'", model.getAnimationCount(),
+                     modelConfig.displayName);
+
+            if (model.getAnimationCount() > 0) {
+                uint32_t animIndex =
+                    std::min(modelConfig.initialAnimationIndex, model.getAnimationCount() - 1);
+                model.setAnimationIndex(animIndex);
+                model.setAnimationLooping(modelConfig.loopAnimation);
+                model.setAnimationSpeed(modelConfig.animationSpeed);
+                model.playAnimation();
+
+                printLog("Started animation: '{}'",
+                         model.getAnimation()->getCurrentAnimationName());
+                printLog("Animation duration: {:.2f} seconds", model.getAnimation()->getDuration());
+            }
+        } else if (!model.hasAnimations()) {
+            printLog("No animations found in model '{}'", modelConfig.displayName);
+        }
+    }
+}
+
+void Application::setupCallbacks()
+{
+    window_.setUserPointer(this);
 
     // Keyboard/Mouse callbacks
-
-    window_.setUserPointer(this);
 
     window_.setKeyCallback([](GLFWwindow* window, int key, int scancode, int action, int mods) {
         auto* app = static_cast<Application*>(glfwGetWindowUserPointer(window));
@@ -223,62 +307,6 @@ Application::Application()
     window_.setFramebufferSizeCallback([](GLFWwindow* window, int width, int height) {
         exitWithMessage("Window resize not implemented");
     });
-
-    // Camera setting
-    const float aspectRatio = float(windowSize_.width) / windowSize_.height;
-    camera_.type = hlab::Camera::CameraType::firstperson;
-    // camera_.setPosition(glm::vec3(0.0f, 0.0f, -2.5f)); // Helmet
-    // camera_.setRotation(glm::vec3(0.0f));
-
-    // camera_.setPosition(vec3(0.035510, 1.146003, -2.438253));
-    // camera_.setRotation(vec3(-0.210510, 1.546003, 2.438253));
-    // camera_.setViewPos(vec3(-0.035510, 1.146003, 2.438253));
-
-    camera_.position = vec3(17.794752, -7.657472, 7.049862); // For Bistro model
-    camera_.rotation = vec3(8.799977, 107.899704, 0.000000);
-    camera_.viewPos = vec3(-17.794752, -7.657472, -7.049862);
-
-    camera_.updateViewMatrix();
-    camera_.setPerspective(75.0f, aspectRatio, 0.1f, 256.0f);
-
-    // Model load
-    models_.emplace_back(ctx_);
-    models_.back().loadFromModelFile(kAssetsPathPrefix + "characters/Leonard/Bboy Hip Hop Move.fbx",
-                                     false);
-    models_.back().name() = "캐릭터";
-    models_.back().modelMatrix() = glm::rotate(
-        glm::scale(glm::translate(mat4(1.0f), vec3(-6.719f, 0.375f, -1.860f)), vec3(0.012f)),
-        glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-
-    models_.emplace_back(ctx_);
-    models_.back().loadFromModelFile(
-        kAssetsPathPrefix + "models/AmazonLumberyardBistroMorganMcGuire/exterior.obj", true);
-    models_.back().name() = "거리";
-    models_.back().modelMatrix() = glm::scale(mat4(1.0f), vec3(0.01f));
-
-    // models_[0].loadFromModelFile(kAssetsPathPrefix + "models/DamagedHelmet.glb", false);
-
-    // NEW: Initialize animation playback for loaded models
-    for (auto& model : models_) {
-        if (model.hasAnimations()) {
-            printLog("Found {} animations in model", model.getAnimationCount());
-            if (model.getAnimationCount() > 0) {
-                model.setAnimationIndex(0);      // Use first animation
-                model.setAnimationLooping(true); // Loop animation
-                model.setAnimationSpeed(1.0f);   // Normal speed
-                model.playAnimation();           // Start playing
-
-                printLog("Started animation: '{}'",
-                         model.getAnimation()->getCurrentAnimationName());
-                printLog("Animation duration: {:.2f} seconds", model.getAnimation()->getDuration());
-            }
-        } else {
-            printLog("No animations found in model");
-        }
-    }
-
-    renderer_.prepareForModels(models_, swapchain_.colorFormat(), ctx_.depthFormat(), msaaSamples_,
-                               windowSize_.width, windowSize_.height);
 }
 
 Application::~Application()
