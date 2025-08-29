@@ -233,7 +233,6 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
         vkCmdSetScissor(cmd, 0, 1, &scissor);
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines_.at("post").pipeline());
 
-        // Bind post-processing descriptor set (follows Ex10 pattern)
         const auto postDescriptorSets =
             vector{postProcessingDescriptorSets_[currentFrame].handle()};
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,

@@ -222,12 +222,6 @@ Application::Application()
     // Add framebuffer size callback
     window_.setFramebufferSizeCallback([](GLFWwindow* window, int width, int height) {
         exitWithMessage("Window resize not implemented");
-        // auto* app = static_cast<Application*>(glfwGetWindowUserPointer(window));
-        // if (app && app->prepared && width > 0 && height > 0) {
-        //     app->destWidth = width;
-        //     app->destHeight = height;
-        //     app->windowResize();
-        // }
     });
 
     // Camera setting
@@ -282,38 +276,6 @@ Application::Application()
             printLog("No animations found in model");
         }
     }
-
-    // Enhanced debugging in constructor after model loading:
-    // for (auto& model : models_) {
-    //    printLog("=== MODEL DEBUG INFO ===");
-    //    printLog("Has animations: {}", model.hasAnimations());
-    //    printLog("Has bones: {}", model.getBoneCount());
-
-    //    if (model.hasAnimations()) {
-    //        printLog("Animation count: {}", model.getAnimationCount());
-    //        auto* anim = model.getAnimation();
-    //        if (anim) {
-    //            printLog("Current animation: '{}'", anim->getCurrentAnimationName());
-    //            printLog("Duration: {:.2f}s", anim->getDuration());
-    //            printLog("Is playing: {}", anim->isPlaying());
-    //            printLog("Current time: {:.2f}s", anim->getCurrentTime());
-    //        }
-    //    }
-
-    //    if (model.hasBones()) {
-    //        printLog("Bone count: {}", model.getBoneCount());
-    //        const auto& boneMatrices = model.getBoneMatrices();
-    //        printLog("Bone matrices size: {}", boneMatrices.size());
-
-    //        // Print first few bone matrices for debugging
-    //        for (size_t i = 0; i < std::min(boneMatrices.size(), static_cast<size_t>(3)); ++i) {
-    //            const auto& mat = boneMatrices[i];
-    //            printLog("Bone[{}]: [{:.3f},{:.3f},{:.3f},{:.3f}]", i, mat[0][0], mat[0][1],
-    //                     mat[0][2], mat[0][3]);
-    //        }
-    //    }
-    //    printLog("========================");
-    //}
 
     renderer_.prepareForModels(models_, swapchain_.colorFormat(), ctx_.depthFormat(), msaaSamples_,
                                windowSize_.width, windowSize_.height);
