@@ -39,7 +39,6 @@ Application::Application(const ApplicationConfig& config)
 Application::Application(const string& configFile)
     : Application(ApplicationConfig::createDefault()) // Fallback to default
 {
-    // TODO: Implement JSON/Lua file loading
     printLog("Config file loading not implemented yet, using default configuration");
 }
 
