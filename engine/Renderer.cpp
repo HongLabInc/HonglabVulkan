@@ -224,9 +224,9 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
 
         auto colorAttachment = createColorAttachment(
             swapchainImageView, VK_ATTACHMENT_LOAD_OP_CLEAR, {0.0f, 0.0f, 1.0f, 0.0f});
-        auto depthAttachment =
-            createDepthAttachment(depthStencil_.view, VK_ATTACHMENT_LOAD_OP_LOAD);
-        auto renderingInfo = createRenderingInfo(renderArea, &colorAttachment, &depthAttachment);
+
+        // No depth attachment needed for post-processing
+        auto renderingInfo = createRenderingInfo(renderArea, &colorAttachment, nullptr);
 
         vkCmdBeginRendering(cmd, &renderingInfo);
         vkCmdSetViewport(cmd, 0, 1, &viewport);
