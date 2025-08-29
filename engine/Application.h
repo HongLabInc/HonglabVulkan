@@ -246,6 +246,7 @@ class Application
 
     void renderHDRControlWindow();
     void renderPostProcessingControlWindow();
+    void renderCameraControlWindow();
 };
 
 } // namespace hlab

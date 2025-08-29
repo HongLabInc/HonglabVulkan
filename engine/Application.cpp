@@ -637,6 +637,9 @@ void Application::updateGui()
     ImGui::End();
     ImGui::PopStyleVar();
 
+    // Camera Control Window
+    renderCameraControlWindow();
+
     renderHDRControlWindow();
 
     renderPostProcessingControlWindow();
@@ -841,6 +844,144 @@ void Application::renderPostProcessingControlWindow()
             renderer_.postOptionsUBO().debugMode = 1;
             renderer_.postOptionsUBO().exposure = 2.0f;
         }
+    }
+
+    ImGui::End();
+}
+
+// NEW: Camera Control window method
+void Application::renderCameraControlWindow()
+{
+    ImGui::SetNextWindowPos(ImVec2(10, 350), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(300, 400), ImGuiCond_FirstUseEver);
+
+    if (!ImGui::Begin("Camera Controls")) {
+        ImGui::End();
+        return;
+    }
+
+    // Camera Information Display
+    if (ImGui::CollapsingHeader("Camera Information", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::Text("Position: (%.2f, %.2f, %.2f)", camera_.position.x, camera_.position.y,
+                    camera_.position.z);
+        ImGui::Text("Rotation: (%.2f°, %.2f°, %.2f°)", camera_.rotation.x, camera_.rotation.y,
+                    camera_.rotation.z);
+        ImGui::Text("View Pos: (%.2f, %.2f, %.2f)", camera_.viewPos.x, camera_.viewPos.y,
+                    camera_.viewPos.z);
+
+        // Camera Type Toggle
+        bool isFirstPerson = camera_.type == hlab::Camera::CameraType::firstperson;
+        if (ImGui::Checkbox("First Person Mode", &isFirstPerson)) {
+            camera_.type = isFirstPerson ? hlab::Camera::CameraType::firstperson
+                                         : hlab::Camera::CameraType::lookat;
+        }
+    }
+
+    // Camera Position Controls
+    if (ImGui::CollapsingHeader("Position Controls", ImGuiTreeNodeFlags_DefaultOpen)) {
+        glm::vec3 tempPosition = camera_.position;
+        if (ImGui::SliderFloat3("Position", &tempPosition.x, -50.0f, 50.0f, "%.2f")) {
+            camera_.setPosition(tempPosition);
+        }
+
+        // Quick position buttons
+        if (ImGui::Button("Reset Position")) {
+            camera_.setPosition(glm::vec3(0.0f, 0.0f, -2.5f));
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("View Origin")) {
+            camera_.setPosition(glm::vec3(0.0f, 0.0f, 5.0f));
+        }
+    }
+
+    // Camera Rotation Controls
+    if (ImGui::CollapsingHeader("Rotation Controls", ImGuiTreeNodeFlags_DefaultOpen)) {
+        glm::vec3 tempRotation = camera_.rotation;
+        if (ImGui::SliderFloat3("Rotation (degrees)", &tempRotation.x, -180.0f, 180.0f, "%.1f°")) {
+            camera_.setRotation(tempRotation);
+        }
+
+        // Quick rotation buttons
+        if (ImGui::Button("Reset Rotation")) {
+            camera_.setRotation(glm::vec3(0.0f));
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Look Down")) {
+            camera_.setRotation(glm::vec3(-45.0f, 0.0f, 0.0f));
+        }
+    }
+
+    // Camera Settings
+    if (ImGui::CollapsingHeader("Camera Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
+        // Movement and rotation speed controls
+        float movementSpeed = camera_.movementSpeed;
+        if (ImGui::SliderFloat("Movement Speed", &movementSpeed, 0.1f, 50.0f, "%.1f")) {
+            camera_.setMovementSpeed(movementSpeed);
+        }
+
+        float rotationSpeed = camera_.rotationSpeed;
+        if (ImGui::SliderFloat("Rotation Speed", &rotationSpeed, 0.01f, 2.0f, "%.2f")) {
+            camera_.setRotationSpeed(rotationSpeed);
+        }
+
+        // Field of view control
+        float currentFov = camera_.fov;
+        if (ImGui::SliderFloat("Field of View", &currentFov, 30.0f, 120.0f, "%.1f°")) {
+            const float aspectRatio = float(windowSize_.width) / windowSize_.height;
+            camera_.setPerspective(currentFov, aspectRatio, camera_.znear, camera_.zfar);
+        }
+
+        // Near and far plane controls
+        float nearPlane = camera_.znear;
+        float farPlane = camera_.zfar;
+        if (ImGui::SliderFloat("Near Plane", &nearPlane, 0.001f, 10.0f, "%.3f")) {
+            const float aspectRatio = float(windowSize_.width) / windowSize_.height;
+            camera_.setPerspective(camera_.fov, aspectRatio, nearPlane, camera_.zfar);
+        }
+        if (ImGui::SliderFloat("Far Plane", &farPlane, 10.0f, 10000.0f, "%.0f")) {
+            const float aspectRatio = float(windowSize_.width) / windowSize_.height;
+            camera_.setPerspective(camera_.fov, aspectRatio, camera_.znear, farPlane);
+        }
+    }
+
+    // Camera Presets
+    if (ImGui::CollapsingHeader("Presets")) {
+        if (ImGui::Button("Helmet View")) {
+            camera_.setPosition(glm::vec3(0.0f, 0.0f, 2.0f));
+            camera_.setRotation(glm::vec3(0.0f));
+            camera_.type = hlab::Camera::CameraType::firstperson;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Side View")) {
+            camera_.setPosition(glm::vec3(3.0f, 0.0f, 0.0f));
+            camera_.setRotation(glm::vec3(0.0f, -90.0f, 0.0f));
+        }
+
+        if (ImGui::Button("Top View")) {
+            camera_.setPosition(glm::vec3(0.0f, 5.0f, 0.0f));
+            camera_.setRotation(glm::vec3(-90.0f, 0.0f, 0.0f));
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Perspective View")) {
+            camera_.setPosition(glm::vec3(2.0f, 2.0f, 2.0f));
+            camera_.setRotation(glm::vec3(-25.0f, -45.0f, 0.0f));
+        }
+    }
+
+    // Controls Information
+    if (ImGui::CollapsingHeader("Controls Help")) {
+        ImGui::Text("Keyboard Controls:");
+        ImGui::BulletText("WASD: Move forward/back/left/right");
+        ImGui::BulletText("Q/E: Move up/down");
+        ImGui::BulletText("F2: Toggle camera mode");
+        ImGui::BulletText("F3: Print camera info to console");
+
+        ImGui::Separator();
+        ImGui::Text("Mouse Controls:");
+        ImGui::BulletText("Left Click + Drag: Look around");
+        ImGui::BulletText("Right Click + Drag: Zoom in/out");
+        ImGui::BulletText("Middle Click + Drag: Pan");
+        ImGui::BulletText("Scroll Wheel: Zoom");
     }
 
     ImGui::End();

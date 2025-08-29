@@ -145,7 +145,7 @@ Loaded embedded texture 4 (2048x2048) with linear format
 Successfully loaded model: ../../assets/models/DamagedHelmet.glb
   Meshes: 1
   Materials: 2
-  Loading time: 389 ms
+  Loading time: 369 ms
 No animations found in model 'Helmet'
 Creating a graphics pipeline: sky
 

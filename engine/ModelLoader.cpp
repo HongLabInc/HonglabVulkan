@@ -579,15 +579,10 @@ void ModelLoader::processMesh(aiMesh* mesh, const aiScene* scene, uint32_t meshI
         Vertex vertex;
 
         vertex.position = vec3(mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z);
-        // vertex.position.x *= 1.0f;  // For Bistro model
-        // vertex.position.z *= -1.0f; // For Bistro model
 
         // Normal
         if (mesh->HasNormals()) {
-            // REPLACED: convertVector() with GLM equivalent
             vertex.normal = vec3(mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z);
-            // std::swap(vertex.normal.x, vertex.normal.y); // TODO: check if this is needed
-            // vertex.normal.z *= -1.0f; // Bistro model
         } else {
             vertex.normal = vec3(0.0f, 1.0f, 0.0f);
         }
@@ -596,7 +591,6 @@ void ModelLoader::processMesh(aiMesh* mesh, const aiScene* scene, uint32_t meshI
         if (mesh->mTextureCoords[0]) {
             vertex.texCoord = vec2(mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y);
             vertex.texCoord.y = 1.0f - vertex.texCoord.y; // y fliped
-            // vertex.texCoord.x = 1.0f - vertex.texCoord.x; // x fliped for Bistro model
         } else {
             vertex.texCoord = vec2(0.0f, 0.0f);
             currentMesh.noTextureCoords = true;
@@ -604,12 +598,9 @@ void ModelLoader::processMesh(aiMesh* mesh, const aiScene* scene, uint32_t meshI
 
         // Tangent
         if (mesh->HasTangentsAndBitangents()) {
-            // REPLACED: convertVector() with GLM equivalent
             vertex.tangent = vec3(mesh->mTangents[i].x, mesh->mTangents[i].y, mesh->mTangents[i].z);
-            // vertex.tangent.y *= -1.0f;
             vertex.bitangent =
                 vec3(mesh->mBitangents[i].x, mesh->mBitangents[i].y, mesh->mBitangents[i].z);
-            // vertex.bitangent.y *= -1.0f;
         } else {
             vertex.tangent = vec3(1.0f, 0.0f, 0.0f);
             vertex.bitangent = vec3(0.0f, 0.0f, 1.0f);
