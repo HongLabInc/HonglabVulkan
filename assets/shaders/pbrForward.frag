@@ -268,12 +268,17 @@ void main() {
     float metallic = material.metallicFactor * pushConstants.coeffs[4];
     float roughness = material.roughnessFactor * pushConstants.coeffs[5];
 
-    /*if(material.metallicRoughnessTextureIndex >= 0){
-        metallic = texture(metallicRoughnessTexture, fragTexCoord).b;
-        roughness = texture(metallicRoughnessTexture, fragTexCoord).g;
-    }*/
+    if(material.metallicRoughnessTextureIndex >= 0){
+        vec3 metallicRoughness = texture(metallicRoughnessTexture, fragTexCoord).rgb;
+        metallic *= metallicRoughness.b; // Blue channel
+        roughness *= metallicRoughness.g; // Green channel
+    }
 
     float ao = 1.0;
+    if(material.occlusionTextureIndex >= 0) {
+       ao = texture(occlusionTexture, fragTexCoord).r;
+   }
+
     vec3 emissive = material.emissiveFactor.xyz * emissiveWeight;
     
     vec3 V = normalize(fragCameraPos - fragPos);
