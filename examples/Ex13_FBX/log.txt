@@ -1,0 +1,59 @@
+=== FBX Model and Texture Extractor ===
+Processing file: ../../assets/characters/Leonard/Leonard.fbx
+Successfully loaded FBX file: ../../assets/characters/Leonard/Leonard.fbx
+  Meshes: 7
+  Materials: 2
+  Textures: 5
+  Animations: 1
+Output directory: ../../assets/characters/Leonard
+
+Extracting embedded textures...
+Saved compressed texture: ../../assets/characters/Leonard/texture_0.png
+Saved compressed texture: ../../assets/characters/Leonard/texture_1.png
+Saved compressed texture: ../../assets/characters/Leonard/texture_2.png
+Saved compressed texture: ../../assets/characters/Leonard/texture_3.png
+Saved compressed texture: ../../assets/characters/Leonard/texture_4.png
+
+Processing materials...
+Material 0: Ch31_body
+Found diffuse texture 0: ../../../../home/app/mixamo-mini/tmp/skins_4a24d147-4935-4019-864a-aea70f75d1cd.fbm/Ch31_1001_Diffuse.png
+External texture reference: ../../../../home/app/mixamo-mini/tmp/skins_4a24d147-4935-4019-864a-aea70f75d1cd.fbm/Ch31_1001_Diffuse.png
+-> Filename: Ch31_1001_Diffuse.png
+Found specular texture 0: ../../../../home/app/mixamo-mini/tmp/skins_4a24d147-4935-4019-864a-aea70f75d1cd.fbm/Ch31_1001_Specular.png
+External texture reference: ../../../../home/app/mixamo-mini/tmp/skins_4a24d147-4935-4019-864a-aea70f75d1cd.fbm/Ch31_1001_Specular.png
+-> Filename: Ch31_1001_Specular.png
+Found normals texture 0: ../../../../home/app/mixamo-mini/tmp/skins_4a24d147-4935-4019-864a-aea70f75d1cd.fbm/Ch31_1001_Normal.png
+External texture reference: ../../../../home/app/mixamo-mini/tmp/skins_4a24d147-4935-4019-864a-aea70f75d1cd.fbm/Ch31_1001_Normal.png
+-> Filename: Ch31_1001_Normal.png
+Found shininess texture 0: ../../../../home/app/mixamo-mini/tmp/skins_4a24d147-4935-4019-864a-aea70f75d1cd.fbm/Ch31_1001_Glossiness.png
+External texture reference: ../../../../home/app/mixamo-mini/tmp/skins_4a24d147-4935-4019-864a-aea70f75d1cd.fbm/Ch31_1001_Glossiness.png
+-> Filename: Ch31_1001_Glossiness.png
+Material 1: Ch31_hair
+Found diffuse texture 0: ../../../../home/app/mixamo-mini/tmp/skins_4a24d147-4935-4019-864a-aea70f75d1cd.fbm/Ch31_1002_Diffuse.png
+External texture reference: ../../../../home/app/mixamo-mini/tmp/skins_4a24d147-4935-4019-864a-aea70f75d1cd.fbm/Ch31_1002_Diffuse.png
+-> Filename: Ch31_1002_Diffuse.png
+Found height texture 0: ../../../../home/app/mixamo-mini/tmp/skins_4a24d147-4935-4019-864a-aea70f75d1cd.fbm/Ch31_1001_Normal.png
+External texture reference: ../../../../home/app/mixamo-mini/tmp/skins_4a24d147-4935-4019-864a-aea70f75d1cd.fbm/Ch31_1001_Normal.png
+-> Filename: Ch31_1001_Normal.png
+Found opacity texture 0: ../../../../home/app/mixamo-mini/tmp/skins_4a24d147-4935-4019-864a-aea70f75d1cd.fbm/Ch31_1002_Diffuse.png
+External texture reference: ../../../../home/app/mixamo-mini/tmp/skins_4a24d147-4935-4019-864a-aea70f75d1cd.fbm/Ch31_1002_Diffuse.png
+-> Filename: Ch31_1002_Diffuse.png
+
+Mesh information:
+  Mesh 0: 9795 vertices, 18340 faces, material index: 0
+    Attributes: positions normals tangents UV0 
+  Mesh 1: 3136 vertices, 5654 faces, material index: 0
+    Attributes: positions normals tangents UV0 
+  Mesh 2: 3764 vertices, 6756 faces, material index: 0
+    Attributes: positions normals tangents UV0 
+  Mesh 3: 2219 vertices, 3700 faces, material index: 0
+    Attributes: positions normals tangents UV0 
+  Mesh 4: 553 vertices, 704 faces, material index: 1
+    Attributes: positions normals tangents UV0 
+  Mesh 5: 2906 vertices, 4252 faces, material index: 0
+    Attributes: positions normals tangents UV0 
+  Mesh 6: 10724 vertices, 10860 faces, material index: 1
+    Attributes: positions normals tangents UV0 
+
+Texture extraction completed! Check the same directory as the FBX file.
+Process completed!
