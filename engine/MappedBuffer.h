@@ -26,6 +26,10 @@ class MappedBuffer
     {
         return resourceBinding_;
     }
+    
+    // Add getters for size information
+    auto allocatedSize() const -> VkDeviceSize { return allocatedSize_; }
+    auto dataSize() const -> VkDeviceSize { return dataSize_; }
 
     void cleanup();
     void create(VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memPropFlags,

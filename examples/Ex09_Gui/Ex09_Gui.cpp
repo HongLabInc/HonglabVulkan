@@ -191,7 +191,7 @@ void submitFrame(CommandBuffer& commandBuffer, VkSemaphore waitSemaphore,
 }
 
 void recordCommandBuffer(CommandBuffer& cmd, Swapchain& swapchain, uint32_t imageIndex,
-                         VkExtent2D windowSize, GuiRenderer& guiRenderer)
+                         VkExtent2D windowSize, GuiRenderer& guiRenderer, uint32_t currentFrame)
 {
     vkResetCommandBuffer(cmd.handle(), 0);
     VkCommandBufferBeginInfo cmdBufferBeginInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
@@ -223,7 +223,7 @@ void recordCommandBuffer(CommandBuffer& cmd, Swapchain& swapchain, uint32_t imag
 
     // Draw GUI on top of the clear color
     VkViewport viewport{0.0f, 0.0f, (float)windowSize.width, (float)windowSize.height, 0.0f, 1.0f};
-    guiRenderer.draw(cmd.handle(), swapchain.imageView(imageIndex), viewport);
+    guiRenderer.draw(cmd.handle(), swapchain.imageView(imageIndex), viewport, currentFrame);
 
     swapchain.barrierHelper(imageIndex)
         .transitionTo(cmd.handle(), VK_ACCESS_2_NONE, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
@@ -324,7 +324,7 @@ int main()
 
         updateGui(windowSize);
 
-        guiRenderer.update();
+        guiRenderer.update(currentFrame);
 
         check(vkWaitForFences(ctx.device(), 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX));
         check(vkResetFences(ctx.device(), 1, &inFlightFences[currentFrame]));
@@ -340,7 +340,7 @@ int main()
         }
 
         recordCommandBuffer(commandBuffers[currentFrame], swapchain, imageIndex, windowSize,
-                            guiRenderer);
+                            guiRenderer, currentFrame);
 
         submitFrame(commandBuffers[currentFrame], presentSemaphores[currentSemaphore],
                     renderSemaphores[currentSemaphore], inFlightFences[currentFrame]);

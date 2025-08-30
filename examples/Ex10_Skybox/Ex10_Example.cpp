@@ -147,7 +147,7 @@ void Ex10_Example::mainLoop()
         sceneDataUBO_.cameraPos = camera_.position;
 
         updateGui(windowSize_);
-        guiRenderer_.update();
+        guiRenderer_.update(currentFrame_);
 
         renderFrame();
     }
@@ -366,7 +366,7 @@ void Ex10_Example::recordCommandBuffer(CommandBuffer& cmd, uint32_t imageIndex,
     vkCmdEndRendering(cmd.handle());
 
     // Draw GUI on top of the skybox
-    guiRenderer_.draw(cmd.handle(), swapchain_.imageView(imageIndex), viewport);
+    guiRenderer_.draw(cmd.handle(), swapchain_.imageView(imageIndex), viewport, currentFrame_);
 
     swapchain_.barrierHelper(imageIndex)
         .transitionTo(cmd.handle(), VK_ACCESS_2_NONE, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,

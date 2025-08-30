@@ -429,7 +429,7 @@ void Application::run()
 
         renderer_.update(camera_, currentFrame, (float)glfwGetTime() * 0.5f);
         renderer_.updateBoneData(models_, currentFrame);
-        guiRenderer_.update();
+        guiRenderer_.update(currentFrame);
 
         // Acquire using currentSemaphore index (GPU-side semaphore)
         uint32_t imageIndex{0};
@@ -471,7 +471,7 @@ void Application::run()
                            viewport, scissor);
 
             // Draw GUI (overwrite to swapchain image)
-            guiRenderer_.draw(cmd.handle(), swapchain_.imageView(imageIndex), viewport);
+            guiRenderer_.draw(cmd.handle(), swapchain_.imageView(imageIndex), viewport, currentFrame);
 
             swapchain_.barrierHelper(imageIndex)
                 .transitionTo(cmd.handle(), VK_ACCESS_2_NONE, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
