@@ -165,7 +165,7 @@ void Ex11_PostProcessingExample::mainLoop()
         sceneDataUBO_.cameraPos = camera_.position;
 
         updateGui(windowSize_);
-        guiRenderer_.update();
+        guiRenderer_.update(currentFrame_);
 
         renderFrame();
     }
@@ -426,7 +426,7 @@ void Ex11_PostProcessingExample::recordCommandBuffer(CommandBuffer& cmd, uint32_
     vkCmdEndRendering(cmd.handle());
 
     // Draw GUI on top of the post-processed image
-    guiRenderer_.draw(cmd.handle(), swapchain_.imageView(imageIndex), viewport);
+    guiRenderer_.draw(cmd.handle(), swapchain_.imageView(imageIndex), viewport, currentFrame_);
 
     // Transition swapchain image to present
     swapchain_.barrierHelper(imageIndex)

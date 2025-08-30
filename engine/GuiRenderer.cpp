@@ -3,7 +3,8 @@
 namespace hlab {
 
 GuiRenderer::GuiRenderer(Context& ctx, ShaderManager& shaderManager, VkFormat colorFormat)
-    : ctx_(ctx), shaderManager_(shaderManager), vertexBuffer_(ctx), indexBuffer_(ctx),
+    : ctx_(ctx), shaderManager_(shaderManager), 
+      frameData_{FrameData(ctx), FrameData(ctx)}, // Initialize frame data array
       fontImage_(ctx), fontSampler_(ctx), pushConsts_(ctx), guiPipeline_(ctx, shaderManager_)
 {
     guiPipeline_.createByName("gui", colorFormat);
@@ -82,42 +83,54 @@ auto GuiRenderer::imguiPipeline() -> Pipeline&
     return guiPipeline_;
 }
 
-bool GuiRenderer::update()
+bool GuiRenderer::update(uint32_t frameIndex)
 {
     ImDrawData* imDrawData = ImGui::GetDrawData();
-    bool updateCmdBuffers = false;
-    // 안내: CommandBuffer를 한 번 녹화해서 재사용하는 방식일때
-    //      새로 만들라는 플래그로 사용 가능
-
-    if (!imDrawData) {
+    
+    if (!imDrawData || imDrawData->TotalVtxCount == 0 || imDrawData->TotalIdxCount == 0) {
         return false;
-    };
+    }
+
+    auto& frame = frameData_[frameIndex % kMaxFramesInFlight];
+    bool updateCmdBuffers = false;
 
     VkDeviceSize vertexBufferSize = imDrawData->TotalVtxCount * sizeof(ImDrawVert);
     VkDeviceSize indexBufferSize = imDrawData->TotalIdxCount * sizeof(ImDrawIdx);
 
-    if ((vertexBufferSize == 0) || (indexBufferSize == 0)) {
-        return false;
-    }
+    // Update current frame counts every frame (represents actual data size)
+    vertexCount_ = imDrawData->TotalVtxCount;
+    indexCount_ = imDrawData->TotalIdxCount;
 
-    if ((vertexBuffer_.buffer() == VK_NULL_HANDLE) ||
-        (imDrawData->TotalVtxCount > int(vertexCount_))) {
-        ctx_.waitGraphicsQueueIdle(); // <- 뒤에서 멀티 버퍼 방식으로 제거
-        vertexBuffer_.createVertexBuffer(vertexBufferSize, nullptr);
-        vertexCount_ = imDrawData->TotalVtxCount; // This represents buffer capacity
+    // Use MappedBuffer's allocatedSize() for capacity checking - no GPU stalls!
+    if ((frame.vertexBuffer.buffer() == VK_NULL_HANDLE) || 
+        (vertexBufferSize > frame.vertexBuffer.allocatedSize())) {
+        
+        // Calculate new capacity with growth factor to reduce frequent reallocations
+        VkDeviceSize newCapacity = std::max(
+            static_cast<VkDeviceSize>(vertexBufferSize * 1.5f), 
+            static_cast<VkDeviceSize>(512 * sizeof(ImDrawVert)) // Minimum capacity
+        );
+        
+        frame.vertexBuffer.createVertexBuffer(newCapacity, nullptr);
         updateCmdBuffers = true;
     }
 
-    if ((indexBuffer_.buffer() == VK_NULL_HANDLE) ||
-        (imDrawData->TotalIdxCount > int(indexCount_))) {
-        ctx_.waitGraphicsQueueIdle(); // <- 뒤에서 멀티 버퍼 방식으로 제거
-        indexBuffer_.createIndexBuffer(indexBufferSize, nullptr);
-        indexCount_ = imDrawData->TotalIdxCount; // This represents buffer capacity
+    if ((frame.indexBuffer.buffer() == VK_NULL_HANDLE) || 
+        (indexBufferSize > frame.indexBuffer.allocatedSize())) {
+        
+        // Calculate new capacity with growth factor to reduce frequent reallocations
+        VkDeviceSize newCapacity = std::max(
+            static_cast<VkDeviceSize>(indexBufferSize * 1.5f), 
+            static_cast<VkDeviceSize>(1024 * sizeof(ImDrawIdx)) // Minimum capacity
+        );
+        
+        frame.indexBuffer.createIndexBuffer(newCapacity, nullptr);
         updateCmdBuffers = true;
     }
 
-    ImDrawVert* vtxDst = (ImDrawVert*)vertexBuffer_.mapped();
-    ImDrawIdx* idxDst = (ImDrawIdx*)indexBuffer_.mapped();
+    // Copy ImGui data to this frame's buffers
+    ImDrawVert* vtxDst = (ImDrawVert*)frame.vertexBuffer.mapped();
+    ImDrawIdx* idxDst = (ImDrawIdx*)frame.indexBuffer.mapped();
 
     for (int n = 0; n < imDrawData->CmdListsCount; n++) {
         const ImDrawList* cmd_list = imDrawData->CmdLists[n];
@@ -127,14 +140,15 @@ bool GuiRenderer::update()
         idxDst += cmd_list->IdxBuffer.Size;
     }
 
-    vertexBuffer_.flush();
-    indexBuffer_.flush();
+    // Flush to ensure GPU visibility (synchronous)
+    frame.vertexBuffer.flush();
+    frame.indexBuffer.flush();
 
     return updateCmdBuffers;
 }
 
 void GuiRenderer::draw(const VkCommandBuffer cmd, VkImageView swapchainImageView,
-                       VkViewport viewport)
+                       VkViewport viewport, uint32_t frameIndex)
 {
     VkRenderingAttachmentInfo swapchainColorAttachment{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
     swapchainColorAttachment.imageView = swapchainImageView;
@@ -149,21 +163,21 @@ void GuiRenderer::draw(const VkCommandBuffer cmd, VkImageView swapchainImageView
     colorOnlyRenderingInfo.pColorAttachments = &swapchainColorAttachment;
 
     ImDrawData* imDrawData = ImGui::GetDrawData();
-    int32_t vertexOffset = 0;
-    int32_t indexOffset = 0;
-
     if ((!imDrawData) || (imDrawData->CmdListsCount == 0)) {
         return;
     }
+
+    // Get this frame's buffers
+    auto& frame = frameData_[frameIndex % kMaxFramesInFlight];
 
     vkCmdBeginRendering(cmd, &colorOnlyRenderingInfo);
 
     vkCmdSetViewport(cmd, 0, 1, &viewport);
 
-    const auto temp = vector{fontSet_.handle()};
+    const auto descriptorSet = fontSet_.handle();
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, guiPipeline_.pipeline());
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, guiPipeline_.pipelineLayout(), 0,
-                            uint32_t(temp.size()), temp.data(), 0, NULL);
+                            1, &descriptorSet, 0, nullptr);
 
     ImGuiIO& io = ImGui::GetIO();
     auto& pc = pushConsts_.data();
@@ -171,9 +185,14 @@ void GuiRenderer::draw(const VkCommandBuffer cmd, VkImageView swapchainImageView
     pc.translate = glm::vec2(-1.0f);
     pushConsts_.push(cmd, guiPipeline_.pipelineLayout());
 
+    // Bind this frame's vertex and index buffers
     VkDeviceSize offsets[1] = {0};
-    vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer_.buffer(), offsets);
-    vkCmdBindIndexBuffer(cmd, indexBuffer_.buffer(), 0, VK_INDEX_TYPE_UINT16);
+    vkCmdBindVertexBuffers(cmd, 0, 1, &frame.vertexBuffer.buffer(), offsets);
+    vkCmdBindIndexBuffer(cmd, frame.indexBuffer.buffer(), 0, VK_INDEX_TYPE_UINT16);
+
+    // Render ImGui draw commands with fixed vertex offset bug
+    int32_t vertexOffset = 0;
+    int32_t indexOffset = 0;
 
     for (int32_t i = 0; i < imDrawData->CmdListsCount; i++) {
         const ImDrawList* cmd_list = imDrawData->CmdLists[i];

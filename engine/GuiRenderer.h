@@ -9,6 +9,7 @@
 #include "DescriptorSet.h"
 #include <glm/glm.hpp>
 #include <imgui.h>
+#include <array>
 
 namespace hlab {
 
@@ -27,18 +28,28 @@ class GuiRenderer
     GuiRenderer(Context& ctx, ShaderManager& shaderManager, VkFormat colorFormat);
     ~GuiRenderer();
 
-    void draw(const VkCommandBuffer cmd, VkImageView swapchainImageView, VkViewport viewport);
+    void draw(const VkCommandBuffer cmd, VkImageView swapchainImageView, VkViewport viewport, uint32_t frameIndex);
     void resize(uint32_t width, uint32_t height);
 
-    auto update() -> bool;
+    auto update(uint32_t frameIndex) -> bool;
     auto imguiPipeline() -> Pipeline&;
 
   private:
+    static constexpr uint32_t kMaxFramesInFlight = 2;
+    
+    struct FrameData {
+        MappedBuffer vertexBuffer;
+        MappedBuffer indexBuffer;
+        
+        FrameData(Context& ctx) : vertexBuffer(ctx), indexBuffer(ctx) {}
+    };
+
     Context& ctx_;
     ShaderManager& shaderManager_;
 
-    MappedBuffer vertexBuffer_;
-    MappedBuffer indexBuffer_;
+    std::array<FrameData, kMaxFramesInFlight> frameData_;
+
+    // Current frame data counters (updated each frame)
     uint32_t vertexCount_{0};
     uint32_t indexCount_{0};
 
