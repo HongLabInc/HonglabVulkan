@@ -15,5 +15,6 @@ int main()
     auto app = std::make_unique<Application>(config);
 
     app->run();
+
     return 0;
 }

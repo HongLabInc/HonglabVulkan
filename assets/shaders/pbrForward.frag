@@ -247,16 +247,13 @@ vec3 BRDF_specularGGX(float alphaRoughness, float NdotL, float NdotV, float Ndot
 }
 
 void main() {
-    float specularWeight = pushConstants.coeffs[0]; // 0.1;
-    float diffuseWeight = pushConstants.coeffs[1];  // 0.458;
+    float specularWeight = pushConstants.coeffs[0];
+    float diffuseWeight = pushConstants.coeffs[1];
     float emissiveWeight = pushConstants.coeffs[2];
     float shadowOffset = pushConstants.coeffs[3];
 
     // Sample material properties
     vec4 baseColorRGBA = (options.textureOn != 0 && material.baseColorTextureIndex >= 0) ? texture(baseColorTexture, fragTexCoord) : vec4(1.0);
-
-//    if(options.discardOn != 0 && baseColorRGBA.a < 0.9)
-  //      discard;
 
     if(material.opacityTextureIndex >= 0) {
         float opacity = texture(opacityTexture, fragTexCoord).r;
@@ -280,7 +277,11 @@ void main() {
    }
 
     vec3 emissive = material.emissiveFactor.xyz * emissiveWeight;
-    
+    if(material.emissiveTextureIndex >= 0)
+    {
+        emissive *= texture(emissiveTexture, fragTexCoord).xyz;
+    }
+
     vec3 V = normalize(fragCameraPos - fragPos);
    
     vec3 N = normalize(fragNormal);

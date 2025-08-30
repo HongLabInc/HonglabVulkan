@@ -145,24 +145,5 @@ Loaded embedded texture 4 (2048x2048) with linear format
 Successfully loaded model: ../../assets/models/DamagedHelmet.glb
   Meshes: 1
   Materials: 2
-  Loading time: 347 ms
+  Loading time: 3185 ms
 No animations found in model 'Helmet'
-Creating a graphics pipeline: sky
-
-Creating a graphics pipeline: post
-
-Creating a graphics pipeline: shadowMap
-
-Loading IBL textures...
-  Prefiltered: ../../assets/textures/golden_gate_hills_4k/specularGGX.ktx2
-  Irradiance: ../../assets/textures/golden_gate_hills_4k/diffuseLambertian.ktx2
-  BRDF LUT: ../../assets/textures/golden_gate_hills_4k/outputLUT.png
-Saved descriptor pool statistics to DescriptorPoolSize.txt
-
-=== DescriptorPool Allocated Statistics ===
-Total Pools Created: 1
-Total Allocated Sets: 11
-  COMBINED_IMAGE_SAMPLER: 19
-  UNIFORM_BUFFER: 14
-============================================
-
