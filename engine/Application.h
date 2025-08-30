@@ -237,12 +237,21 @@ class Application
     GuiRenderer guiRenderer_;
     Renderer renderer_;
 
+    // FPS tracking variables
+    float currentFPS_{0.0f};
+    float fpsUpdateTimer_{0.0f};
+    uint32_t framesSinceLastUpdate_{0};
+    static constexpr float kFpsUpdateInterval = 0.1f; // Update FPS display every 100ms (10 times per second)
+
     // NEW: Configuration loading methods
     void initializeWithConfig(const ApplicationConfig& config);
     void setupCamera(const CameraConfig& cameraConfig);
     void loadModels(const vector<ModelConfig>& modelConfigs);
     void setupCallbacks();
     void initializeVulkanResources();
+
+    // FPS calculation method
+    void updateFPS(float deltaTime);
 
     void renderHDRControlWindow();
     void renderPostProcessingControlWindow();
