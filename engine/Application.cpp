@@ -467,15 +467,11 @@ void Application::run()
             VkRect2D scissor{0, 0, windowSize_.width, windowSize_.height};
 
             // Draw models
-            {
-                renderer_.draw(cmd.handle(), currentFrame, swapchain_.imageView(imageIndex),
-                               models_, viewport, scissor);
-            }
+            renderer_.draw(cmd.handle(), currentFrame, swapchain_.imageView(imageIndex), models_,
+                           viewport, scissor);
 
             // Draw GUI (overwrite to swapchain image)
-            {
-                guiRenderer_.draw(cmd.handle(), swapchain_.imageView(imageIndex), viewport);
-            }
+            guiRenderer_.draw(cmd.handle(), swapchain_.imageView(imageIndex), viewport);
 
             swapchain_.barrierHelper(imageIndex)
                 .transitionTo(cmd.handle(), VK_ACCESS_2_NONE, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,

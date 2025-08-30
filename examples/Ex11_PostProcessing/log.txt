@@ -25,7 +25,6 @@ Required Instance Extensions:
   VK_KHR_surface
   VK_KHR_win32_surface
   VK_KHR_portability_enumeration
-  VK_EXT_debug_utils
 Available instance layers:
   VK_LAYER_EOS_Overlay
   VK_LAYER_EOS_Overlay
@@ -79,7 +78,7 @@ Queue Family Properties: 6
   Queue Family 4: 2 queues, flags: TRANSFER SPARSE_BINDING VIDEO_ENCODE 
   Queue Family 5: 1 queues, flags: TRANSFER SPARSE_BINDING OPTICAL_FLOW 
 Found DescriptorPoolSize.txt, loading previous statistics...
-Created initial pool with 6 sets and 2 descriptor types
+Created initial pool with 4 sets and 2 descriptor types
 Selected Surface Format: R8G8B8A8_UNORM
 Selected Color Space: VK_COLOR_SPACE_SRGB_NONLINEAR_KHR
 Swapchain Storage Bit Support: YES
@@ -93,19 +92,19 @@ Selected Present Mode: VK_PRESENT_MODE_MAILBOX_KHR
 Designed Num of Swapchain Images: 3
 Added VK_IMAGE_USAGE_STORAGE_BIT to swapchain
 ShaderManager: Created 4 unique layout(s)
-  Layout 0 (0x140000000014): 3 binding(s), used by:
+  Layout 0 (0x2619a07a120): 3 binding(s), used by:
     - Pipeline 'sky', Set 1
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 1: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 2: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
-  Layout 1 (0x150000000015): 2 binding(s), used by:
+  Layout 1 (0x2619a059bc0): 2 binding(s), used by:
     - Pipeline 'sky', Set 0
     Binding 0: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
-  Layout 2 (0x160000000016): 1 binding(s), used by:
+  Layout 2 (0x2619a059d40): 1 binding(s), used by:
     - Pipeline 'gui', Set 0
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
-  Layout 3 (0x170000000017): 2 binding(s), used by:
+  Layout 3 (0x2619a0853f0): 2 binding(s), used by:
     - Pipeline 'post', Set 0
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=FRAGMENT
