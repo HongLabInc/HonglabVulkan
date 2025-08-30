@@ -985,15 +985,13 @@ void Application::renderCameraControlWindow()
 
 void Application::handleMouseMove(int32_t x, int32_t y)
 {
-    int32_t dx = (int32_t)mouseState_.position.x - x;
-    int32_t dy = (int32_t)mouseState_.position.y - y;
-
-    bool handled = false;
-
     if (ImGui::GetIO().WantCaptureMouse) {
         mouseState_.position = glm::vec2((float)x, (float)y);
         return;
     }
+
+    int32_t dx = (int32_t)mouseState_.position.x - x;
+    int32_t dy = (int32_t)mouseState_.position.y - y;
 
     if (mouseState_.buttons.left) {
         camera_.rotate(glm::vec3(-dy * camera_.rotationSpeed, -dx * camera_.rotationSpeed, 0.0f));
