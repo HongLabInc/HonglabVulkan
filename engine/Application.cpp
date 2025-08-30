@@ -7,6 +7,7 @@
 #include <glm/gtx/matrix_decompose.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <chrono>
+#include <algorithm>
 
 namespace hlab {
 
@@ -351,6 +352,9 @@ void Application::run()
         // Clamp delta time to prevent large jumps (e.g., when debugging)
         deltaTime = std::min(deltaTime, 0.033f); // Max 33ms (30 FPS minimum)
 
+        // Update FPS calculation
+        updateFPS(deltaTime);
+
         updateGui();
 
         camera_.update(deltaTime);
@@ -372,7 +376,7 @@ void Application::run()
                     glm::lookAt(vec3(0.0f), -renderer_.sceneUBO().directionalLightDir,
                                 glm::vec3(0.0f, 0.0f, 1.0f));
 
-                // Transform the first model's bounding box by its model matrix
+                // Transform the first model's bounding box to world space
                 vec3 firstMin =
                     vec3(models_[0].modelMatrix() * vec4(models_[0].boundingBoxMin(), 1.0f));
                 vec3 firstMax =
@@ -384,7 +388,7 @@ void Application::run()
 
                 // Iterate through all remaining models to determine the combined bounding box
                 for (uint32_t i = 1; i < models_.size(); i++) {
-                    // Transform this model's bounding box by its model matrix
+                    // Transform this model's bounding box to world space
                     vec3 modelMin =
                         vec3(models_[i].modelMatrix() * vec4(models_[i].boundingBoxMin(), 1.0f));
                     vec3 modelMax =
@@ -529,6 +533,26 @@ void Application::updateGui()
     ImGui::SetNextWindowPos(ImVec2(10 * scale, 10 * scale), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(0, 0), ImGuiCond_FirstUseEver);
     ImGui::Begin("벌컨 실시간 렌더링 예제", nullptr, ImGuiWindowFlags_None);
+
+    // FPS Display at the top
+    ImGui::Text("FPS: %.1f (%.2f ms/frame)", currentFPS_, 1000.0f / std::max(currentFPS_, 1.0f));
+    
+    // Color-coded FPS display for better visual feedback
+    ImVec4 fpsColor = ImVec4(0.0f, 1.0f, 0.0f, 1.0f); // Green for good FPS
+    if (currentFPS_ < 30.0f) {
+        fpsColor = ImVec4(1.0f, 0.0f, 0.0f, 1.0f); // Red for poor FPS
+    } else if (currentFPS_ < 60.0f) {
+        fpsColor = ImVec4(1.0f, 1.0f, 0.0f, 1.0f); // Yellow for moderate FPS
+    }
+    
+    ImGui::SameLine();
+    ImGui::TextColored(fpsColor, "●");
+    
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Performance Indicator\nGreen: >60 FPS\nYellow: 30-60 FPS\nRed: <30 FPS");
+    }
+    
+    ImGui::Separator();
 
     static vec3 lightColor = vec3(1.0f);
     static float lightIntensity = 28.454f;
@@ -1006,6 +1030,24 @@ void Application::handleMouseMove(int32_t x, int32_t y)
     }
 
     mouseState_.position = glm::vec2((float)x, (float)y);
+}
+
+void Application::updateFPS(float deltaTime)
+{
+    framesSinceLastUpdate_++;
+    fpsUpdateTimer_ += deltaTime;
+
+    // Update FPS display periodically to avoid flickering
+    if (fpsUpdateTimer_ >= kFpsUpdateInterval) {
+        currentFPS_ = static_cast<float>(framesSinceLastUpdate_) / fpsUpdateTimer_;
+        
+        // Clamp FPS to reasonable values to handle edge cases
+        currentFPS_ = std::clamp(currentFPS_, 0.1f, 1000.0f);
+        
+        // Reset counters
+        framesSinceLastUpdate_ = 0;
+        fpsUpdateTimer_ = 0.0f;
+    }
 }
 
 } // namespace hlab
