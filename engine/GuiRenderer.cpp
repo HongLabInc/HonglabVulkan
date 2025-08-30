@@ -102,7 +102,7 @@ bool GuiRenderer::update()
 
     if ((vertexBuffer_.buffer() == VK_NULL_HANDLE) ||
         (imDrawData->TotalVtxCount > int(vertexCount_))) {
-        ctx_.waitGraphicsQueueIdle();
+        ctx_.waitGraphicsQueueIdle(); // <- 뒤에서 멀티 버퍼 방식으로 제거
         vertexBuffer_.createVertexBuffer(vertexBufferSize, nullptr);
         vertexCount_ = imDrawData->TotalVtxCount; // This represents buffer capacity
         updateCmdBuffers = true;
@@ -110,7 +110,7 @@ bool GuiRenderer::update()
 
     if ((indexBuffer_.buffer() == VK_NULL_HANDLE) ||
         (imDrawData->TotalIdxCount > int(indexCount_))) {
-        ctx_.waitGraphicsQueueIdle();
+        ctx_.waitGraphicsQueueIdle(); // <- 뒤에서 멀티 버퍼 방식으로 제거
         indexBuffer_.createIndexBuffer(indexBufferSize, nullptr);
         indexCount_ = imDrawData->TotalIdxCount; // This represents buffer capacity
         updateCmdBuffers = true;
