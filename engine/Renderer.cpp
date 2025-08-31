@@ -149,7 +149,7 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
             forwardToCompute_.view(), VK_RESOLVE_MODE_AVERAGE_BIT);
         auto depthAttachment =
             createDepthAttachment(msaaDepthStencil_.view, VK_ATTACHMENT_LOAD_OP_CLEAR, 1.0f,
-                                  depthStencil_.view, VK_RESOLVE_MODE_MIN_BIT);
+                                  depthStencil_.view, VK_RESOLVE_MODE_SAMPLE_ZERO_BIT);
         auto renderingInfo = createRenderingInfo(renderArea, &colorAttachment, &depthAttachment);
 
         vkCmdBeginRendering(cmd, &renderingInfo);

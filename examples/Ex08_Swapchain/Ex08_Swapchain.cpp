@@ -5,6 +5,7 @@
 
 #include <chrono>
 #include <thread>
+#include <cmath>
 
 using namespace hlab;
 using namespace std;
@@ -42,9 +43,9 @@ VkClearColorValue generateAnimatedColor()
     auto currentTime = chrono::high_resolution_clock::now();
     float time = chrono::duration<float>(currentTime - startTime).count();
 
-    float red = (sin(time * 0.5f) + 1.0f) * 0.5f;
-    float green = (sin(time * 0.7f + 1.0f) + 1.0f) * 0.5f;
-    float blue = (sin(time * 0.9f + 2.0f) + 1.0f) * 0.5f;
+    float red = (std::sin(time * 0.5f) + 1.0f) * 0.5f;
+    float green = (std::sin(time * 0.7f + 1.0f) + 1.0f) * 0.5f;
+    float blue = (std::sin(time * 0.9f + 2.0f) + 1.0f) * 0.5f;
 
     return {{red, green, blue, 1.0f}};
 }

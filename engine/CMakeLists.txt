@@ -46,6 +46,7 @@ add_library(Engine STATIC
     PipelineShadowMap.cpp
     PipelineSky.cpp
     PipelineSsao.cpp
+    PipelineTriangle.cpp
     PushConstants.cpp
     PushConstants.h
     Renderer.cpp
@@ -84,6 +85,7 @@ add_library(Engine STATIC
 target_include_directories(Engine PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}
+    ${CMAKE_BINARY_DIR}/vcpkg_installed/x64-linux/include
 )
 
 # Add compiler definitions to fix C++20 compatibility issues
