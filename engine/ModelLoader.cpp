@@ -549,9 +549,9 @@ void ModelLoader::processNode(aiNode* node, const aiScene* scene, ModelNode* par
 
     // Add to parent or root
     if (parent) {
-        parent->children.push_back(move(modelNode));
+        parent->children.push_back(std::move(modelNode));
     } else {
-        model_.rootNode_ = move(modelNode);
+        model_.rootNode_ = std::move(modelNode);
     }
 
     // Process children

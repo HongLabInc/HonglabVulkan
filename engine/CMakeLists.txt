@@ -85,7 +85,6 @@ add_library(Engine STATIC
 target_include_directories(Engine PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}
-    ${CMAKE_BINARY_DIR}/vcpkg_installed/x64-linux/include
 )
 
 # Add compiler definitions to fix C++20 compatibility issues
@@ -95,6 +94,13 @@ target_compile_definitions(Engine PUBLIC
     GLM_FORCE_DEPTH_ZERO_TO_ONE
     GLFW_INCLUDE_VULKAN
 )
+
+# Set C++ standard - disable for now to fix build
+# set_target_properties(Engine PROPERTIES
+#     CXX_STANDARD 23
+#     CXX_STANDARD_REQUIRED ON
+#     CXX_EXTENSIONS OFF
+# )
 
 # Link required dependencies
 target_link_libraries(Engine PUBLIC Vulkan::Vulkan)
@@ -130,23 +136,34 @@ elseif(TARGET spirv-reflect::spirv-reflect)
     target_compile_definitions(Engine PUBLIC HAS_SPIRV_REFLECT)
 endif()
 
-# Handle KTX - prioritize manually built KTX over vcpkg
-if(TARGET ktx::ktx)
-    # Use manually built KTX from /mnt/d/UbuntuTestFolder/KTX-Software
+# Handle KTX with better detection for macOS
+find_package(ktx QUIET)
+if(TARGET KTX::ktx)
+    target_link_libraries(Engine PUBLIC KTX::ktx)
+    target_compile_definitions(Engine PUBLIC HAS_KTX)
+    message(STATUS "Engine: Using KTX::ktx library")
+elseif(TARGET ktx::ktx)
     target_link_libraries(Engine PUBLIC ktx::ktx)
     target_compile_definitions(Engine PUBLIC HAS_KTX)
-    message(STATUS "Engine: Using manually built KTX library from /mnt/d/UbuntuTestFolder/KTX-Software")
+    message(STATUS "Engine: Using ktx::ktx library")
 elseif(TARGET unofficial::ktx::ktx)
-    # Fallback to vcpkg KTX if available
     target_link_libraries(Engine PUBLIC unofficial::ktx::ktx)
     target_compile_definitions(Engine PUBLIC HAS_KTX)
-    message(STATUS "Engine: Using vcpkg KTX library")
+    message(STATUS "Engine: Using vcpkg unofficial::ktx::ktx library")
 else()
-    message(STATUS "Engine: KTX library not found")
+    # Try to find KTX manually
+    find_path(KTX_INCLUDE_DIR ktx.h PATHS /usr/local/include /opt/homebrew/include)
+    find_library(KTX_LIBRARY NAMES ktx libktx PATHS /usr/local/lib /opt/homebrew/lib)
+    
+    if(KTX_INCLUDE_DIR AND KTX_LIBRARY)
+        target_include_directories(Engine PUBLIC ${KTX_INCLUDE_DIR})
+        target_link_libraries(Engine PUBLIC ${KTX_LIBRARY})
+        target_compile_definitions(Engine PUBLIC HAS_KTX)
+        message(STATUS "Engine: Using manually found KTX library at ${KTX_LIBRARY}")
+    else()
+        message(STATUS "Engine: KTX library not found - disabling KTX support")
+    endif()
 endif()
-
-# Compiler-specific options (changed to C++20 to match main CMakeLists.txt)
-target_compile_features(Engine PUBLIC cxx_std_20)
 
 # Platform-specific settings
 if(UNIX AND NOT APPLE)

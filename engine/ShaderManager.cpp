@@ -80,7 +80,7 @@ void ShaderManager::collectLayoutInfos()
     layoutInfos_.reserve(bindingsCollector.size());
 
     for (auto& [bindings, pipelineInfo] : bindingsCollector) {
-        layoutInfos_.emplace_back(LayoutInfo{bindings, move(pipelineInfo)});
+        layoutInfos_.emplace_back(LayoutInfo{bindings, std::move(pipelineInfo)});
     }
 }
 
