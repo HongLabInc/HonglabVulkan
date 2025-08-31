@@ -199,8 +199,6 @@ void Context::selectPhysicalDevice()
             queueFlagsStr += "VIDEO_ENCODE ";
         if (props.queueFlags & VK_QUEUE_OPTICAL_FLOW_BIT_NV)
             queueFlagsStr += "OPTICAL_FLOW ";
-        if (props.queueFlags & VK_QUEUE_DATA_GRAPH_BIT_ARM)
-            queueFlagsStr += "DATA_GRAPH ";
 
         printLog("  Queue Family {}: {} queues, flags: {}", i, props.queueCount, queueFlagsStr);
     }

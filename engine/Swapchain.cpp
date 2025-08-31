@@ -112,8 +112,6 @@ const char* presentModeToString(VkPresentModeKHR mode)
         return "SHARED_DEMAND_REFRESH_KHR";
     case VK_PRESENT_MODE_SHARED_CONTINUOUS_REFRESH_KHR:
         return "SHARED_CONTINUOUS_REFRESH_KHR";
-    case VK_PRESENT_MODE_FIFO_LATEST_READY_KHR:
-        return "FIFO_LATEST_READY_KHR";
     default:
         return "UNKNOWN";
     }
