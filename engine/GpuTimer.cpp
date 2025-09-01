@@ -145,7 +145,7 @@ bool GpuTimer::hasAnyResultsReady() const
     if (!timestampSupported_) {
         return false;
     }
-
+    
     for (uint32_t i = 0; i < maxFramesInFlight_; ++i) {
         if (isResultReady(i)) {
             return true;
