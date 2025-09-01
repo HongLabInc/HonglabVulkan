@@ -60,8 +60,10 @@ class ShadowMap
         samplerCI.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
         samplerCI.borderColor =
             VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE; // Outside shadow map = fully lit
-        samplerCI.compareEnable = VK_TRUE;
-        samplerCI.compareOp = VK_COMPARE_OP_LESS_OR_EQUAL; // For shadow comparison
+        
+        // Use regular sampler for macOS compatibility - shader does manual depth comparison
+        samplerCI.compareEnable = VK_FALSE;
+        samplerCI.compareOp = VK_COMPARE_OP_NEVER;
         check(vkCreateSampler(device, &samplerCI, nullptr, &sampler_));
 
         resourceBinding_.image_ = image_;
@@ -121,6 +123,11 @@ class ShadowMap
     auto resourceBinding() -> ResourceBinding&
     {
         return resourceBinding_;
+    }
+
+    auto usesComparisonSamplers() const -> bool
+    {
+        return ctx_.supportsComparisonSamplers();
     }
 
   private:

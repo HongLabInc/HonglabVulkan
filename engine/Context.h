@@ -61,6 +61,7 @@ class Context
     auto getMaxUsableSampleCount() -> VkSampleCountFlagBits;
     auto getMemoryTypeIndex(uint32_t typeBits, VkMemoryPropertyFlags properties) const -> uint32_t;
     auto depthFormat() const -> VkFormat;
+    auto supportsComparisonSamplers() const -> bool;
     auto descriptorPool() -> DescriptorPool&
     {
         return descriptorPool_;

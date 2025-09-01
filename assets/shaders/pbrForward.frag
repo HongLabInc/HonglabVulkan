@@ -66,7 +66,8 @@ layout(set = 2, binding = 1) uniform samplerCube irradianceMap;
 layout(set = 2, binding = 2) uniform sampler2D brdfLUT;
 
 // Shadow map (주의: 각 셋의 바인딩은 0에서 시작해야 함)
-layout(set = 3, binding = 0) uniform sampler2DShadow shadowMap;
+// Use regular sampler2D for macOS compatibility instead of sampler2DShadow
+layout(set = 3, binding = 0) uniform sampler2D shadowMap;
 
 layout(location = 0) out vec4 outColor;
 
@@ -119,15 +120,18 @@ float calculateShadow(vec4 fragPosLightSpace)
     
     // projCoords.y = 1.0 - projCoords.y;
 
-    // PCF with Poisson disk sampling
+    // PCF with Poisson disk sampling - Manual depth comparison for macOS compatibility
     float shadow = 0.0;
     vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
     float filterRadius = 2.0; // Adjust for shadow softness
+    float bias = 0.005; // Small bias to prevent shadow acne
     
     for(int i = 0; i < 16; ++i)
     {
         vec2 offset = poissonDisk[i] * texelSize * filterRadius;
-        shadow += texture(shadowMap, vec3(projCoords.xy + offset, projCoords.z));
+        float sampledDepth = texture(shadowMap, projCoords.xy + offset).r;
+        // Manual depth comparison: if current depth is greater than sampled depth, we're in shadow
+        shadow += (projCoords.z - bias) <= sampledDepth ? 1.0 : 0.0;
     }
     shadow /= 16.0;
 

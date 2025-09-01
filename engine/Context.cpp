@@ -493,6 +493,12 @@ void Context::createLogicalDevice(bool useSwapChain)
         deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     }
 
+    // Add portability subset extension if supported (required on macOS with MoltenVK)
+    const char* portabilitySubsetExtension = "VK_KHR_portability_subset";
+    if (extensionSupported(portabilitySubsetExtension)) {
+        deviceExtensions.push_back(portabilitySubsetExtension);
+    }
+
     enabledFeatures_.samplerAnisotropy = deviceFeatures_.samplerAnisotropy;
     enabledFeatures_.depthClamp = deviceFeatures_.depthClamp;
     enabledFeatures_.depthBiasClamp = deviceFeatures_.depthBiasClamp;
@@ -817,6 +823,18 @@ void Context::createQueues()
     if (transferQueue_ == VK_NULL_HANDLE) {
         exitWithMessage("Failed to get transfer queue");
     }
+}
+
+bool Context::supportsComparisonSamplers() const
+{
+#ifdef MACOS
+    // On macOS with MoltenVK, comparison samplers are generally not supported
+    // due to portability subset limitations
+    return false;
+#else
+    // On other platforms, comparison samplers are generally supported
+    return true;
+#endif
 }
 
 } // namespace hlab
