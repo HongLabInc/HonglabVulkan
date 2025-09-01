@@ -275,6 +275,16 @@ auto DescriptorPool::descriptorSetLayout(const vector<VkDescriptorSetLayoutBindi
         }
     }
 
+    if (bindings.size() == 0) {
+        printLog("Empty bindings provided.");
+    }
+
+    for (const auto& binding : bindings) {
+        printLog("    Binding {}: type={}, count={}, stages={}", binding.binding,
+                 descriptorTypeToString(binding.descriptorType), binding.descriptorCount,
+                 shaderStageFlagsToString(binding.stageFlags));
+    }
+
     exitWithMessage(
         "Failed to find descriptor set layout for the given bindings in layoutsAndInfos_");
 
@@ -292,6 +302,9 @@ auto DescriptorPool::layoutToBindings(const VkDescriptorSetLayout& layout)
             return layoutInfo.bindings_;
         }
     }
+
+    printLog("Failed to find descriptor set layout in layoutAndInfos_: {}",
+             reinterpret_cast<uintptr_t>(layout));
 
     exitWithMessage("Failed to find descriptor set layout in layoutAndInfos_");
 
