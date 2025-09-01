@@ -55,8 +55,8 @@ int main()
                             computePipeline.pipelineLayout(), 0, 1, &descriptorSet.handle(), 0,
                             nullptr);
 
-    uint32_t groupCountX = (width + 31) / 32;
-    uint32_t groupCountY = (height + 31) / 32;
+    uint32_t groupCountX = (width + 15) / 16;
+    uint32_t groupCountY = (height + 15) / 16;
     vkCmdDispatch(cmd.handle(), groupCountX, groupCountY, 1);
 
     outputImage.transitionTo(cmd.handle(), VK_ACCESS_2_TRANSFER_READ_BIT,
