@@ -532,10 +532,11 @@ void Application::updateGui()
     double scaleY = (double)windowSize_.height / windowHeight;
     
     // Set ImGui display size to logical window size
-    io.DisplaySize = ImVec2(static_cast<float>(windowWidth), static_cast<float>(windowHeight));
-    
+    io.DisplaySize = ImVec2(static_cast<float>(windowSize_.width), static_cast<float>(windowSize_.height));
+
     // Set framebuffer scale for proper rendering
-    io.DisplayFramebufferScale = ImVec2(static_cast<float>(scaleX), static_cast<float>(scaleY));
+    io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+    //io.DisplayFramebufferScale = ImVec2(static_cast<float>(scaleX), static_cast<float>(scaleY));
     // io.DeltaTime = frameTimer;
 
     // Always pass mouse input to ImGui - let ImGui decide if it wants to capture it
