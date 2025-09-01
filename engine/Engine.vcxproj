@@ -28,6 +28,7 @@
     <ClInclude Include="DepthStencil.h" />
     <ClInclude Include="DescriptorPool.h" />
     <ClInclude Include="DescriptorSet.h" />
+    <ClInclude Include="GpuTimer.h" />
     <ClInclude Include="GuiRenderer.h" />
     <ClInclude Include="Logger.h" />
     <ClInclude Include="MappedBuffer.h" />
@@ -65,6 +66,7 @@
     <ClCompile Include="DepthStencil.cpp" />
     <ClCompile Include="DescriptorPool.cpp" />
     <ClCompile Include="DescriptorSet.cpp" />
+    <ClCompile Include="GpuTimer.cpp" />
     <ClCompile Include="GuiRenderer.cpp" />
     <ClCompile Include="Logger.cpp" />
     <ClCompile Include="MappedBuffer.cpp" />

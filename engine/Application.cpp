@@ -1,5 +1,6 @@
 #include "Application.h"
 #include "Logger.h"
+#include "GpuTimer.h"
 
 #include <format>
 #include <glm/glm.hpp>
@@ -29,7 +30,8 @@ Application::Application(const ApplicationConfig& config)
                       {"post", {"post.vert.spv", "post.frag.spv"}},
                       {"gui", {"imgui.vert", "imgui.frag"}}}),
       guiRenderer_(ctx_, shaderManager_, swapchain_.colorFormat()),
-      renderer_(ctx_, shaderManager_, kMaxFramesInFlight, kAssetsPathPrefix, kShaderPathPrefix)
+      renderer_(ctx_, shaderManager_, kMaxFramesInFlight, kAssetsPathPrefix, kShaderPathPrefix),
+      gpuTimer_(ctx_, kMaxFramesInFlight) // Initialize GPU timer
 {
     initializeVulkanResources();
     setupCallbacks();
@@ -352,8 +354,8 @@ void Application::run()
         // Clamp delta time to prevent large jumps (e.g., when debugging)
         deltaTime = std::min(deltaTime, 0.033f); // Max 33ms (30 FPS minimum)
 
-        // Update FPS calculation
-        updateFPS(deltaTime);
+        // Update performance metrics (both CPU FPS and GPU timing)
+        updatePerformanceMetrics(deltaTime);
 
         updateGui();
 
@@ -454,33 +456,38 @@ void Application::run()
         VkCommandBufferBeginInfo cmdBufferBeginInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
         check(vkBeginCommandBuffer(cmd.handle(), &cmdBufferBeginInfo));
 
+        // *** GPU TIMING START ***
+        // Reset and begin GPU timing for this frame
+        gpuTimer_.resetQueries(cmd.handle(), currentFrame);
+        gpuTimer_.beginFrame(cmd.handle(), currentFrame);
+
         // Make Shadow map
-        {
-            renderer_.makeShadowMap(cmd.handle(), currentFrame, models_);
-        }
+        renderer_.makeShadowMap(cmd.handle(), currentFrame, models_);
+        // Transition swapchain image from undefined to color attachment layout
+        swapchain_.barrierHelper(imageIndex)
+            .transitionTo(cmd.handle(), VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                          VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                          VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
 
-        {
-            // Transition swapchain image from undefined to color attachment layout
-            swapchain_.barrierHelper(imageIndex)
-                .transitionTo(cmd.handle(), VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-                              VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                              VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
+        VkViewport viewport{0.0f, 0.0f, (float)windowSize_.width, (float)windowSize_.height,
+                            0.0f, 1.0f};
+        VkRect2D scissor{0, 0, windowSize_.width, windowSize_.height};
 
-            VkViewport viewport{0.0f, 0.0f, (float)windowSize_.width, (float)windowSize_.height,
-                                0.0f, 1.0f};
-            VkRect2D scissor{0, 0, windowSize_.width, windowSize_.height};
+        // Draw models
+        renderer_.draw(cmd.handle(), currentFrame, swapchain_.imageView(imageIndex), models_,
+                       viewport, scissor);
 
-            // Draw models
-            renderer_.draw(cmd.handle(), currentFrame, swapchain_.imageView(imageIndex), models_,
-                           viewport, scissor);
+        // Draw GUI (overwrite to swapchain image)
+        guiRenderer_.draw(cmd.handle(), swapchain_.imageView(imageIndex), viewport, currentFrame);
 
-            // Draw GUI (overwrite to swapchain image)
-            guiRenderer_.draw(cmd.handle(), swapchain_.imageView(imageIndex), viewport, currentFrame);
+        swapchain_.barrierHelper(imageIndex)
+            .transitionTo(cmd.handle(), VK_ACCESS_2_NONE, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                          VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT);
 
-            swapchain_.barrierHelper(imageIndex)
-                .transitionTo(cmd.handle(), VK_ACCESS_2_NONE, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-                              VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT);
-        }
+        // *** GPU TIMING END ***
+        // End GPU timing (excludes presentation)
+        gpuTimer_.endFrame(cmd.handle(), currentFrame);
+
         check(vkEndCommandBuffer(cmd.handle())); // End command buffer
 
         VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -496,6 +503,7 @@ void Application::run()
         submitInfo.signalSemaphoreCount = 1;
         check(vkQueueSubmit(cmd.queue(), 1, &submitInfo, waitFences_[currentFrame]));
 
+        // Present (NOT included in GPU timing)
         VkPresentInfoKHR presentInfo{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
         presentInfo.waitSemaphoreCount = 1;
         presentInfo.pWaitSemaphores = &renderCompleteSemaphores_[currentSemaphore];
@@ -534,24 +542,54 @@ void Application::updateGui()
     ImGui::SetNextWindowSize(ImVec2(0, 0), ImGuiCond_FirstUseEver);
     ImGui::Begin("벌컨 실시간 렌더링 예제", nullptr, ImGuiWindowFlags_None);
 
-    // FPS Display at the top
-    ImGui::Text("FPS: %.1f (%.2f ms/frame)", currentFPS_, 1000.0f / std::max(currentFPS_, 1.0f));
-    
-    // Color-coded FPS display for better visual feedback
-    ImVec4 fpsColor = ImVec4(0.0f, 1.0f, 0.0f, 1.0f); // Green for good FPS
+    // Enhanced performance display
+    ImGui::Text("CPU FPS: %.1f (%.2f ms/frame)", currentFPS_,
+                1000.0f / std::max(currentFPS_, 1.0f));
+
+    if (gpuTimer_.isTimestampSupported()) {
+        ImGui::Text("GPU Time: %.2f ms", currentGpuTimeMs_);
+
+        // Calculate GPU FPS equivalent for comparison
+        float gpuFPS = currentGpuTimeMs_ > 0.0f ? 1000.0f / currentGpuTimeMs_ : 0.0f;
+        ImGui::Text("GPU FPS equiv: %.1f", gpuFPS);
+
+        // Debug information
+        ImGui::Text("Debug: Results ready: %s", gpuTimer_.hasAnyResultsReady() ? "Yes" : "No");
+    } else {
+        ImGui::Text("GPU Time: Not supported");
+    }
+
+    // Color-coded performance indicators
+    ImVec4 cpuColor = ImVec4(0.0f, 1.0f, 0.0f, 1.0f); // Green for good FPS
     if (currentFPS_ < 30.0f) {
-        fpsColor = ImVec4(1.0f, 0.0f, 0.0f, 1.0f); // Red for poor FPS
+        cpuColor = ImVec4(1.0f, 0.0f, 0.0f, 1.0f); // Red
     } else if (currentFPS_ < 60.0f) {
-        fpsColor = ImVec4(1.0f, 1.0f, 0.0f, 1.0f); // Yellow for moderate FPS
+        cpuColor = ImVec4(1.0f, 1.0f, 0.0f, 1.0f); // Yellow
     }
-    
+
+    ImVec4 gpuColor = ImVec4(0.0f, 1.0f, 0.0f, 1.0f); // Green for good GPU time
+    if (currentGpuTimeMs_ > 33.33f) {                 // > 30 FPS equivalent
+        gpuColor = ImVec4(1.0f, 0.0f, 0.0f, 1.0f);    // Red
+    } else if (currentGpuTimeMs_ > 16.67f) {          // > 60 FPS equivalent
+        gpuColor = ImVec4(1.0f, 1.0f, 0.0f, 1.0f);    // Yellow
+    }
+
     ImGui::SameLine();
-    ImGui::TextColored(fpsColor, "●");
-    
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Performance Indicator\nGreen: >60 FPS\nYellow: 30-60 FPS\nRed: <30 FPS");
+    ImGui::TextColored(cpuColor, "● CPU");
+    if (gpuTimer_.isTimestampSupported()) {
+        ImGui::SameLine();
+        ImGui::TextColored(gpuColor, "● GPU");
     }
-    
+
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Performance Indicators\n"
+                          "CPU: Frame rate (includes CPU overhead)\n"
+                          "GPU: Pure GPU rendering time (excludes presentation)\n"
+                          "Green: Good performance\n"
+                          "Yellow: Moderate performance\n"
+                          "Red: Poor performance");
+    }
+
     ImGui::Separator();
 
     static vec3 lightColor = vec3(1.0f);
@@ -1032,21 +1070,40 @@ void Application::handleMouseMove(int32_t x, int32_t y)
     mouseState_.position = glm::vec2((float)x, (float)y);
 }
 
-void Application::updateFPS(float deltaTime)
+void Application::updatePerformanceMetrics(float deltaTime)
 {
+    // Update CPU FPS
     framesSinceLastUpdate_++;
     fpsUpdateTimer_ += deltaTime;
 
-    // Update FPS display periodically to avoid flickering
     if (fpsUpdateTimer_ >= kFpsUpdateInterval) {
         currentFPS_ = static_cast<float>(framesSinceLastUpdate_) / fpsUpdateTimer_;
-        
-        // Clamp FPS to reasonable values to handle edge cases
         currentFPS_ = std::clamp(currentFPS_, 0.1f, 1000.0f);
-        
-        // Reset counters
+
         framesSinceLastUpdate_ = 0;
         fpsUpdateTimer_ = 0.0f;
+    }
+
+    // Update GPU timing - check less frequently to allow GPU queries to complete
+    gpuFramesSinceLastUpdate_++;
+    gpuTimeUpdateTimer_ += deltaTime;
+
+    // Wait a bit longer for GPU results (0.2s instead of 0.1s)
+    if (gpuTimeUpdateTimer_ >= (kGpuTimeUpdateInterval * 2.0f)) {
+        // Get GPU time for frames that should be ready
+        if (gpuTimer_.isTimestampSupported()) {
+            for (uint32_t i = 0; i < kMaxFramesInFlight; ++i) {
+                // Try to get results even if not marked as ready
+                float newGpuTime = gpuTimer_.getGpuTimeMs(i);
+                if (newGpuTime > 0.0f) {
+                    currentGpuTimeMs_ = newGpuTime;
+                    break;
+                }
+            }
+        }
+
+        gpuFramesSinceLastUpdate_ = 0;
+        gpuTimeUpdateTimer_ = 0.0f;
     }
 }
 

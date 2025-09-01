@@ -36,6 +36,7 @@
     <ClInclude Include="Animation.h" />
     <ClInclude Include="ModelLoader.h" />
     <ClInclude Include="Skeleton.h" />
+    <ClInclude Include="GpuTimer.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Logger.cpp" />
@@ -82,6 +83,7 @@
     <ClCompile Include="ModelLoader.cpp" />
     <ClCompile Include="Skeleton.cpp" />
     <ClCompile Include="PipelineTriangle.cpp" />
+    <ClCompile Include="GpuTimer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\.clang-format" />

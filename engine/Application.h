@@ -14,6 +14,7 @@
 #include "Window.h"
 #include "Renderer.h"
 #include "ShaderManager.h"
+#include "GpuTimer.h"
 
 #include <format>
 #include <fstream>
@@ -237,6 +238,13 @@ class Application
     GuiRenderer guiRenderer_;
     Renderer renderer_;
 
+    // GPU timing
+    GpuTimer gpuTimer_;
+    float currentGpuTimeMs_{0.0f};
+    float gpuTimeUpdateTimer_{0.0f};
+    uint32_t gpuFramesSinceLastUpdate_{0};
+    static constexpr float kGpuTimeUpdateInterval = 0.1f;
+
     // FPS tracking variables
     float currentFPS_{0.0f};
     float fpsUpdateTimer_{0.0f};
@@ -251,7 +259,7 @@ class Application
     void initializeVulkanResources();
 
     // FPS calculation method
-    void updateFPS(float deltaTime);
+    void updatePerformanceMetrics(float deltaTime);
 
     void renderHDRControlWindow();
     void renderPostProcessingControlWindow();
