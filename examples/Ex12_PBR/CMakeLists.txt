@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(Ex12_PBR)
+project(Ex12_PBR LANGUAGES CXX)
 
 add_executable(Ex12_PBR Ex12_PBR.cpp)
 target_link_libraries(Ex12_PBR PRIVATE Engine)

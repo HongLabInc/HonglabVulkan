@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(Ex06_PipelineFactory)
+project(Ex06_PipelineFactory LANGUAGES CXX)
 
 add_executable(Ex06_PipelineFactory Ex06_PipelineFactory.cpp)
 target_link_libraries(Ex06_PipelineFactory PRIVATE Engine)

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(Ex05_ShaderReflection)
+project(Ex05_ShaderReflection LANGUAGES CXX)
 
 add_executable(Ex05_ShaderReflection Ex05_ShaderReflection.cpp)
 target_link_libraries(Ex05_ShaderReflection PRIVATE Engine)

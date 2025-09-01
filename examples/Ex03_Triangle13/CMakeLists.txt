@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(Ex03_Triangle13)
+project(Ex03_Triangle13 LANGUAGES CXX)
 
 add_executable(Ex03_Triangle13 Ex03_Triangle13.cpp)
 target_link_libraries(Ex03_Triangle13 PRIVATE Engine)

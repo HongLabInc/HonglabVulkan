@@ -6,6 +6,15 @@ project(HonglabVulkan VERSION 1.0.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Workaround for AppleClang 17.0.0 compatibility with CMake
+if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "17.0.0")
+    # Set default language standards for AppleClang 17.0.0
+    set(CMAKE_C_STANDARD_COMPUTED_DEFAULT "17")
+    set(CMAKE_C_EXTENSIONS_COMPUTED_DEFAULT "ON")
+    set(CMAKE_CXX_STANDARD_COMPUTED_DEFAULT "17")
+    set(CMAKE_CXX_EXTENSIONS_COMPUTED_DEFAULT "ON")
+endif()
+
 # Disable C language support to avoid feature detection issues
 set(CMAKE_C_COMPILER_LOADED FALSE)
 

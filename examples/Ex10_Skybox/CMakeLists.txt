@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(Ex10_Skybox)
+project(Ex10_Skybox LANGUAGES CXX)
 
 add_executable(Ex10_Skybox 
     Ex10_Skybox.cpp

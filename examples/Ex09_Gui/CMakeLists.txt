@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(Ex09_Gui)
+project(Ex09_Gui LANGUAGES CXX)
 
 add_executable(Ex09_Gui Ex09_Gui.cpp)
 target_link_libraries(Ex09_Gui PRIVATE Engine)

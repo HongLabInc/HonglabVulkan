@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(Ex07_OnDemandDescriptorPool)
+project(Ex07_OnDemandDescriptorPool LANGUAGES CXX)
 
 add_executable(Ex07_OnDemandDescriptorPool Ex07_OnDemandDescriptorPool.cpp)
 target_link_libraries(Ex07_OnDemandDescriptorPool PRIVATE Engine)

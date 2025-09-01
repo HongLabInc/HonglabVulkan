@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(Ex11_PostProcessing)
+project(Ex11_PostProcessing LANGUAGES CXX)
 
 add_executable(Ex11_PostProcessing 
     Ex11_PostProcessing.cpp

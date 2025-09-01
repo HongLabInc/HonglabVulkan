@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(Ex02_Compute)
+project(Ex02_Compute LANGUAGES CXX)
 
 add_executable(Ex02_Compute Ex02_Compute.cpp)
 target_link_libraries(Ex02_Compute PRIVATE Engine)

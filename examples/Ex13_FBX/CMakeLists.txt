@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(Ex13_FBX)
+project(Ex13_FBX LANGUAGES CXX)
 
 add_executable(Ex13_FBX Ex13_FBX.cpp)
 target_link_libraries(Ex13_FBX PRIVATE Engine)
