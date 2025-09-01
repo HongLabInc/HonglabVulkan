@@ -51,7 +51,7 @@ class GuiRenderer
 
     bool visible_{true};
     bool updated_{false};
-    float scale_{1.4f};
+    float scale_{1.0f}; // Reduced from 1.4f to make widgets smaller
     float updateTimer_{0.0f};
 };
 

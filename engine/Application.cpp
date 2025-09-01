@@ -295,22 +295,9 @@ void Application::setupCallbacks()
     window_.setCursorPosCallback([](GLFWwindow* window, double xpos, double ypos) {
         auto* app = static_cast<Application*>(glfwGetWindowUserPointer(window));
         
-        // Get window and framebuffer sizes for scaling
-        int windowWidth, windowHeight;
-        glfwGetWindowSize(window, &windowWidth, &windowHeight);
-        
-        int framebufferWidth, framebufferHeight;
-        glfwGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
-        
-        // Calculate scaling factors
-        double scaleX = (double)framebufferWidth / windowWidth;
-        double scaleY = (double)framebufferHeight / windowHeight;
-        
-        // Scale mouse coordinates for proper ImGui input
-        double scaledMouseX = xpos * scaleX;
-        double scaledMouseY = ypos * scaleY;
-        
-        app->handleMouseMove(static_cast<int32_t>(scaledMouseX), static_cast<int32_t>(scaledMouseY));
+        // When DisplayFramebufferScale is set, ImGui expects mouse coordinates in window space
+        // No scaling needed here - ImGui will handle the scaling internally
+        app->handleMouseMove(static_cast<int32_t>(xpos), static_cast<int32_t>(ypos));
     });
 
     window_.setScrollCallback([](GLFWwindow* window, double xoffset, double yoffset) {
@@ -527,7 +514,7 @@ void Application::run()
 
 void Application::updateGui()
 {
-    static float scale = 1.4f;
+    static float scale = 1.0f; // Reduced from 1.4f to make widgets smaller
 
     ImGuiIO& io = ImGui::GetIO();
 
