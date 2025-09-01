@@ -167,7 +167,7 @@ void GuiRenderer::draw(const VkCommandBuffer cmd, VkImageView swapchainImageView
 
     ImGuiIO& io = ImGui::GetIO();
     auto& pc = pushConsts_.data();
-    pc.scale = glm::vec2(2.0f / io.DisplaySize.x, 2.0f / io.DisplaySize.y);
+    pc.scale = glm::vec2(2.0f / viewport.width, 2.0f / viewport.height);
     pc.translate = glm::vec2(-1.0f);
     pushConsts_.push(cmd, guiPipeline_.pipelineLayout());
 

@@ -465,6 +465,10 @@ void Application::run()
                               VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                               VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
 
+            // Get logical window size for GUI viewport (must match io.DisplaySize)
+            int windowWidth, windowHeight;
+            glfwGetWindowSize(window_.getGLFWwindow(), &windowWidth, &windowHeight);
+
             VkViewport viewport{0.0f, 0.0f, (float)windowSize_.width, (float)windowSize_.height,
                                 0.0f, 1.0f};
             VkRect2D scissor{0, 0, windowSize_.width, windowSize_.height};
@@ -473,8 +477,9 @@ void Application::run()
             renderer_.draw(cmd.handle(), currentFrame, swapchain_.imageView(imageIndex), models_,
                            viewport, scissor);
 
-            // Draw GUI (overwrite to swapchain image)
-            guiRenderer_.draw(cmd.handle(), swapchain_.imageView(imageIndex), viewport);
+            // Draw GUI with viewport at framebuffer size, coordinate math uses viewport size
+            VkViewport guiViewport{0.0f, 0.0f, (float)windowSize_.width, (float)windowSize_.height, 0.0f, 1.0f};
+            guiRenderer_.draw(cmd.handle(), swapchain_.imageView(imageIndex), guiViewport);
 
             swapchain_.barrierHelper(imageIndex)
                 .transitionTo(cmd.handle(), VK_ACCESS_2_NONE, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
@@ -534,7 +539,7 @@ void Application::updateGui()
     // io.DeltaTime = frameTimer;
 
     // Always pass mouse input to ImGui - let ImGui decide if it wants to capture it
-    io.MousePos = ImVec2(mouseState_.position.x, mouseState_.position.y);
+    io.MousePos = ImVec2(mouseState_.position.x * scaleX, mouseState_.position.y * scaleY);
     io.MouseDown[0] = mouseState_.buttons.left;
     io.MouseDown[1] = mouseState_.buttons.right;
     io.MouseDown[2] = mouseState_.buttons.middle;
