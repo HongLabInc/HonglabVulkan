@@ -81,7 +81,7 @@ GLFWwindow* Window::createWindow()
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
-    glfwWindowHint(GLFW_COCOA_RETINA_FRAMEBUFFER, GLFW_FALSE); // MacOS scale fix
+    // Removed GLFW_COCOA_RETINA_FRAMEBUFFER, GLFW_FALSE to enable proper Retina support
 
     GLFWwindow* window =
         glfwCreateWindow(windowWidth, windowHeight, "Honglab Vulkan", nullptr, nullptr);

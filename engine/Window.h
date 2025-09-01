@@ -31,6 +31,9 @@ class Window
     void setCursorPosCallback(GLFWcursorposfun callback);
     void setScrollCallback(GLFWscrollfun callback);
     void setFramebufferSizeCallback(GLFWframebuffersizefun callback); // Add this line
+    
+    // Getter for GLFW window (needed for scaling calculations)
+    GLFWwindow* getGLFWwindow() const { return glfwWindow_; }
 
     static GLFWwindow* createWindow();
 

@@ -294,7 +294,23 @@ void Application::setupCallbacks()
 
     window_.setCursorPosCallback([](GLFWwindow* window, double xpos, double ypos) {
         auto* app = static_cast<Application*>(glfwGetWindowUserPointer(window));
-        app->handleMouseMove(static_cast<int32_t>(xpos), static_cast<int32_t>(ypos));
+        
+        // Get window and framebuffer sizes for scaling
+        int windowWidth, windowHeight;
+        glfwGetWindowSize(window, &windowWidth, &windowHeight);
+        
+        int framebufferWidth, framebufferHeight;
+        glfwGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
+        
+        // Calculate scaling factors
+        double scaleX = (double)framebufferWidth / windowWidth;
+        double scaleY = (double)framebufferHeight / windowHeight;
+        
+        // Scale mouse coordinates for proper ImGui input
+        double scaledMouseX = xpos * scaleX;
+        double scaledMouseY = ypos * scaleY;
+        
+        app->handleMouseMove(static_cast<int32_t>(scaledMouseX), static_cast<int32_t>(scaledMouseY));
     });
 
     window_.setScrollCallback([](GLFWwindow* window, double xoffset, double yoffset) {
@@ -515,7 +531,19 @@ void Application::updateGui()
 
     ImGuiIO& io = ImGui::GetIO();
 
-    io.DisplaySize = ImVec2(float(windowSize_.width), float(windowSize_.height));
+    // Get window size (logical size) for proper ImGui coordinate system
+    int windowWidth, windowHeight;
+    glfwGetWindowSize(window_.getGLFWwindow(), &windowWidth, &windowHeight);
+    
+    // Calculate scaling factors (windowSize_ is framebuffer size)
+    double scaleX = (double)windowSize_.width / windowWidth;
+    double scaleY = (double)windowSize_.height / windowHeight;
+    
+    // Set ImGui display size to logical window size
+    io.DisplaySize = ImVec2(static_cast<float>(windowWidth), static_cast<float>(windowHeight));
+    
+    // Set framebuffer scale for proper rendering
+    io.DisplayFramebufferScale = ImVec2(static_cast<float>(scaleX), static_cast<float>(scaleY));
     // io.DeltaTime = frameTimer;
 
     // Always pass mouse input to ImGui - let ImGui decide if it wants to capture it

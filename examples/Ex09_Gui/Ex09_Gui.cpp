@@ -102,12 +102,41 @@ void renderColorControlWindow()
 }
 
 // Enhanced GUI function with better structure
-void updateGui(VkExtent2D windowSize)
+void updateGui(VkExtent2D framebufferSize)
 {
     ImGuiIO& io = ImGui::GetIO();
 
-    // Update ImGui IO state
-    io.DisplaySize = ImVec2(float(windowSize.width), float(windowSize.height));
+    // Get window size (logical size) from GLFW
+    // Note: framebufferSize parameter is the actual framebuffer size
+    GLFWwindow* glfwWindow = glfwGetCurrentContext();
+    if (glfwWindow) {
+        int windowWidth, windowHeight;
+        glfwGetWindowSize(glfwWindow, &windowWidth, &windowHeight);
+        
+        // Calculate scaling factors using your approach
+        double scaleX = (double)framebufferSize.width / windowWidth;
+        double scaleY = (double)framebufferSize.height / windowHeight;
+        
+        // Set ImGui display size to logical window size
+        io.DisplaySize = ImVec2(static_cast<float>(windowWidth), static_cast<float>(windowHeight));
+        
+        // Set framebuffer scale for proper rendering
+        io.DisplayFramebufferScale = ImVec2(static_cast<float>(scaleX), static_cast<float>(scaleY));
+        
+        // Debug output
+        static int frameCount = 0;
+        if (frameCount++ % 60 == 0) {
+            std::cout << "updateGui - Window: " << windowWidth << "x" << windowHeight 
+                      << " | Framebuffer: " << framebufferSize.width << "x" << framebufferSize.height
+                      << " | Scale: " << scaleX << "x" << scaleY << std::endl;
+        }
+    } else {
+        // Fallback if we can't get GLFW window
+        io.DisplaySize = ImVec2(float(framebufferSize.width), float(framebufferSize.height));
+        io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+    }
+
+    // Mouse position is already correctly set in the callback
     io.MousePos = ImVec2(mouseState.position.x, mouseState.position.y);
     io.MouseDown[0] = mouseState.buttons.left;
     io.MouseDown[1] = mouseState.buttons.right;
@@ -276,8 +305,34 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 // Mouse position callback - captures mouse movement and updates position directly
 void cursorPosCallback(GLFWwindow* window, double xpos, double ypos)
 {
-    // Update mouse position directly - no need for separate handleMouseMove function
-    mouseState.position = glm::vec2(static_cast<float>(xpos), static_cast<float>(ypos));
+    // 1. Get window and framebuffer sizes
+    int windowWidth, windowHeight;
+    glfwGetWindowSize(window, &windowWidth, &windowHeight);
+
+    int framebufferWidth, framebufferHeight;
+    glfwGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
+
+    // 2. Calculate the scaling factors
+    double scaleX = (double)framebufferWidth / windowWidth;
+    double scaleY = (double)framebufferHeight / windowHeight;
+
+    // 3. IMPORTANT: Scale mouse coordinates to match ImGui's coordinate system
+    // Since we set DisplaySize to window size, mouse coordinates should also be in window space
+    // If GLFW coordinates are in framebuffer space, we need to scale them down
+    double scaledMouseX = xpos * scaleX;
+    double scaledMouseY = ypos * scaleY;
+    
+    mouseState.position = glm::vec2(static_cast<float>(scaledMouseX), static_cast<float>(scaledMouseY));
+
+    // Debug output every 60 frames
+    static int frameCount = 0;
+    if (frameCount++ % 60 == 0) {
+        std::cout << "Window: " << windowWidth << "x" << windowHeight 
+                  << " | Framebuffer: " << framebufferWidth << "x" << framebufferHeight
+                  << " | Scale: " << scaleX << "x" << scaleY 
+                  << " | Mouse Raw: (" << xpos << ", " << ypos << ")"
+                  << " | Mouse Scaled: (" << scaledMouseX << ", " << scaledMouseY << ")" << std::endl;
+    }
 
     // Note: In a full application, you might check ImGui::GetIO().WantCaptureMouse here
     // to determine if mouse events should be handled by ImGui or the application
