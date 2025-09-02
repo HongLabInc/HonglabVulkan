@@ -30,10 +30,6 @@ layout(set = 0, binding = 1) uniform OptionsUBO {
     int shadowOn; 
     int discardOn;
     int animationOn;
-    float ssaoRadius;
-    float ssaoBias;
-    int ssaoSampleCount;
-    float ssaoPower;
 } options;
 
 // Material properties

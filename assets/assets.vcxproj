@@ -133,6 +133,7 @@
     <None Include="shaders\shadowMap.vert" />
     <None Include="shaders\skybox.frag" />
     <None Include="shaders\skybox.vert" />
+    <None Include="shaders\ssao.comp" />
     <None Include="shaders\test.comp" />
     <None Include="shaders\triangle.frag" />
     <None Include="shaders\triangle.vert" />

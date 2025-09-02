@@ -56,10 +56,24 @@ void Renderer::createUniformBuffers()
         postOptionsUniforms_.emplace_back(ctx_, postOptionsUBO_);
     }
 
+    // Create SSAO uniform buffers
+    ssaoOptionsUniforms_.clear();
+    ssaoOptionsUniforms_.reserve(kMaxFramesInFlight_);
+    for (uint32_t i = 0; i < kMaxFramesInFlight_; ++i) {
+        ssaoOptionsUniforms_.emplace_back(ctx_, ssaoOptionsUBO_);
+    }
+
     boneDataUniforms_.clear();
     boneDataUniforms_.reserve(kMaxFramesInFlight_);
     for (uint32_t i = 0; i < kMaxFramesInFlight_; ++i) {
         boneDataUniforms_.emplace_back(ctx_, boneDataUBO_);
+    }
+
+    sceneOptionsBoneDataSets_.resize(kMaxFramesInFlight_);
+    for (size_t i = 0; i < kMaxFramesInFlight_; i++) {
+        sceneOptionsBoneDataSets_[i].create(ctx_, {sceneUniforms_[i].resourceBinding(),
+                                                   optionsUniforms_[i].resourceBinding(),
+                                                   boneDataUniforms_[i].resourceBinding()});
     }
 
     sceneSkyOptionsSets_.resize(kMaxFramesInFlight_);
@@ -71,14 +85,26 @@ void Renderer::createUniformBuffers()
     postProcessingDescriptorSets_.resize(kMaxFramesInFlight_);
     for (size_t i = 0; i < kMaxFramesInFlight_; i++) {
         postProcessingDescriptorSets_[i].create(
-            ctx_, {forwardToCompute_.resourceBinding(), postOptionsUniforms_[i].resourceBinding()});
+            ctx_, {computeToPost_.resourceBinding(), postOptionsUniforms_[i].resourceBinding()});
     }
 
-    sceneOptionsBoneDataSets_.resize(kMaxFramesInFlight_);
+    // Create SSAO descriptor sets
+    // Ensure forwardToCompute_ and computeToPost_ are properly configured for storage binding
+    // forwardToCompute_ will be used as readonly storage image (input)
+    // computeToPost_ will be used as writeonly storage image (output)
+    // Create a command buffer for image layout transitions
+    auto cmd = ctx_.createGraphicsCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+    forwardToCompute_.transitionToGeneral(cmd.handle(), VK_ACCESS_2_SHADER_READ_BIT,
+                                          VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+    computeToPost_.transitionToGeneral(cmd.handle(), VK_ACCESS_2_SHADER_WRITE_BIT,
+                                       VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+    cmd.submitAndWait();
+    ssaoDescriptorSets_.resize(kMaxFramesInFlight_);
     for (size_t i = 0; i < kMaxFramesInFlight_; i++) {
-        sceneOptionsBoneDataSets_[i].create(ctx_, {sceneUniforms_[i].resourceBinding(),
-                                                   optionsUniforms_[i].resourceBinding(),
-                                                   boneDataUniforms_[i].resourceBinding()});
+        ssaoDescriptorSets_[i].create(
+            ctx_, {sceneUniforms_[i].resourceBinding(), ssaoOptionsUniforms_[i].resourceBinding(),
+                   forwardToCompute_.resourceBinding(), computeToPost_.resourceBinding(),
+                   depthStencil_.resourceBinding()});
     }
 }
 
@@ -91,6 +117,8 @@ void Renderer::update(Camera& camera, uint32_t currentFrame, double time)
     skyOptionsUniforms_[currentFrame].updateData();
 
     postOptionsUniforms_[currentFrame].updateData();
+
+    ssaoOptionsUniforms_[currentFrame].updateData();
 }
 
 void Renderer::updateBoneData(const vector<Model>& models, uint32_t currentFrame)
@@ -212,11 +240,52 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
         vkCmdEndRendering(cmd);
     }
 
+    // SSAO
+    {
+        // Transition images for SSAO compute pass to proper storage layouts
+        // forwardToCompute_: Forward rendering result → readonly storage image for SSAO input
+        forwardToCompute_.transitionToGeneral(cmd, VK_ACCESS_2_SHADER_READ_BIT,
+                                              VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+
+        // computeToPost_: Empty buffer → writeonly storage image for SSAO output
+        computeToPost_.transitionToGeneral(cmd, VK_ACCESS_2_SHADER_WRITE_BIT,
+                                           VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+
+        // depthStencil_: Depth buffer → sampled texture for depth-based calculations
+        depthStencil_.transitionToShaderRead(cmd);
+
+        // Bind SSAO compute pipeline
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines_.at("ssao").pipeline());
+
+        // Bind descriptor sets for SSAO
+        const auto ssaoDescriptorSets = vector{ssaoDescriptorSets_[currentFrame].handle()};
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
+                                pipelines_.at("ssao").pipelineLayout(), 0,
+                                static_cast<uint32_t>(ssaoDescriptorSets.size()),
+                                ssaoDescriptorSets.data(), 0, nullptr);
+
+        // Dispatch compute shader
+        // Calculate dispatch size based on image dimensions and local work group size (16x16)
+        uint32_t groupCountX = (scissor.extent.width + 15) / 16;  // Round up division
+        uint32_t groupCountY = (scissor.extent.height + 15) / 16; // Round up division
+        vkCmdDispatch(cmd, groupCountX, groupCountY, 1);
+
+        // Memory barrier to ensure compute writes are visible to fragment shader
+        VkMemoryBarrier2 memoryBarrier{VK_STRUCTURE_TYPE_MEMORY_BARRIER_2};
+        memoryBarrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+        memoryBarrier.dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+        memoryBarrier.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
+        memoryBarrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
+
+        VkDependencyInfo dependencyInfo{VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+        dependencyInfo.memoryBarrierCount = 1;
+        dependencyInfo.pMemoryBarriers = &memoryBarrier;
+        vkCmdPipelineBarrier2(cmd, &dependencyInfo);
+    }
+
     // Post-processing pass
     {
-        forwardToCompute_.resourceBinding().barrierHelper().transitionTo(
-            cmd, VK_ACCESS_2_SHADER_READ_BIT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT);
+        computeToPost_.transitionToShaderRead(cmd);
 
         auto colorAttachment = createColorAttachment(
             swapchainImageView, VK_ATTACHMENT_LOAD_OP_CLEAR, {0.0f, 0.0f, 1.0f, 0.0f});
@@ -353,6 +422,9 @@ void Renderer::createPipelines(const VkFormat swapChainColorFormat, const VkForm
                                         depthFormat, VK_SAMPLE_COUNT_1_BIT));
     pipelines_.emplace("shadowMap", Pipeline(ctx_, shaderManager_, "shadowMap", VK_FORMAT_D16_UNORM,
                                              VK_FORMAT_D16_UNORM, VK_SAMPLE_COUNT_1_BIT));
+
+    pipelines_.emplace("ssao", Pipeline(ctx_, shaderManager_, "ssao", VK_FORMAT_D16_UNORM,
+                                        VK_FORMAT_D16_UNORM, VK_SAMPLE_COUNT_1_BIT));
 }
 
 void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight,
@@ -399,7 +471,8 @@ void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight,
 
     // Set samplers
     forwardToCompute_.setSampler(samplerLinearRepeat_.handle());
-
+    computeToPost_.setSampler(samplerLinearRepeat_.handle());
+    depthStencil_.setSampler(samplerLinearClamp_.handle());
     // Create descriptor sets for sky textures (set 1 for sky pipeline)
     skyDescriptorSet_.create(ctx_, {skyTextures_.prefiltered().resourceBinding(),
                                     skyTextures_.irradiance().resourceBinding(),

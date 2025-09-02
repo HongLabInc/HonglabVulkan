@@ -24,7 +24,7 @@ void Pipeline::createByName(string pipelineName, optional<VkFormat> outColorForm
 
     createCommon();
 
-    if (name_ == "compute") {
+    if (name_ == "compute" || name_ == "ssao") {
         createCompute();
     } else if (name_ == "triangle") {
         createTriangle(outColorFormat.value());
@@ -56,8 +56,6 @@ void Pipeline::createByName(string pipelineName, optional<VkFormat> outColorForm
         }
     } else if (name_ == "pbrDeferred") {
         createPbrDeferred();
-    } else if (name_ == "ssao") {
-        createSsao();
     } else {
         exitWithMessage("Pipeline name not available: {}", pipelineName);
     }
