@@ -73,7 +73,6 @@ class Pipeline
     void createPbrForward(VkFormat outColorFormat, VkFormat depthFormat,
                           VkSampleCountFlagBits msaaSamples);
     void createPbrDeferred();
-    void createSsao();
     void createTriangle(VkFormat outColorFormat);
 
     // void dispatch(const VkCommandBuffer& cmd,

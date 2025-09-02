@@ -2,22 +2,22 @@ GlfwRequiredInstanceExtensions: 2
   VK_KHR_surface
   VK_KHR_win32_surface
 Supported Instance Extensions:
-  VK_KHR_surface
-  VK_KHR_win32_surface
+  VK_KHR_device_group_creation
+  VK_KHR_display
+  VK_KHR_external_fence_capabilities
   VK_KHR_external_memory_capabilities
   VK_KHR_external_semaphore_capabilities
-  VK_KHR_external_fence_capabilities
+  VK_KHR_get_display_properties2
   VK_KHR_get_physical_device_properties2
   VK_KHR_get_surface_capabilities2
-  VK_KHR_device_group_creation
-  VK_EXT_swapchain_colorspace
-  VK_EXT_debug_utils
-  VK_KHR_display
-  VK_KHR_get_display_properties2
+  VK_KHR_surface
   VK_KHR_surface_protected_capabilities
+  VK_KHR_win32_surface
   VK_EXT_debug_report
+  VK_EXT_debug_utils
   VK_EXT_direct_mode_display
   VK_EXT_surface_maintenance1
+  VK_EXT_swapchain_colorspace
   VK_NV_external_memory_capabilities
   VK_KHR_portability_enumeration
   VK_LUNARG_direct_driver_loading
@@ -78,7 +78,7 @@ Queue Family Properties: 6
   Queue Family 4: 2 queues, flags: TRANSFER SPARSE_BINDING VIDEO_ENCODE 
   Queue Family 5: 1 queues, flags: TRANSFER SPARSE_BINDING OPTICAL_FLOW 
 Found DescriptorPoolSize.txt, loading previous statistics...
-Created initial pool with 139 sets and 2 descriptor types
+Created initial pool with 141 sets and 3 descriptor types
 Selected Surface Format: R8G8B8A8_UNORM
 Selected Color Space: VK_COLOR_SPACE_SRGB_NONLINEAR_KHR
 Swapchain Storage Bit Support: YES
@@ -92,17 +92,17 @@ Selected Present Mode: VK_PRESENT_MODE_IMMEDIATE_KHR
 Designed Num of Swapchain Images: 3
 Added VK_IMAGE_USAGE_STORAGE_BIT to swapchain
 ShaderManager: Created 7 unique layout(s)
-  Layout 0 (0x1fbcaeffdc0): 3 binding(s), used by:
+  Layout 0 (0x2235780f130): 3 binding(s), used by:
     - Pipeline 'shadowMap', Set 0
     - Pipeline 'pbrForward', Set 0
     Binding 0: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
     Binding 2: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
-  Layout 1 (0x1fbcaeffc40): 2 binding(s), used by:
+  Layout 1 (0x2235780dc30): 2 binding(s), used by:
     - Pipeline 'post', Set 0
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=FRAGMENT
-  Layout 2 (0x1fbcaefff40): 7 binding(s), used by:
+  Layout 2 (0x2235780e0b0): 7 binding(s), used by:
     - Pipeline 'pbrForward', Set 1
     Binding 0: type=UNIFORM_BUFFER, count=1, stages=FRAGMENT
     Binding 1: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
@@ -111,26 +111,27 @@ ShaderManager: Created 7 unique layout(s)
     Binding 4: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 5: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 6: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
-  Layout 3 (0x1fbcaf006c0): 2 binding(s), used by:
+  Layout 3 (0x2235780df30): 2 binding(s), used by:
     - Pipeline 'sky', Set 0
-    - Pipeline 'ssao', Set 0
-    Binding 0: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT|COMPUTE
-    Binding 1: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT|COMPUTE
-  Layout 4 (0x1fbcaf00240): 1 binding(s), used by:
+    Binding 0: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
+    Binding 1: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
+  Layout 4 (0x2235780ddb0): 1 binding(s), used by:
     - Pipeline 'pbrForward', Set 3
     - Pipeline 'gui', Set 0
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
-  Layout 5 (0x1fbcaeff940): 3 binding(s), used by:
+  Layout 5 (0x2235780e9b0): 3 binding(s), used by:
     - Pipeline 'pbrForward', Set 2
     - Pipeline 'sky', Set 1
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 1: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 2: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
-  Layout 6 (0x1fbcaf00540): 3 binding(s), used by:
-    - Pipeline 'ssao', Set 2
-    Binding 1: type=STORAGE_IMAGE, count=1, stages=COMPUTE
+  Layout 6 (0x2235780f430): 5 binding(s), used by:
+    - Pipeline 'ssao', Set 0
+    Binding 0: type=UNIFORM_BUFFER, count=1, stages=COMPUTE
+    Binding 1: type=UNIFORM_BUFFER, count=1, stages=COMPUTE
     Binding 2: type=STORAGE_IMAGE, count=1, stages=COMPUTE
-    Binding 3: type=COMBINED_IMAGE_SAMPLER, count=1, stages=COMPUTE
+    Binding 3: type=STORAGE_IMAGE, count=1, stages=COMPUTE
+    Binding 4: type=COMBINED_IMAGE_SAMPLER, count=1, stages=COMPUTE
 Model directory: ../../assets/characters/Leonard
 Processing animations and bones before mesh processing...
 Processing animations in Model...
@@ -166,20 +167,24 @@ Texture filename: ../../assets/characters/Leonard/Ch31_1002_Diffuse.png
 Successfully loaded model: ../../assets/characters/Leonard/Bboy Hip Hop Move.fbx
   Meshes: 7
   Materials: 2
-  Loading time: 755 ms
+  Loading time: 718 ms
 Found 1 animations in model 'Dancer'
 Started animation: 'mixamo.com'
 Animation duration: 2.20 seconds
 Successfully loaded model from cache: ../../assets/models/AmazonLumberyardBistroMorganMcGuire\exterior_cache.bin
   Meshes: 3184
   Materials: 128
-  Loading time: 702 ms
+  Loading time: 670 ms
 No animations found in model 'Bistro'
 Creating a graphics pipeline: sky
 
 Creating a graphics pipeline: post
 
 Creating a graphics pipeline: shadowMap
+
+Creating compute pipeline: ssao
+
+Successfully created compute pipeline
 
 Loading IBL textures...
   Prefiltered: ../../assets/textures/golden_gate_hills_4k/specularGGX.ktx2
@@ -190,8 +195,9 @@ Saved descriptor pool statistics to DescriptorPoolSize.txt
 
 === DescriptorPool Allocated Statistics ===
 Total Pools Created: 1
-Total Allocated Sets: 139
-  COMBINED_IMAGE_SAMPLER: 787
-  UNIFORM_BUFFER: 142
+Total Allocated Sets: 141
+  COMBINED_IMAGE_SAMPLER: 789
+  UNIFORM_BUFFER: 146
+  STORAGE_IMAGE: 4
 ============================================
 

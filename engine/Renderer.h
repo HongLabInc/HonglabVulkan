@@ -52,10 +52,6 @@ struct OptionsUniform
     alignas(4) int shadowOn = 1;    // Use int instead of bool, 1 = true, 0 = false
     alignas(4) int discardOn = 1;   // Use int instead of bool, 1 = true, 0 = false
     alignas(4) int animationOn = 1; // Use int instead of bool, 1 = true, 0 = false
-    alignas(4) float ssaoRadius = 0.5f;
-    alignas(4) float ssaoBias = 0.025f;
-    alignas(4) int ssaoSampleCount = 16;
-    alignas(4) float ssaoPower = 2.0f;
 };
 
 // Post-processing options uniform buffer structure
@@ -84,6 +80,14 @@ struct PostOptionsUBO
     alignas(4) int showOnlyChannel = 0; // Show specific color channel
     alignas(4) float debugSplit = 0.5f; // Split screen position for comparison
     alignas(4) float padding1 = 0.0f;   // Alignment padding
+};
+
+struct SsaoOptionsUBO
+{
+    alignas(4) float ssaoRadius = 0.1f;
+    alignas(4) float ssaoBias = 0.025f;
+    alignas(4) int ssaoSampleCount = 16;
+    alignas(4) float ssaoPower = 2.0f;
 };
 
 struct BoneDataUniform
@@ -165,6 +169,10 @@ class Renderer
     {
         return postOptionsUBO_;
     }
+    auto ssaoOptionsUBO() -> SsaoOptionsUBO&
+    {
+        return ssaoOptionsUBO_;
+    }
 
   private:
     const uint32_t& kMaxFramesInFlight_; // 2;
@@ -180,16 +188,19 @@ class Renderer
     OptionsUniform optionsUBO_{};
     BoneDataUniform boneDataUBO_{};
     PostOptionsUBO postOptionsUBO_{};
+    SsaoOptionsUBO ssaoOptionsUBO_{};
 
     vector<UniformBuffer<SceneUniform>> sceneUniforms_{};
     vector<UniformBuffer<SkyOptionsUBO>> skyOptionsUniforms_;
     vector<UniformBuffer<OptionsUniform>> optionsUniforms_{};
     vector<UniformBuffer<BoneDataUniform>> boneDataUniforms_;
     vector<UniformBuffer<PostOptionsUBO>> postOptionsUniforms_;
+    vector<UniformBuffer<SsaoOptionsUBO>> ssaoOptionsUniforms_;
 
     vector<DescriptorSet> sceneOptionsBoneDataSets_{};
     vector<DescriptorSet> sceneSkyOptionsSets_{};
     vector<DescriptorSet> postProcessingDescriptorSets_;
+    vector<DescriptorSet> ssaoDescriptorSets_;
 
     // Resources
     Image2D msaaColorBuffer_;
@@ -230,12 +241,6 @@ class Renderer
     float shadowBiasConstant = 0.5f; // Constant bias factor
     float shadowBiasSlope = 1.0f;    // Slope-scaled bias factor
     float shadowBiasClamp = 0.0f;    // Bias clamp value
-
-    // SSAO parameters
-    float ssaoRadius = 0.5f;
-    float ssaoBias = 0.025f;
-    int ssaoSampleCount = 16;
-    float ssaoPower = 2.0f;
 
     // Helper functions for creating rendering structures
     VkRenderingAttachmentInfo

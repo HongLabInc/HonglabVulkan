@@ -702,6 +702,9 @@ void Application::updateGui()
 
     renderPostProcessingControlWindow();
 
+    // Add this line:
+    renderSSAOControlWindow();
+
     ImGui::Render();
 }
 
@@ -1105,6 +1108,138 @@ void Application::updatePerformanceMetrics(float deltaTime)
         gpuFramesSinceLastUpdate_ = 0;
         gpuTimeUpdateTimer_ = 0.0f;
     }
+}
+
+// SSAO Control window method
+void Application::renderSSAOControlWindow()
+{
+    ImGui::SetNextWindowPos(ImVec2(1090, 10), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(350, 400), ImGuiCond_FirstUseEver);
+
+    if (!ImGui::Begin("SSAO Controls")) {
+        ImGui::End();
+        return;
+    }
+
+    // SSAO Parameters
+    if (ImGui::CollapsingHeader("SSAO Parameters", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::SliderFloat("Radius", &renderer_.ssaoOptionsUBO().ssaoRadius, 0.01f, 0.2f, "%.3f");
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Controls the sampling radius for ambient occlusion.\n"
+                              "Larger values = wider occlusion, but may cause artifacts.\n"
+                              "Recommended range: 0.05f - 0.5f");
+        }
+
+        ImGui::SliderFloat("Bias", &renderer_.ssaoOptionsUBO().ssaoBias, 0.001f, 0.1f, "%.4f");
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Prevents self-occlusion artifacts.\n"
+                              "Too low = self-occlusion artifacts\n"
+                              "Too high = less occlusion detail\n"
+                              "Recommended range: 0.01f - 0.05f");
+        }
+
+        ImGui::SliderInt("Sample Count", &renderer_.ssaoOptionsUBO().ssaoSampleCount, 1, 64);
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Number of samples per pixel for SSAO calculation.\n"
+                              "More samples = better quality but lower performance.\n"
+                              "Recommended values: 8, 16, 32");
+        }
+
+        ImGui::SliderFloat("Power", &renderer_.ssaoOptionsUBO().ssaoPower, 0.1f, 10.0f, "%.2f");
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Controls the contrast/intensity of the SSAO effect.\n"
+                              "Higher values = more dramatic darkening\n"
+                              "Recommended range: 1.0f - 4.0f");
+        }
+    }
+
+    // Quality Presets
+    if (ImGui::CollapsingHeader("Quality Presets")) {
+        if (ImGui::Button("Off")) {
+            renderer_.ssaoOptionsUBO().ssaoRadius = 0.1f;
+            renderer_.ssaoOptionsUBO().ssaoBias = 0.025f;
+            renderer_.ssaoOptionsUBO().ssaoSampleCount = 0;  // Disable SSAO
+            renderer_.ssaoOptionsUBO().ssaoPower = 2.0f;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Low Quality")) {
+            renderer_.ssaoOptionsUBO().ssaoRadius = 0.05f;
+            renderer_.ssaoOptionsUBO().ssaoBias = 0.03f;
+            renderer_.ssaoOptionsUBO().ssaoSampleCount = 8;
+            renderer_.ssaoOptionsUBO().ssaoPower = 1.5f;
+        }
+
+        if (ImGui::Button("Medium Quality")) {
+            renderer_.ssaoOptionsUBO().ssaoRadius = 0.1f;
+            renderer_.ssaoOptionsUBO().ssaoBias = 0.025f;
+            renderer_.ssaoOptionsUBO().ssaoSampleCount = 16;
+            renderer_.ssaoOptionsUBO().ssaoPower = 2.0f;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("High Quality")) {
+            renderer_.ssaoOptionsUBO().ssaoRadius = 0.15f;
+            renderer_.ssaoOptionsUBO().ssaoBias = 0.02f;
+            renderer_.ssaoOptionsUBO().ssaoSampleCount = 32;
+            renderer_.ssaoOptionsUBO().ssaoPower = 2.5f;
+        }
+
+        if (ImGui::Button("Ultra Quality")) {
+            renderer_.ssaoOptionsUBO().ssaoRadius = 0.2f;
+            renderer_.ssaoOptionsUBO().ssaoBias = 0.015f;
+            renderer_.ssaoOptionsUBO().ssaoSampleCount = 64;
+            renderer_.ssaoOptionsUBO().ssaoPower = 3.0f;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Subtle SSAO")) {
+            renderer_.ssaoOptionsUBO().ssaoRadius = 0.08f;
+            renderer_.ssaoOptionsUBO().ssaoBias = 0.025f;
+            renderer_.ssaoOptionsUBO().ssaoSampleCount = 16;
+            renderer_.ssaoOptionsUBO().ssaoPower = 1.2f;
+        }
+
+        if (ImGui::Button("Strong SSAO")) {
+            renderer_.ssaoOptionsUBO().ssaoRadius = 0.25f;
+            renderer_.ssaoOptionsUBO().ssaoBias = 0.02f;
+            renderer_.ssaoOptionsUBO().ssaoSampleCount = 24;
+            renderer_.ssaoOptionsUBO().ssaoPower = 4.0f;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Default")) {
+            renderer_.ssaoOptionsUBO().ssaoRadius = 0.1f;
+            renderer_.ssaoOptionsUBO().ssaoBias = 0.025f;
+            renderer_.ssaoOptionsUBO().ssaoSampleCount = 16;
+            renderer_.ssaoOptionsUBO().ssaoPower = 2.0f;
+        }
+    }
+
+    // Performance Info
+    if (ImGui::CollapsingHeader("Performance Info")) {
+        ImGui::Text("SSAO Performance Impact:");
+        ImGui::BulletText("Sample Count: Major impact");
+        ImGui::BulletText("Radius: Minor impact");
+        ImGui::BulletText("Bias/Power: Negligible impact");
+
+        ImGui::Separator();
+        ImGui::Text("Current Configuration:");
+        float performanceScore = (float)renderer_.ssaoOptionsUBO().ssaoSampleCount / 64.0f;
+        ImVec4 perfColor = performanceScore < 0.25f ? ImVec4(0.0f, 1.0f, 0.0f, 1.0f) : // Green
+                               performanceScore < 0.5f ? ImVec4(1.0f, 1.0f, 0.0f, 1.0f)
+                                                       :       // Yellow
+                               ImVec4(1.0f, 0.0f, 0.0f, 1.0f); // Red
+
+        ImGui::TextColored(perfColor, "Performance Impact: %.1f%%", performanceScore * 100.0f);
+    }
+
+    // Debug Values Display
+    if (ImGui::CollapsingHeader("Debug Values")) {
+        ImGui::Text("Current SSAO Parameters:");
+        ImGui::Text("Radius: %.3f", renderer_.ssaoOptionsUBO().ssaoRadius);
+        ImGui::Text("Bias: %.4f", renderer_.ssaoOptionsUBO().ssaoBias);
+        ImGui::Text("Sample Count: %d", renderer_.ssaoOptionsUBO().ssaoSampleCount);
+        ImGui::Text("Power: %.2f", renderer_.ssaoOptionsUBO().ssaoPower);
+    }
+
+    ImGui::End();
 }
 
 } // namespace hlab

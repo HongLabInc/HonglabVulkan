@@ -78,7 +78,6 @@
     <ClCompile Include="DescriptorPool.cpp" />
     <ClCompile Include="VulkanTools.cpp" />
     <ClCompile Include="ResourceBinding.cpp" />
-    <ClCompile Include="PipelineSsao.cpp" />
     <ClCompile Include="Animation.cpp" />
     <ClCompile Include="ModelLoader.cpp" />
     <ClCompile Include="Skeleton.cpp" />

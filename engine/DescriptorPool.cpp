@@ -98,9 +98,9 @@ void DescriptorPool::createNewPool(const vector<VkDescriptorPoolSize>& typeCount
 
     descriptorPools_.push_back(newPool);
 
-    remainingSets_ += maxSets;
+    remainingSets_ = maxSets;
     for (const auto& poolSize : typeCounts) {
-        remainingTypeCounts_[poolSize.type] += poolSize.descriptorCount;
+        remainingTypeCounts_[poolSize.type] = poolSize.descriptorCount;
     }
 }
 

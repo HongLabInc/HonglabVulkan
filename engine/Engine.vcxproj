@@ -83,7 +83,6 @@
     <ClCompile Include="PipelinePost.cpp" />
     <ClCompile Include="PipelineShadowMap.cpp" />
     <ClCompile Include="PipelineSky.cpp" />
-    <ClCompile Include="PipelineSsao.cpp" />
     <ClCompile Include="PipelineTriangle.cpp" />
     <ClCompile Include="PushConstants.cpp" />
     <ClCompile Include="Renderer.cpp" />

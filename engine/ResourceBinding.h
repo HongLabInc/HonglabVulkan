@@ -13,6 +13,7 @@ class ResourceBinding
     friend class Image2D;
     friend class MappedBuffer;
     friend class ShadowMap;
+    friend class DepthStencil;
 
   public:
     void update()

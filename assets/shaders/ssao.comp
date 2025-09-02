@@ -1,4 +1,5 @@
 #version 450
+#extension GL_KHR_vulkan_glsl : enable
 
 layout (local_size_x = 16, local_size_y = 16) in;
 
@@ -14,20 +15,16 @@ layout(set = 0, binding = 0) uniform SceneDataUBO {
     mat4 lightSpaceMatrix;
 } sceneData;
 
-layout(set = 0, binding = 1) uniform OptionsUBO {
-    bool textureOn;
-    bool shadowOn;
-    bool discardOn;
-    bool animationOn;
+layout(set = 0, binding = 1) uniform SsaoOptionsUBO {
     float ssaoRadius;
     float ssaoBias;
     int ssaoSampleCount;
     float ssaoPower;
-} options;
+} ssaoOptions;
 
-layout (set = 2, binding = 1, rgba16f) uniform readonly image2D inputForwardImage;
-layout (set = 2, binding = 2, rgba16f) uniform writeonly image2D outputComputeImage;
-layout (set = 2, binding = 3) uniform sampler2D depthTexture;
+layout (set = 0, binding = 2, rgba16f) uniform readonly image2D inputForwardImage;
+layout (set = 0, binding = 3, rgba16f) uniform writeonly image2D outputComputeImage;
+layout (set = 0, binding = 4) uniform sampler2D depthTexture;
 
 //float radius = 0.5f;
 //float bias = 0.025f;
@@ -38,7 +35,7 @@ layout (set = 2, binding = 3) uniform sampler2D depthTexture;
 vec3 generateSampleKernel(int index) {
     // Use a deterministic method to generate sample points
     float angle = float(index) * 2.39996323; // Golden angle approximation
-    float z = float(index) / float(options.ssaoSampleCount);
+    float z = float(index) / float(ssaoOptions.ssaoSampleCount);
     z = mix(0.1, 1.0, z * z); // Bias towards closer samples
     
     float r = sqrt(1.0 - z * z);
@@ -62,8 +59,9 @@ vec3 generateNoise(vec2 coord) {
 
 // Convert screen space to view space
 vec3 screenToView(vec2 texCoord, float depth) {
-    // Convert to NDC
+    // Convert to NDC - account for flipped Y in projection matrix
     vec2 ndc = texCoord * 2.0 - 1.0;
+    ndc.y = -ndc.y;  // Flip Y to match the camera's Y-flip
     
     // Convert depth from [0,1] to [-1,1] (reverse Z)
     float ndcZ = depth * 2.0 - 1.0;
@@ -71,11 +69,12 @@ vec3 screenToView(vec2 texCoord, float depth) {
     // Apply inverse projection
     vec4 clipPos = vec4(ndc, ndcZ, 1.0);
     vec4 viewPos = inverse(sceneData.projection) * clipPos;
-    
+        
     return viewPos.xyz / viewPos.w;
 }
 
 // Get view-space normal from depth buffer
+// 지연 셰이딩에서는 G버퍼에 저장된  normal 사용 가능
 vec3 reconstructNormal(vec2 texCoord, vec2 texelSize) {
     // Sample depth at current position and neighbors
     float depth = texture(depthTexture, texCoord).r;
@@ -119,16 +118,17 @@ float calculateSSAO(vec2 texCoord, vec2 texelSize) {
     float occlusion = 0.0;
     float validSamples = 0.0;
     
-    for (int i = 0; i < options.ssaoSampleCount; ++i) {
+    for (int i = 0; i < ssaoOptions.ssaoSampleCount; ++i) {
         // Get sample position in view space
         vec3 sampleKernel = generateSampleKernel(i);
         vec3 samplePos = tbn * sampleKernel;
-        samplePos = viewPos + samplePos * options.ssaoRadius;
+        samplePos = viewPos + samplePos * ssaoOptions.ssaoRadius;
         
         // Convert to screen space
         vec4 offset = sceneData.projection * vec4(samplePos, 1.0);
         offset.xyz /= offset.w;
         offset.xyz = offset.xyz * 0.5 + 0.5; // [-1,1] to [0,1]
+        offset.y = 1.0 - offset.y;  // Flip Y back for texture sampling
         
         // Check if sample is within screen bounds
         if (offset.x < 0.0 || offset.x > 1.0 || offset.y < 0.0 || offset.y > 1.0) {
@@ -140,10 +140,10 @@ float calculateSSAO(vec2 texCoord, vec2 texelSize) {
         vec3 sampleViewPos = screenToView(offset.xy, sampleDepth);
         
         // Range check and accumulate occlusion
-        float rangeCheck = smoothstep(0.0, 1.0, options.ssaoRadius / abs(viewPos.z - sampleViewPos.z));
+        float rangeCheck = smoothstep(0.0, 1.0, ssaoOptions.ssaoRadius / abs(viewPos.z - sampleViewPos.z));
         
         // Check if sample is occluded
-        if (sampleViewPos.z >= samplePos.z + options.ssaoBias) {
+        if (sampleViewPos.z >= samplePos.z + ssaoOptions.ssaoBias) {
             occlusion += rangeCheck;
         }
         
@@ -171,11 +171,11 @@ void main()
     vec2 texCoords = vec2(imageCoords) / vec2(imageSize);
     vec2 texelSize = 1.0 / vec2(imageSize);
 
-    if (imageCoords.x < imageSize.x * 0.01) 
+    /*if (imageCoords.x < imageSize.x * 0.01) 
     {
         color = vec4(0.8, 0.2, 0.2, 1.0); // Red
     } 
-    else if(imageCoords.x < imageSize.x * 0.05) 
+    else if(imageCoords.x < imageSize.x * 0.3) 
     { 
         // Read depth from depth buffer
         float depth = texture(depthTexture, texCoords).r;
@@ -189,13 +189,17 @@ void main()
         // Use linear depth as grayscale color
         color = vec4(linearDepth, linearDepth, linearDepth, 1.0);
     }
+    else if(imageCoords.x < imageSize.x * 0.5)
+    {
+    color = imageLoad(inputForwardImage, imageCoords);
+    }
     else if(imageCoords.x < imageSize.x * 0.9) 
     {
         // SSAO effect
         float ssaoValue = calculateSSAO(texCoords, texelSize);
         
         // Apply power to enhance contrast
-        ssaoValue = pow(ssaoValue, options.ssaoPower);
+        ssaoValue = pow(ssaoValue, ssaoOptions.ssaoPower);
         
         // Display SSAO as grayscale
         //color = vec4(ssaoValue, ssaoValue, ssaoValue, 1.0);
@@ -206,7 +210,19 @@ void main()
     else    
     {
         color = imageLoad(inputForwardImage, imageCoords);
-    }
+    }*/
+
+    // SSAO effect
+    float ssaoValue = calculateSSAO(texCoords, texelSize);
+        
+    // Apply power to enhance contrast
+    ssaoValue = pow(ssaoValue, ssaoOptions.ssaoPower);
+        
+    // Display SSAO as grayscale
+    //color = vec4(ssaoValue, ssaoValue, ssaoValue, 1.0);
+
+    vec4 forwardColor = imageLoad(inputForwardImage, imageCoords);
+    color = vec4(forwardColor.rgb * ssaoValue, forwardColor.a);
 
     imageStore(outputComputeImage, imageCoords, color);
 }
