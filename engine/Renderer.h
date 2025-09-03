@@ -150,6 +150,8 @@ class Renderer
     auto getCullingStats() const -> const CullingStats&;
     bool isFrustumCullingEnabled() const;
     void performFrustumCulling(vector<Model>& models, const glm::mat4& modelMatrix);
+    void performFrustumCulling(vector<Model>& models); // Overload for all models
+    void updateWorldBounds(vector<Model>& models); // Update world bounds for all models
     void setFrustumCullingEnabled(bool enabled);
     void updateViewFrustum(const glm::mat4& viewProjection);
 

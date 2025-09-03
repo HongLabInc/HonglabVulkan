@@ -110,6 +110,9 @@ void Renderer::createUniformBuffers()
 
 void Renderer::update(Camera& camera, uint32_t currentFrame, double time)
 {
+    // Update view frustum based on current camera view-projection matrix
+    updateViewFrustum(camera.matrices.perspective * camera.matrices.view);
+
     sceneUniforms_[currentFrame].updateData();
 
     optionsUniforms_[currentFrame].updateData();
@@ -206,6 +209,12 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
             for (size_t i = 0; i < models[j].meshes().size(); i++) {
 
                 auto& mesh = models[j].meshes()[i];
+                
+                // Skip culled meshes
+                if (mesh.isCulled) {
+                    continue;
+                }
+                
                 uint32_t matIndex = mesh.materialIndex_;
 
                 const auto descriptorSets =
@@ -379,6 +388,11 @@ void Renderer::makeShadowMap(VkCommandBuffer cmd, uint32_t currentFrame, vector<
         // Render all meshes in this model
         for (size_t i = 0; i < models[j].meshes().size(); i++) {
             auto& mesh = models[j].meshes()[i];
+            
+            // Skip culled meshes for shadow mapping too
+            if (mesh.isCulled) {
+                continue;
+            }
 
             // Bind vertex and index buffers
             vkCmdBindVertexBuffers(cmd, 0, 1, &mesh.vertexBuffer_, offsets);
@@ -510,7 +524,40 @@ void Renderer::performFrustumCulling(vector<Model>& models, const glm::mat4& mod
         for (auto& mesh : model.meshes()) {
             cullingStats_.totalMeshes++;
 
-            mesh.updateWorldBounds(modelMatrix);
+            bool isVisible = viewFrustum_.intersects(mesh.worldBounds);
+
+            mesh.isCulled = !isVisible;
+
+            if (isVisible) {
+                cullingStats_.renderedMeshes++;
+            } else {
+                cullingStats_.culledMeshes++;
+            }
+        }
+    }
+}
+
+// Add overload for all models
+void Renderer::performFrustumCulling(vector<Model>& models)
+{
+    cullingStats_.totalMeshes = 0;
+    cullingStats_.culledMeshes = 0;
+    cullingStats_.renderedMeshes = 0;
+
+    if (!frustumCullingEnabled_) {
+        for (auto& model : models) {
+            for (auto& mesh : model.meshes()) {
+                mesh.isCulled = false;
+                cullingStats_.totalMeshes++;
+                cullingStats_.renderedMeshes++;
+            }
+        }
+        return;
+    }
+
+    for (auto& model : models) {
+        for (auto& mesh : model.meshes()) {
+            cullingStats_.totalMeshes++;
 
             bool isVisible = viewFrustum_.intersects(mesh.worldBounds);
 
@@ -521,6 +568,15 @@ void Renderer::performFrustumCulling(vector<Model>& models, const glm::mat4& mod
             } else {
                 cullingStats_.culledMeshes++;
             }
+        }
+    }
+}
+
+void Renderer::updateWorldBounds(vector<Model>& models)
+{
+    for (auto& model : models) {
+        for (auto& mesh : model.meshes()) {
+            mesh.updateWorldBounds(model.modelMatrix());
         }
     }
 }

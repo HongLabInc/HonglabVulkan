@@ -159,6 +159,14 @@ void Application::setupCallbacks()
                          glm::to_string(app->camera_.rotation),
                          glm::to_string(app->camera_.viewPos));
                 break;
+            case GLFW_KEY_F4:
+                // Toggle frustum culling
+                {
+                    bool cullingEnabled = app->renderer_.isFrustumCullingEnabled();
+                    app->renderer_.setFrustumCullingEnabled(!cullingEnabled);
+                    printLog("Frustum culling: {}", !cullingEnabled ? "Enabled" : "Disabled");
+                }
+                break;
             case GLFW_KEY_ESCAPE:
                 glfwSetWindowShouldClose(window, GLFW_TRUE);
                 break;
@@ -435,6 +443,13 @@ void Application::run()
 
         renderer_.update(camera_, currentFrame, (float)glfwGetTime() * 0.5f);
         renderer_.updateBoneData(models_, currentFrame);
+        
+        // Update world bounds for all meshes (used for culling and other spatial operations)
+        renderer_.updateWorldBounds(models_);
+        
+        // Perform frustum culling after updating world bounds
+        renderer_.performFrustumCulling(models_);
+        
         guiRenderer_.update(currentFrame);
 
         // Acquire using currentSemaphore index (GPU-side semaphore)
@@ -645,6 +660,26 @@ void Application::updateGui()
     // if (ImGui::Checkbox("Animation", &animationOn)) {
     //     renderer_.optionsUBO().animationOn = animationOn ? 1 : 0;
     // }
+
+    // Frustum Culling Controls
+    bool frustumCullingEnabled = renderer_.isFrustumCullingEnabled();
+    if (ImGui::Checkbox("Frustum Culling", &frustumCullingEnabled)) {
+        renderer_.setFrustumCullingEnabled(frustumCullingEnabled);
+    }
+
+    // Display culling statistics
+    if (renderer_.isFrustumCullingEnabled()) {
+        const auto& stats = renderer_.getCullingStats();
+        ImGui::Text("Culling Stats:");
+        ImGui::Text("  Total Meshes: %u", stats.totalMeshes);
+        ImGui::Text("  Rendered: %u", stats.renderedMeshes);
+        ImGui::Text("  Culled: %u", stats.culledMeshes);
+        
+        if (stats.totalMeshes > 0) {
+            float cullingPercentage = (float(stats.culledMeshes) / float(stats.totalMeshes)) * 100.0f;
+            ImGui::Text("  Culled: %.1f%%", cullingPercentage);
+        }
+    }
 
     ImGui::Separator();
 
@@ -1036,13 +1071,7 @@ void Application::renderCameraControlWindow()
         ImGui::BulletText("Q/E: Move up/down");
         ImGui::BulletText("F2: Toggle camera mode");
         ImGui::BulletText("F3: Print camera info to console");
-
-        ImGui::Separator();
-        ImGui::Text("Mouse Controls:");
-        ImGui::BulletText("Left Click + Drag: Look around");
-        ImGui::BulletText("Right Click + Drag: Zoom in/out");
-        ImGui::BulletText("Middle Click + Drag: Pan");
-        ImGui::BulletText("Scroll Wheel: Zoom");
+        ImGui::BulletText("F4: Toggle frustum culling");
     }
 
     ImGui::End();
