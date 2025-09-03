@@ -427,18 +427,26 @@ void Renderer::makeShadowMap(VkCommandBuffer cmd, uint32_t currentFrame, vector<
 void Renderer::createPipelines(const VkFormat swapChainColorFormat, const VkFormat depthFormat,
                                VkSampleCountFlagBits msaaSamples)
 {
+    // NEW: Using PipelineConfig-based creation
     pipelines_.emplace("pbrForward",
-                       Pipeline(ctx_, shaderManager_, "pbrForward", VK_FORMAT_R16G16B16A16_SFLOAT,
-                                depthFormat, msaaSamples));
-    pipelines_.emplace("sky", Pipeline(ctx_, shaderManager_, "sky", VK_FORMAT_R16G16B16A16_SFLOAT,
-                                       depthFormat, msaaSamples));
-    pipelines_.emplace("post", Pipeline(ctx_, shaderManager_, "post", swapChainColorFormat,
-                                        depthFormat, VK_SAMPLE_COUNT_1_BIT));
-    pipelines_.emplace("shadowMap", Pipeline(ctx_, shaderManager_, "shadowMap", VK_FORMAT_D16_UNORM,
-                                             VK_FORMAT_D16_UNORM, VK_SAMPLE_COUNT_1_BIT));
+                       Pipeline(ctx_, shaderManager_, PipelineConfig::createPbrForward(),
+                                VK_FORMAT_R16G16B16A16_SFLOAT, depthFormat, msaaSamples));
+                                
+    pipelines_.emplace("sky", 
+                       Pipeline(ctx_, shaderManager_, PipelineConfig::createSky(),
+                                VK_FORMAT_R16G16B16A16_SFLOAT, depthFormat, msaaSamples));
+                                
+    pipelines_.emplace("post", 
+                       Pipeline(ctx_, shaderManager_, PipelineConfig::createPost(),
+                                swapChainColorFormat, depthFormat, VK_SAMPLE_COUNT_1_BIT));
+                                
+    pipelines_.emplace("shadowMap", 
+                       Pipeline(ctx_, shaderManager_, PipelineConfig::createShadowMap(),
+                                VK_FORMAT_D16_UNORM, VK_FORMAT_D16_UNORM, VK_SAMPLE_COUNT_1_BIT));
 
-    pipelines_.emplace("ssao", Pipeline(ctx_, shaderManager_, "ssao", VK_FORMAT_D16_UNORM,
-                                        VK_FORMAT_D16_UNORM, VK_SAMPLE_COUNT_1_BIT));
+    pipelines_.emplace("ssao", 
+                       Pipeline(ctx_, shaderManager_, PipelineConfig::createSsao(),
+                                VK_FORMAT_D16_UNORM, VK_FORMAT_D16_UNORM, VK_SAMPLE_COUNT_1_BIT));
 }
 
 void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight,

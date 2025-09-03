@@ -2,6 +2,7 @@
 #include "engine/Image2D.h"
 #include "engine/CommandBuffer.h"
 #include "engine/Pipeline.h"
+#include "engine/PipelineConfig.h"
 #include "engine/ShaderManager.h"
 #include "engine/DescriptorSet.h"
 #include "engine/MappedBuffer.h"
@@ -35,8 +36,7 @@ int main()
 
     ShaderManager shaderManager(ctx, assetsPath + "shaders/", {{"compute", {"test.comp.spv"}}});
 
-    Pipeline computePipeline(ctx, shaderManager);
-    computePipeline.createByName("compute");
+    Pipeline computePipeline(ctx, shaderManager, PipelineConfig::createCompute());
 
     CommandBuffer cmd = ctx.createGraphicsCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
 

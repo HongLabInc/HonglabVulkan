@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ShaderManager.h"
+#include "PipelineConfig.h" // Add this include
 #include <vector>
 #include <algorithm>
 #include <unordered_map>
@@ -22,11 +23,13 @@ class Pipeline
     {
     }
 
-    Pipeline(Context& ctx, ShaderManager& shaderManager, string pipelineName,
-             VkFormat outColorFormat, VkFormat depthFormat, VkSampleCountFlagBits msaaSamples)
+    // NEW: PipelineConfig-based constructor
+    Pipeline(Context& ctx, ShaderManager& shaderManager, const PipelineConfig& config,
+             optional<VkFormat> outColorFormat = nullopt, optional<VkFormat> depthFormat = nullopt,
+             optional<VkSampleCountFlagBits> msaaSamples = nullopt)
         : ctx_(ctx), shaderManager_(shaderManager)
     {
-        createByName(pipelineName, outColorFormat, depthFormat, msaaSamples);
+        createFromConfig(config, outColorFormat, depthFormat, msaaSamples);
     }
 
     Pipeline(Pipeline&& other) noexcept
@@ -60,20 +63,14 @@ class Pipeline
     }
 
     void cleanup();
-    void createByName(string pipelineName, optional<VkFormat> outColorFormat = nullopt,
-                      optional<VkFormat> depthFormat = nullopt,
-                      optional<VkSampleCountFlagBits> msaaSamples = nullopt);
+
+    // NEW: Config-based creation method
+    void createFromConfig(const PipelineConfig& config, optional<VkFormat> outColorFormat = nullopt,
+                          optional<VkFormat> depthFormat = nullopt,
+                          optional<VkSampleCountFlagBits> msaaSamples = nullopt);
+
     void createCommon();
     void createCompute();
-    void createPost(VkFormat outColorFormat, VkFormat depthFormat);
-    void createGui(VkFormat outColorFormat);
-    void createSky(VkFormat outColorFormat, VkFormat depthFormat,
-                   VkSampleCountFlagBits msaaSamples);
-    void createShadowMap();
-    void createPbrForward(VkFormat outColorFormat, VkFormat depthFormat,
-                          VkSampleCountFlagBits msaaSamples);
-    void createPbrDeferred();
-    void createTriangle(VkFormat outColorFormat);
 
     // void dispatch(const VkCommandBuffer& cmd,
     //               initializer_list<reference_wrapper<const DescriptorSet>> descriptorSets,
@@ -123,6 +120,15 @@ class Pipeline
     VkPipeline pipeline_{VK_NULL_HANDLE};
 
     string name_{};
+
+    // NEW: Helper methods for config-based creation
+    void validateRequiredFormats(const PipelineConfig& config, optional<VkFormat> outColorFormat,
+                                 optional<VkFormat> depthFormat,
+                                 optional<VkSampleCountFlagBits> msaaSamples);
+
+    void createGraphicsFromConfig(const PipelineConfig& config, VkFormat outColorFormat,
+                                  optional<VkFormat> depthFormat,
+                                  optional<VkSampleCountFlagBits> msaaSamples);
 };
 
 } // namespace hlab

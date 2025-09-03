@@ -92,17 +92,17 @@ Selected Present Mode: VK_PRESENT_MODE_IMMEDIATE_KHR
 Designed Num of Swapchain Images: 3
 Added VK_IMAGE_USAGE_STORAGE_BIT to swapchain
 ShaderManager: Created 7 unique layout(s)
-  Layout 0 (0x28c9a698e80): 3 binding(s), used by:
+  Layout 0 (0x294566d8fc0): 3 binding(s), used by:
     - Pipeline 'shadowMap', Set 0
     - Pipeline 'pbrForward', Set 0
     Binding 0: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
     Binding 2: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
-  Layout 1 (0x28c9a6c8690): 2 binding(s), used by:
+  Layout 1 (0x294566d4aa0): 2 binding(s), used by:
     - Pipeline 'post', Set 0
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=FRAGMENT
-  Layout 2 (0x28c9a6c8510): 7 binding(s), used by:
+  Layout 2 (0x294566d4da0): 7 binding(s), used by:
     - Pipeline 'pbrForward', Set 1
     Binding 0: type=UNIFORM_BUFFER, count=1, stages=FRAGMENT
     Binding 1: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
@@ -111,27 +111,29 @@ ShaderManager: Created 7 unique layout(s)
     Binding 4: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 5: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 6: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
-  Layout 3 (0x28c9a6c8e10): 2 binding(s), used by:
+  Layout 3 (0x294566d5220): 2 binding(s), used by:
     - Pipeline 'sky', Set 0
     Binding 0: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
-  Layout 4 (0x28c9a6c8810): 1 binding(s), used by:
+  Layout 4 (0x294566d4f20): 1 binding(s), used by:
     - Pipeline 'pbrForward', Set 3
     - Pipeline 'gui', Set 0
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
-  Layout 5 (0x28c9a6c8390): 3 binding(s), used by:
+  Layout 5 (0x294566d5820): 3 binding(s), used by:
     - Pipeline 'pbrForward', Set 2
     - Pipeline 'sky', Set 1
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 1: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 2: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
-  Layout 6 (0x28c9a6c8990): 5 binding(s), used by:
+  Layout 6 (0x294566d4c20): 5 binding(s), used by:
     - Pipeline 'ssao', Set 0
     Binding 0: type=UNIFORM_BUFFER, count=1, stages=COMPUTE
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=COMPUTE
     Binding 2: type=STORAGE_IMAGE, count=1, stages=COMPUTE
     Binding 3: type=STORAGE_IMAGE, count=1, stages=COMPUTE
     Binding 4: type=COMBINED_IMAGE_SAMPLER, count=1, stages=COMPUTE
+Creating graphics pipeline from config: gui
+Successfully created graphics pipeline: gui
 Model directory: ../../assets/characters/Leonard
 Processing animations and bones before mesh processing...
 Processing animations in Model...
@@ -167,21 +169,23 @@ Texture filename: ../../assets/characters/Leonard/Ch31_1002_Diffuse.png
 Successfully loaded model: ../../assets/characters/Leonard/Bboy Hip Hop Move.fbx
   Meshes: 7
   Materials: 2
-  Loading time: 719 ms
+  Loading time: 730 ms
 Found 1 animations in model 'Dancer'
 Started animation: 'mixamo.com'
 Animation duration: 2.20 seconds
 Successfully loaded model from cache: ../../assets/models/AmazonLumberyardBistroMorganMcGuire\exterior_cache.bin
   Meshes: 3184
   Materials: 128
-  Loading time: 655 ms
+  Loading time: 684 ms
 No animations found in model 'Bistro'
-Creating a graphics pipeline: sky
-
-Creating a graphics pipeline: post
-
-Creating a graphics pipeline: shadowMap
-
+Creating graphics pipeline from config: pbrForward
+Successfully created graphics pipeline: pbrForward
+Creating graphics pipeline from config: sky
+Successfully created graphics pipeline: sky
+Creating graphics pipeline from config: post
+Successfully created graphics pipeline: post
+Creating graphics pipeline from config: shadowMap
+Successfully created graphics pipeline: shadowMap
 Creating compute pipeline: ssao
 
 Successfully created compute pipeline

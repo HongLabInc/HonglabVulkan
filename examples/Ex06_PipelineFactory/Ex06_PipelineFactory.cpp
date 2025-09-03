@@ -2,6 +2,7 @@
 #include "engine/Image2D.h"
 #include "engine/CommandBuffer.h"
 #include "engine/Pipeline.h"
+#include "engine/PipelineConfig.h"
 #include "engine/ShaderManager.h"
 #include "engine/MappedBuffer.h"
 #include <stb_image.h>
@@ -32,8 +33,8 @@ int main()
     ShaderManager shaderManager(ctx, assetsPath + "shaders/",
                                 {{"triangle", {"triangle.vert.spv", "triangle.frag.spv"}}});
 
-    Pipeline trianglePipeline(ctx, shaderManager, "triangle", VK_FORMAT_R8G8B8A8_UNORM,
-                              VK_FORMAT_UNDEFINED, VK_SAMPLE_COUNT_1_BIT);
+    Pipeline trianglePipeline(ctx, shaderManager, PipelineConfig::createTriangle(),
+                             VK_FORMAT_R8G8B8A8_UNORM, nullopt, VK_SAMPLE_COUNT_1_BIT);
 
     CommandBuffer renderCmd =
         ctx.createGraphicsCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);

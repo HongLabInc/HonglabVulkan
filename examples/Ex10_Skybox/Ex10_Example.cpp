@@ -1,5 +1,6 @@
 #include "Ex10_Example.h"
 #include "engine/Logger.h"
+#include "engine/PipelineConfig.h"
 
 #include <chrono>
 #include <thread>
@@ -84,9 +85,11 @@ Ex10_Example::~Ex10_Example()
 
 void Ex10_Example::initializeSkybox()
 {
-    // Create skybox pipeline
-    skyPipeline_.createByName("sky", swapchain_.colorFormat(), ctx_.depthFormat(),
-                              VK_SAMPLE_COUNT_1_BIT);
+    // Create skybox pipeline using PipelineConfig
+    skyPipeline_.createFromConfig(PipelineConfig::createSky(), 
+                                 swapchain_.colorFormat(), 
+                                 ctx_.depthFormat(), 
+                                 VK_SAMPLE_COUNT_1_BIT);
 
     // Load IBL textures
     string path = kAssetsPathPrefix + "textures/golden_gate_hills_4k/";

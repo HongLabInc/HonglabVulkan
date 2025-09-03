@@ -1,13 +1,14 @@
 #include "GuiRenderer.h"
+#include "PipelineConfig.h"
 
 namespace hlab {
 
 GuiRenderer::GuiRenderer(Context& ctx, ShaderManager& shaderManager, VkFormat colorFormat)
     : ctx_(ctx), shaderManager_(shaderManager), 
       frameData_{FrameData(ctx), FrameData(ctx)}, // Initialize frame data array
-      fontImage_(ctx), fontSampler_(ctx), pushConsts_(ctx), guiPipeline_(ctx, shaderManager_)
+      fontImage_(ctx), fontSampler_(ctx), pushConsts_(ctx), 
+      guiPipeline_(ctx, shaderManager_, PipelineConfig::createGui(), colorFormat)
 {
-    guiPipeline_.createByName("gui", colorFormat);
     pushConsts_.setStageFlags(VK_SHADER_STAGE_VERTEX_BIT);
 
     // ImGui 초기화, 스타일 설정

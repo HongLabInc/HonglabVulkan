@@ -37,6 +37,7 @@
     <ClInclude Include="ModelLoader.h" />
     <ClInclude Include="Skeleton.h" />
     <ClInclude Include="GpuTimer.h" />
+    <ClInclude Include="PipelineConfig.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Logger.cpp" />
@@ -53,9 +54,7 @@
     <ClCompile Include="Window.cpp" />
     <ClCompile Include="Swapchain.cpp" />
     <ClCompile Include="PipelineCompute.cpp" />
-    <ClCompile Include="PipelinePost.cpp" />
     <ClCompile Include="Sampler.cpp" />
-    <ClCompile Include="PipelineGui.cpp" />
     <ClCompile Include="GuiRenderer.cpp" />
     <ClCompile Include="PushConstants.cpp" />
     <ClCompile Include="Application.cpp" />
@@ -70,10 +69,6 @@
     <ClCompile Include="SkyTextures.cpp" />
     <ClCompile Include="DepthStencil.cpp" />
     <ClCompile Include="ShadowMap.cpp" />
-    <ClCompile Include="PipelineSky.cpp" />
-    <ClCompile Include="PipelineShadowMap.cpp" />
-    <ClCompile Include="PipelinePbrForward.cpp" />
-    <ClCompile Include="PipelinePbrDeferred.cpp" />
     <ClCompile Include="UniformBuffer.cpp" />
     <ClCompile Include="DescriptorPool.cpp" />
     <ClCompile Include="VulkanTools.cpp" />
@@ -81,8 +76,8 @@
     <ClCompile Include="Animation.cpp" />
     <ClCompile Include="ModelLoader.cpp" />
     <ClCompile Include="Skeleton.cpp" />
-    <ClCompile Include="PipelineTriangle.cpp" />
     <ClCompile Include="GpuTimer.cpp" />
+    <ClCompile Include="PipelineConfig.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\.clang-format" />

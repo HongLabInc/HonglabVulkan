@@ -38,6 +38,7 @@
     <ClInclude Include="ModelLoader.h" />
     <ClInclude Include="ModelNode.h" />
     <ClInclude Include="Pipeline.h" />
+    <ClInclude Include="PipelineConfig.h" />
     <ClInclude Include="PushConstants.h" />
     <ClInclude Include="Renderer.h" />
     <ClInclude Include="ResourceBinding.h" />
@@ -77,13 +78,7 @@
     <ClCompile Include="ModelNode.cpp" />
     <ClCompile Include="Pipeline.cpp" />
     <ClCompile Include="PipelineCompute.cpp" />
-    <ClCompile Include="PipelineGui.cpp" />
-    <ClCompile Include="PipelinePbrDeferred.cpp" />
-    <ClCompile Include="PipelinePbrForward.cpp" />
-    <ClCompile Include="PipelinePost.cpp" />
-    <ClCompile Include="PipelineShadowMap.cpp" />
-    <ClCompile Include="PipelineSky.cpp" />
-    <ClCompile Include="PipelineTriangle.cpp" />
+    <ClCompile Include="PipelineConfig.cpp" />
     <ClCompile Include="PushConstants.cpp" />
     <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="ResourceBinding.cpp" />
