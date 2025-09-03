@@ -18,6 +18,7 @@ add_library(Engine STATIC
     DescriptorPool.h
     DescriptorSet.cpp
     DescriptorSet.h
+    GpuTimer.cpp
     GuiRenderer.cpp
     GuiRenderer.h
     Image2D.cpp
@@ -45,7 +46,6 @@ add_library(Engine STATIC
     PipelinePost.cpp
     PipelineShadowMap.cpp
     PipelineSky.cpp
-    PipelineSsao.cpp
     PipelineTriangle.cpp
     PushConstants.cpp
     PushConstants.h
