@@ -117,7 +117,7 @@ void Application::loadModels(const vector<ModelConfig>& modelConfigs)
                 model.setAnimationSpeed(modelConfig.animationSpeed);
                 model.playAnimation();
 
-                printLog("Started animation: '{}'",
+                printLog("Started animation: '{}",
                          model.getAnimation()->getCurrentAnimationName());
                 printLog("Animation duration: {:.2f} seconds", model.getAnimation()->getDuration());
             }
@@ -372,7 +372,7 @@ void Application::run()
                     glm::lookAt(vec3(0.0f), -renderer_.sceneUBO().directionalLightDir,
                                 glm::vec3(0.0f, 0.0f, 1.0f));
 
-                // Transform the first model's bounding box by its model matrix
+                // Transform the first model's bounding box to find the initial light bounding box
                 vec3 firstMin =
                     vec3(models_[0].modelMatrix() * vec4(models_[0].boundingBoxMin(), 1.0f));
                 vec3 firstMax =
@@ -382,9 +382,9 @@ void Application::run()
                 vec3 min_ = glm::min(firstMin, firstMax);
                 vec3 max_ = glm::max(firstMin, firstMax);
 
-                // Iterate through all remaining models to determine the combined bounding box
+                // Iterate through all models to find the combined bounding box
                 for (uint32_t i = 1; i < models_.size(); i++) {
-                    // Transform this model's bounding box by its model matrix
+                    // Transform this model's bounding box to world space
                     vec3 modelMin =
                         vec3(models_[i].modelMatrix() * vec4(models_[i].boundingBoxMin(), 1.0f));
                     vec3 modelMax =
@@ -429,6 +429,22 @@ void Application::run()
 
         renderer_.update(camera_, currentFrame, (float)glfwGetTime() * 0.5f);
         renderer_.updateBoneData(models_, currentFrame);
+        
+        // NEW: Update view frustum and perform culling
+        glm::mat4 viewProjection = camera_.matrices.perspective * camera_.matrices.view;
+        renderer_.updateViewFrustum(viewProjection);
+        
+        // Update world bounds for all meshes before performing culling
+        for (auto& model : models_) {
+            const glm::mat4& modelMatrix = model.modelMatrix();
+            for (auto& mesh : model.meshes()) {
+                mesh.updateWorldBounds(modelMatrix);
+            }
+        }
+        
+        // Perform frustum culling on all models
+        renderer_.performFrustumCulling(models_);
+        
         guiRenderer_.update();
 
         // Acquire using currentSemaphore index (GPU-side semaphore)
@@ -569,8 +585,27 @@ void Application::updateGui()
     bool textureOn = renderer_.optionsUBO().textureOn != 0;
     bool shadowOn = renderer_.optionsUBO().shadowOn != 0;
     bool discardOn = renderer_.optionsUBO().discardOn != 0;
-    // bool animationOn = renderer_.optionsUBO().animationOn != 0;
-
+    
+    // NEW: Frustum Culling Controls
+    ImGui::Separator();
+    ImGui::Text("View Frustum Culling");
+    
+    bool frustumCullingEnabled = renderer_.isFrustumCullingEnabled();
+    if (ImGui::Checkbox("Enable Frustum Culling", &frustumCullingEnabled)) {
+        renderer_.setFrustumCullingEnabled(frustumCullingEnabled);
+    }
+    
+    // Display culling statistics
+    const auto& stats = renderer_.getCullingStats();
+    ImGui::Text("Total Meshes: %u", stats.totalMeshes);
+    ImGui::Text("Rendered: %u", stats.renderedMeshes);
+    ImGui::Text("Culled: %u", stats.culledMeshes);
+    
+    if (stats.totalMeshes > 0) {
+        float cullPercent = (float)stats.culledMeshes / stats.totalMeshes * 100.0f;
+        ImGui::Text("Culled: %.1f%%", cullPercent);
+    }
+    
     if (ImGui::Checkbox("Textures", &textureOn)) {
         renderer_.optionsUBO().textureOn = textureOn ? 1 : 0;
     }

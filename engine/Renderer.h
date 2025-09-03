@@ -145,7 +145,7 @@ class Renderer
     // View frustum culling
     auto getCullingStats() const -> const CullingStats&;
     bool isFrustumCullingEnabled() const;
-    void performFrustumCulling(vector<Model>& models, const glm::mat4& modelMatrix);
+    void performFrustumCulling(vector<Model>& models); // Removed unused modelMatrix parameter
     void setFrustumCullingEnabled(bool enabled);
     void updateViewFrustum(const glm::mat4& viewProjection);
 

@@ -178,6 +178,12 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
             for (size_t i = 0; i < models[j].meshes().size(); i++) {
 
                 auto& mesh = models[j].meshes()[i];
+                
+                // Skip culled meshes
+                if (mesh.isCulled) {
+                    continue;
+                }
+                
                 uint32_t matIndex = mesh.materialIndex_;
 
                 const auto descriptorSets =
@@ -311,6 +317,11 @@ void Renderer::makeShadowMap(VkCommandBuffer cmd, uint32_t currentFrame, vector<
         for (size_t i = 0; i < models[j].meshes().size(); i++) {
             auto& mesh = models[j].meshes()[i];
 
+            // Skip culled meshes in shadow pass too
+            if (mesh.isCulled) {
+                continue;
+            }
+
             // Bind vertex and index buffers
             vkCmdBindVertexBuffers(cmd, 0, 1, &mesh.vertexBuffer_, offsets);
             vkCmdBindIndexBuffer(cmd, mesh.indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
@@ -416,7 +427,7 @@ void Renderer::updateViewFrustum(const glm::mat4& viewProjection)
     }
 }
 
-void Renderer::performFrustumCulling(vector<Model>& models, const glm::mat4& modelMatrix)
+void Renderer::performFrustumCulling(vector<Model>& models)
 {
     cullingStats_.totalMeshes = 0;
     cullingStats_.culledMeshes = 0;
@@ -436,8 +447,6 @@ void Renderer::performFrustumCulling(vector<Model>& models, const glm::mat4& mod
     for (auto& model : models) {
         for (auto& mesh : model.meshes()) {
             cullingStats_.totalMeshes++;
-
-            mesh.updateWorldBounds(modelMatrix);
 
             bool isVisible = viewFrustum_.intersects(mesh.worldBounds);
 
