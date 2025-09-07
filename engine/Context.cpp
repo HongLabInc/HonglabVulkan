@@ -435,6 +435,44 @@ void Context::createLogicalDevice(bool useSwapChain)
 {
     const VkQueueFlags requestedQueueTypes = VK_QUEUE_COMPUTE_BIT | VK_QUEUE_GRAPHICS_BIT;
 
+    // Check for descriptor indexing extension support
+    const char* descriptorIndexingExt = VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME;
+    if (!extensionSupported(descriptorIndexingExt)) {
+        exitWithMessage("Required extension \"{}\" is not supported by the selected GPU. "
+                        "Bindless textures require this extension for proper functionality.",
+                        descriptorIndexingExt);
+    }
+
+    // Query descriptor indexing features
+    VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures{};
+    descriptorIndexingFeatures.sType =
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+
+    VkPhysicalDeviceFeatures2 deviceFeatures2{};
+    deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    deviceFeatures2.pNext = &descriptorIndexingFeatures;
+
+    vkGetPhysicalDeviceFeatures2(physicalDevice_, &deviceFeatures2);
+
+    // Check required descriptor indexing features
+    if (!descriptorIndexingFeatures.descriptorBindingPartiallyBound ||
+        !descriptorIndexingFeatures.runtimeDescriptorArray ||
+        !descriptorIndexingFeatures.descriptorBindingVariableDescriptorCount) {
+        exitWithMessage(
+            "GPU does not support required descriptor indexing features for bindless textures:\n"
+            "  - descriptorBindingPartiallyBound: {}\n"
+            "  - runtimeDescriptorArray: {}\n"
+            "  - descriptorBindingVariableDescriptorCount: {}",
+            descriptorIndexingFeatures.descriptorBindingPartiallyBound ? "YES" : "NO",
+            descriptorIndexingFeatures.runtimeDescriptorArray ? "YES" : "NO",
+            descriptorIndexingFeatures.descriptorBindingVariableDescriptorCount ? "YES" : "NO");
+    }
+
+    printLog("Descriptor indexing features supported:");
+    printLog("  descriptorBindingPartiallyBound: YES");
+    printLog("  runtimeDescriptorArray: YES");
+    printLog("  descriptorBindingVariableDescriptorCount: YES");
+
     VkPhysicalDeviceVulkan13Features enabledFeatures13{
         VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
     enabledFeatures13.dynamicRendering = VK_TRUE;
@@ -493,9 +531,17 @@ void Context::createLogicalDevice(bool useSwapChain)
         deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     }
 
+    // Add descriptor indexing extension
+    deviceExtensions.push_back(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
+
     enabledFeatures_.samplerAnisotropy = deviceFeatures_.samplerAnisotropy;
     enabledFeatures_.depthClamp = deviceFeatures_.depthClamp;
     enabledFeatures_.depthBiasClamp = deviceFeatures_.depthBiasClamp;
+
+    // Enable descriptor indexing features
+    descriptorIndexingFeatures.descriptorBindingPartiallyBound = VK_TRUE;
+    descriptorIndexingFeatures.runtimeDescriptorArray = VK_TRUE;
+    descriptorIndexingFeatures.descriptorBindingVariableDescriptorCount = VK_TRUE;
 
     VkDeviceCreateInfo deviceCreateInfo = {};
     deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -507,14 +553,18 @@ void Context::createLogicalDevice(bool useSwapChain)
     physicalDeviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
     physicalDeviceFeatures2.features = enabledFeatures_;
     physicalDeviceFeatures2.pNext = &enabledFeatures13;
+
+    // Chain descriptor indexing features
+    enabledFeatures13.pNext = &descriptorIndexingFeatures;
+
     deviceCreateInfo.pEnabledFeatures = nullptr;
     deviceCreateInfo.pNext = &physicalDeviceFeatures2;
 
     if (deviceExtensions.size() > 0) {
         for (const char* enabledExtension : deviceExtensions) {
             if (!extensionSupported(enabledExtension)) {
-                printLog("Enabled device extension \"{}\" is not present at device level",
-                         enabledExtension);
+                exitWithMessage("Enabled device extension \"{}\" is not present at device level",
+                                enabledExtension);
             }
         }
 

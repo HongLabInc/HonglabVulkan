@@ -443,13 +443,13 @@ void Application::run()
 
         renderer_.update(camera_, currentFrame, (float)glfwGetTime() * 0.5f);
         renderer_.updateBoneData(models_, currentFrame);
-        
+
         // Update world bounds for all meshes (used for culling and other spatial operations)
         renderer_.updateWorldBounds(models_);
-        
+
         // Perform frustum culling after updating world bounds
         renderer_.performFrustumCulling(models_);
-        
+
         guiRenderer_.update(currentFrame);
 
         // Acquire using currentSemaphore index (GPU-side semaphore)
@@ -674,9 +674,10 @@ void Application::updateGui()
         ImGui::Text("  Total Meshes: %u", stats.totalMeshes);
         ImGui::Text("  Rendered: %u", stats.renderedMeshes);
         ImGui::Text("  Culled: %u", stats.culledMeshes);
-        
+
         if (stats.totalMeshes > 0) {
-            float cullingPercentage = (float(stats.culledMeshes) / float(stats.totalMeshes)) * 100.0f;
+            float cullingPercentage =
+                (float(stats.culledMeshes) / float(stats.totalMeshes)) * 100.0f;
             ImGui::Text("  Culled: %.1f%%", cullingPercentage);
         }
     }
@@ -1187,7 +1188,7 @@ void Application::renderSSAOControlWindow()
         if (ImGui::Button("Off")) {
             renderer_.ssaoOptionsUBO().ssaoRadius = 0.1f;
             renderer_.ssaoOptionsUBO().ssaoBias = 0.025f;
-            renderer_.ssaoOptionsUBO().ssaoSampleCount = 0;  // Disable SSAO
+            renderer_.ssaoOptionsUBO().ssaoSampleCount = 0; // Disable SSAO
             renderer_.ssaoOptionsUBO().ssaoPower = 2.0f;
         }
         ImGui::SameLine();
