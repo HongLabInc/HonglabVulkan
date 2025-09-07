@@ -8,15 +8,15 @@
 #include "Sampler.h"
 #include "SkyTextures.h"
 #include "Pipeline.h"
-#include "DepthStencil.h"
 #include "ViewFrustum.h"
 #include "Model.h"
 #include "UniformBuffer.h"
 #include "ShaderManager.h"
-#include "ShadowMap.h"
+#include "TextureManager.h"
 #include <glm/glm.hpp>
 #include <vector>
 #include <functional>
+#include <memory>
 
 namespace hlab {
 
@@ -99,11 +99,16 @@ struct BoneDataUniform
 static_assert(sizeof(BoneDataUniform) % 16 == 0, "BoneDataUniform must be 16-byte aligned");
 static_assert(sizeof(BoneDataUniform) == 256 * 64 + 16, "Unexpected BoneDataUniform size");
 
-struct VulkanBuffer
+// Push constants structure for PBR forward rendering
+struct PbrPushConstants
 {
-    VkDeviceMemory memory_{VK_NULL_HANDLE};
-    VkBuffer handle_{VK_NULL_HANDLE};
+    alignas(16) glm::mat4 model = glm::mat4(1.0f); // 64 bytes
+    alignas(4) float coeffs[15] = {
+        0.0f}; // 60 bytes (reduced from 16 to make room for materialIndex)
+    alignas(4) uint32_t materialIndex = 0; // 4 bytes - Material index for bindless access
 };
+
+static_assert(sizeof(PbrPushConstants) == 128, "PbrPushConstants must be 128 bytes");
 
 struct CullingStats
 {
@@ -123,9 +128,9 @@ class Renderer
         cleanup();
     }
 
-    void prepareForModels(vector<Model>& models, VkFormat outColorFormat, VkFormat depthFormat,
-                          VkSampleCountFlagBits msaaSamples, uint32_t swapChainWidth,
-                          uint32_t swapChainHeight);
+    void prepareForModels(vector<unique_ptr<Model>>& models, VkFormat outColorFormat,
+                          VkFormat depthFormat, VkSampleCountFlagBits msaaSamples,
+                          uint32_t swapChainWidth, uint32_t swapChainHeight);
 
     void createPipelines(const VkFormat colorFormat, const VkFormat depthFormat,
                          VkSampleCountFlagBits msaaSamples);
@@ -139,19 +144,20 @@ class Renderer
     }
 
     void update(Camera& camera, uint32_t currentFrame, double time);
-    void updateBoneData(const vector<Model>& models, uint32_t currentFrame); // NEW: Add this method
+    void updateBoneData(const vector<unique_ptr<Model>>& models,
+                        uint32_t currentFrame); // NEW: Add this method
 
     void draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swapchainImageView,
-              vector<Model>& models, VkViewport viewport, VkRect2D scissor);
+              vector<unique_ptr<Model>>& models, VkViewport viewport, VkRect2D scissor);
 
-    void makeShadowMap(VkCommandBuffer cmd, uint32_t currentFrame, vector<Model>& models);
+    void makeShadowMap(VkCommandBuffer cmd, uint32_t currentFrame,
+                       vector<unique_ptr<Model>>& models);
 
     // View frustum culling
     auto getCullingStats() const -> const CullingStats&;
     bool isFrustumCullingEnabled() const;
-    void performFrustumCulling(vector<Model>& models, const glm::mat4& modelMatrix);
-    void performFrustumCulling(vector<Model>& models); // Overload for all models
-    void updateWorldBounds(vector<Model>& models); // Update world bounds for all models
+    void performFrustumCulling(vector<unique_ptr<Model>>& models);
+    void updateWorldBounds(vector<unique_ptr<Model>>& models);
     void setFrustumCullingEnabled(bool enabled);
     void updateViewFrustum(const glm::mat4& viewProjection);
 
@@ -192,12 +198,12 @@ class Renderer
     PostOptionsUBO postOptionsUBO_{};
     SsaoOptionsUBO ssaoOptionsUBO_{};
 
-    vector<UniformBuffer<SceneUniform>> sceneUniforms_{};
-    vector<UniformBuffer<SkyOptionsUBO>> skyOptionsUniforms_;
-    vector<UniformBuffer<OptionsUniform>> optionsUniforms_{};
-    vector<UniformBuffer<BoneDataUniform>> boneDataUniforms_;
-    vector<UniformBuffer<PostOptionsUBO>> postOptionsUniforms_;
-    vector<UniformBuffer<SsaoOptionsUBO>> ssaoOptionsUniforms_;
+    vector<unique_ptr<UniformBuffer<SceneUniform>>> sceneUniforms_{};
+    vector<unique_ptr<UniformBuffer<SkyOptionsUBO>>> skyOptionsUniforms_;
+    vector<unique_ptr<UniformBuffer<OptionsUniform>>> optionsUniforms_{};
+    vector<unique_ptr<UniformBuffer<BoneDataUniform>>> boneDataUniforms_;
+    vector<unique_ptr<UniformBuffer<PostOptionsUBO>>> postOptionsUniforms_;
+    vector<unique_ptr<UniformBuffer<SsaoOptionsUBO>>> ssaoOptionsUniforms_;
 
     vector<DescriptorSet> sceneOptionsBoneDataSets_{};
     vector<DescriptorSet> sceneSkyOptionsSets_{};
@@ -205,22 +211,26 @@ class Renderer
     vector<DescriptorSet> ssaoDescriptorSets_;
 
     // Resources
-    Image2D msaaColorBuffer_;
-    DepthStencil depthStencil_;
-    DepthStencil msaaDepthStencil_;
+    unique_ptr<Image2D> msaaColorBuffer_;  // unique_ptr<Image2D> msaaColorBuffer_;
+    unique_ptr<Image2D> depthStencil_;     // unique_ptr<Image2D>
+    unique_ptr<Image2D> msaaDepthStencil_; // unique_ptr<Image2D>
+    unique_ptr<Image2D> forwardToCompute_; // unique_ptr<Image2D>
+    unique_ptr<Image2D> computeToPost_;    // unique_ptr<Image2D>
+    unique_ptr<Image2D> dummyTexture_;     // unique_ptr<Image2D>
 
-    Image2D forwardToCompute_;
-    Image2D computeToPost_;
+    TextureManager textureManager_;
+    StorageBuffer materialStorageBuffer_;
+    DescriptorSet materialDescriptorSet_;
 
-    Image2D dummyTexture_;
     SkyTextures skyTextures_;
 
     Sampler samplerLinearRepeat_;
     Sampler samplerLinearClamp_;
     Sampler samplerAnisoRepeat_;
     Sampler samplerAnisoClamp_;
+    Sampler samplerShadow_;
 
-    ShadowMap shadowMap_;
+    unique_ptr<Image2D> shadowMap_; // unique_ptr<Image2D>
 
     DescriptorSet skyDescriptorSet_;
     DescriptorSet postDescriptorSet_;

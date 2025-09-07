@@ -16,23 +16,8 @@
 
 namespace hlab {
 
-Image2D::Image2D(Context& ctx) : ctx_(ctx)
+Image2D::Image2D(Context& ctx) : Resource(ctx, Type::Image)
 {
-}
-
-Image2D::Image2D(Image2D&& other) noexcept
-    : ctx_(other.ctx_), image_(other.image_), memory_(other.memory_), imageView_(other.imageView_),
-      format_(other.format_), width_(other.width_), height_(other.height_),
-      usageFlags_(other.usageFlags_)
-{
-    // Reset the moved-from object to a safe state
-    other.image_ = VK_NULL_HANDLE;
-    other.memory_ = VK_NULL_HANDLE;
-    other.imageView_ = VK_NULL_HANDLE;
-    other.format_ = VK_FORMAT_UNDEFINED;
-    other.width_ = 0;
-    other.height_ = 0;
-    other.usageFlags_ = 0;
 }
 
 Image2D::~Image2D()
@@ -45,9 +30,15 @@ auto Image2D::image() const -> VkImage
     return image_;
 }
 
-VkImageView Image2D::view()
+VkImageView Image2D::view() const
 {
     return imageView_;
+}
+
+VkImageView Image2D::attachmentView() const
+{
+    // Return depth-stencil view if available, otherwise regular view
+    return (depthStencilView_ != VK_NULL_HANDLE) ? depthStencilView_ : imageView_;
 }
 
 auto Image2D::width() const -> uint32_t
@@ -88,9 +79,9 @@ void Image2D::createFromPixelData(unsigned char* pixelData, int width, int heigh
     CommandBuffer copyCmd = ctx_.createTransferCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
 
     // Transition image layout to transfer destination optimal
-    resourceBinding_.barrierHelper_.transitionTo(copyCmd.handle(), VK_ACCESS_2_TRANSFER_WRITE_BIT,
-                                                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                                 VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+    barrierHelper().transitionTo(copyCmd.handle(), VK_ACCESS_2_TRANSFER_WRITE_BIT,
+                                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                 VK_PIPELINE_STAGE_2_TRANSFER_BIT);
 
     // Copy data from staging buffer to GPU image
     VkBufferImageCopy bufferCopyRegion = {};
@@ -103,11 +94,39 @@ void Image2D::createFromPixelData(unsigned char* pixelData, int width, int heigh
     vkCmdCopyBufferToImage(copyCmd.handle(), stagingBuffer.buffer(), image_,
                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &bufferCopyRegion);
 
-    resourceBinding_.barrierHelper_.transitionTo(copyCmd.handle(), VK_ACCESS_2_SHADER_READ_BIT,
-                                                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                                 VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT);
+    barrierHelper().transitionTo(copyCmd.handle(), VK_ACCESS_2_SHADER_READ_BIT,
+                                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                 VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT);
 
     copyCmd.submitAndWait();
+}
+
+void Image2D::createSolid(int width, int height, uint8_t rgba[4])
+{
+    if (width <= 0 || height <= 0) {
+        exitWithMessage("Solid texture dimensions must be greater than zero: {}x{}", width, height);
+    }
+
+    // Calculate total pixels and allocate pixel data
+    const int totalPixels = width * height;
+    const int channels = 4; // RGBA
+    const size_t dataSize = totalPixels * channels;
+
+    // Create pixel data array filled with the specified RGBA color
+    std::vector<unsigned char> pixelData(dataSize);
+
+    // Fill all pixels with the specified RGBA color
+    for (int i = 0; i < totalPixels; ++i) {
+        int pixelOffset = i * 4;
+        pixelData[pixelOffset + 0] = rgba[0]; // Red
+        pixelData[pixelOffset + 1] = rgba[1]; // Green
+        pixelData[pixelOffset + 2] = rgba[2]; // Blue
+        pixelData[pixelOffset + 3] = rgba[3]; // Alpha
+    }
+
+    // Use the existing createFromPixelData method
+    // false = not sRGB (solid colors are typically linear)
+    createFromPixelData(pixelData.data(), width, height, channels, false);
 }
 
 std::string fixPath(const std::string& path) // for linux path
@@ -217,9 +236,9 @@ void Image2D::createTextureFromKtx2(string filename, bool isCubemap)
     }
 
     // Transition image layout to transfer destination optimal
-    resourceBinding_.barrierHelper_.transitionTo(copyCmd.handle(), VK_ACCESS_2_TRANSFER_WRITE_BIT,
-                                                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                                 VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+    barrierHelper().transitionTo(copyCmd.handle(), VK_ACCESS_2_TRANSFER_WRITE_BIT,
+                                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                 VK_PIPELINE_STAGE_2_TRANSFER_BIT);
 
     // Copy buffer to image
     vkCmdCopyBufferToImage(
@@ -227,9 +246,9 @@ void Image2D::createTextureFromKtx2(string filename, bool isCubemap)
         static_cast<uint32_t>(bufferCopyRegions.size()), bufferCopyRegions.data());
 
     // Transition image layout to shader read-only optimal
-    resourceBinding_.barrierHelper_.transitionTo(copyCmd.handle(), VK_ACCESS_2_SHADER_READ_BIT,
-                                                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                                 VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT);
+    barrierHelper().transitionTo(copyCmd.handle(), VK_ACCESS_2_SHADER_READ_BIT,
+                                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                 VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT);
 
     copyCmd.submitAndWait();
 
@@ -305,6 +324,25 @@ void Image2D::createGeneralStorage(uint16_t width, uint32_t height)
                 VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, 0, VK_IMAGE_VIEW_TYPE_2D);
 }
 
+void Image2D::createShadow(uint32_t width, uint32_t height)
+{
+    // Create shadow map with appropriate format and usage flags for depth testing and sampling
+    createImage(VK_FORMAT_D16_UNORM,   // 16-bit depth format, suitable for shadow maps
+                width,                 // Width
+                height,                // Height
+                VK_SAMPLE_COUNT_1_BIT, // No MSAA for shadow maps
+                VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | // Can be used as depth attachment
+                    VK_IMAGE_USAGE_SAMPLED_BIT |              // Can be sampled in shaders
+                    VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+                    VK_IMAGE_USAGE_TRANSFER_SRC_BIT, // Can be copied to/from
+                VK_IMAGE_ASPECT_DEPTH_BIT,           // Depth aspect only
+                1,                                   // Single mip level
+                1,                                   // Single array layer
+                0,                                   // No special flags
+                VK_IMAGE_VIEW_TYPE_2D                // 2D image view
+    );
+}
+
 void Image2D::createImage(VkFormat format, uint32_t width, uint32_t height,
                           VkSampleCountFlagBits sampleCount, VkImageUsageFlags usage,
                           VkImageAspectFlags aspectMask, uint32_t mipLevels, uint32_t arrayLayers,
@@ -363,15 +401,20 @@ void Image2D::createImage(VkFormat format, uint32_t width, uint32_t height,
 
     check(vkCreateImageView(ctx_.device(), &viewInfo, nullptr, &imageView_));
 
-    resourceBinding_.image_ = image_;
-    resourceBinding_.imageView_ = imageView_;
-    resourceBinding_.descriptorCount_ = 1;
-    resourceBinding_.update();
-    resourceBinding_.barrierHelper_.update(image_, format, mipLevels, arrayLayers);
+    // Initialize the resource with image data
+    resourceBinding().image_ = image_;
+    resourceBinding().imageView_ = imageView_;
+    resourceBinding().descriptorCount_ = 1;
+    initializeImageResource(image_, format_, mipLevels, arrayLayers);
+    updateResourceBinding();
 }
 
 void Image2D::cleanup()
 {
+    if (depthStencilView_ != VK_NULL_HANDLE) {
+        vkDestroyImageView(ctx_.device(), depthStencilView_, nullptr);
+        depthStencilView_ = VK_NULL_HANDLE;
+    }
     if (imageView_ != VK_NULL_HANDLE) {
         vkDestroyImageView(ctx_.device(), imageView_, nullptr);
         imageView_ = VK_NULL_HANDLE;
@@ -389,6 +432,123 @@ void Image2D::cleanup()
     format_ = VK_FORMAT_UNDEFINED;
     width_ = 0;
     height_ = 0;
+}
+
+void Image2D::createDepthBuffer(uint32_t width, uint32_t height, VkSampleCountFlagBits sampleCount)
+{
+    // Create depth buffer with appropriate format and usage flags for depth-stencil operations
+    createImage(
+        ctx_.depthFormat(),                           // Use context's preferred depth format
+        width,                                        // Width
+        height,                                       // Height
+        sampleCount,                                  // Sample count (for MSAA support)
+        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | // Can be used as depth-stencil attachment
+            VK_IMAGE_USAGE_SAMPLED_BIT, // Can be sampled in shaders (depth-only aspect)
+        VK_IMAGE_ASPECT_DEPTH_BIT,      // Start with depth-only aspect for the primary view
+        1,                              // Single mip level
+        1,                              // Single array layer
+        0,                              // No special flags
+        VK_IMAGE_VIEW_TYPE_2D           // 2D image view
+    );
+
+    // Create additional depth-stencil view for attachment usage
+    createDepthStencilAttachmentView();
+}
+
+void Image2D::updateResourceBindingAfterTransition()
+{
+    VkImageLayout currentLayout = barrierHelper().currentLayout();
+
+    if (currentLayout == VK_IMAGE_LAYOUT_GENERAL) {
+        // General layout is used for storage images
+        resourceBinding().descriptorType_ = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+        resourceBinding().imageInfo_.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+    } else if (currentLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+        // Shader read-only layout is used for sampled images
+        if (resourceBinding().sampler_ != VK_NULL_HANDLE) {
+            resourceBinding().descriptorType_ = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        } else {
+            resourceBinding().descriptorType_ = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+        }
+        resourceBinding().imageInfo_.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    } else if (currentLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL ||
+               currentLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+        // Attachment layouts are typically used for input attachments when used in descriptors
+        resourceBinding().descriptorType_ = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+        resourceBinding().imageInfo_.imageLayout = currentLayout;
+    } else {
+        // For other layouts, default to storage image with general layout capability
+        resourceBinding().descriptorType_ = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+        resourceBinding().imageInfo_.imageLayout = currentLayout;
+    }
+
+    // Update the image info
+    resourceBinding().imageInfo_.imageView = imageView_;
+    resourceBinding().imageInfo_.sampler = resourceBinding().sampler_;
+}
+
+void Image2D::createDepthStencilAttachmentView()
+{
+    // Only create if we don't already have one and this is a depth format
+    if (depthStencilView_ != VK_NULL_HANDLE) {
+        vkDestroyImageView(ctx_.device(), depthStencilView_, nullptr);
+        depthStencilView_ = VK_NULL_HANDLE;
+    }
+
+    // Only create depth-stencil view for depth formats
+    if (format_ < VK_FORMAT_D16_UNORM || format_ > VK_FORMAT_D32_SFLOAT_S8_UINT) {
+        return; // Not a depth format
+    }
+
+    VkImageViewCreateInfo viewInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+    viewInfo.image = image_;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.format = format_;
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+
+    // Include stencil aspect if format supports it
+    if (format_ >= VK_FORMAT_D16_UNORM_S8_UINT) {
+        viewInfo.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+    }
+
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
+
+    check(vkCreateImageView(ctx_.device(), &viewInfo, nullptr, &depthStencilView_));
+}
+
+auto Image2D::format() const -> VkFormat
+{
+    return format_;
+}
+
+void Image2D::updateBinding(VkDescriptorSetLayoutBinding& binding)
+{
+    const ResourceBinding& rb = resourceBinding();
+    
+    // Set descriptor type based on current usage and state
+    binding.descriptorType = rb.descriptorType_;
+    binding.descriptorCount = rb.descriptorCount_;
+    binding.pImmutableSamplers = nullptr;
+    binding.stageFlags = 0; // Will be set by shader reflection
+}
+
+void Image2D::updateWrite(VkWriteDescriptorSet& write)
+{
+    const ResourceBinding& rb = resourceBinding();
+    
+    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write.pNext = nullptr;
+    write.dstSet = VK_NULL_HANDLE; // Will be set by DescriptorSet::create()
+    write.dstBinding = 0;          // Will be set by DescriptorSet::create()
+    write.dstArrayElement = 0;
+    write.descriptorType = rb.descriptorType_;
+    write.descriptorCount = rb.descriptorCount_;
+    write.pImageInfo = &rb.imageInfo_;
+    write.pBufferInfo = nullptr;
+    write.pTexelBufferView = nullptr;
 }
 
 } // namespace hlab

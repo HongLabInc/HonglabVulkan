@@ -144,8 +144,8 @@ class Ex11_PostProcessingExample
     SkyOptionsUBO skyOptionsUBO_;
 
     // Uniform buffers
-    std::vector<UniformBuffer<SceneDataUBO>> sceneDataUniforms_;
-    std::vector<UniformBuffer<SkyOptionsUBO>> skyOptionsUniforms_;
+    std::vector<std::unique_ptr<UniformBuffer<SceneDataUBO>>> sceneDataUniforms_;
+    std::vector<std::unique_ptr<UniformBuffer<SkyOptionsUBO>>> skyOptionsUniforms_;
 
     // Descriptor sets
     std::vector<DescriptorSet> sceneDescriptorSets_;

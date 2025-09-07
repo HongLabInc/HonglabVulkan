@@ -105,14 +105,14 @@ void Ex11_PostProcessingExample::initializeSkybox()
     sceneDataUniforms_.clear();
     sceneDataUniforms_.reserve(kMaxFramesInFlight);
     for (uint32_t i = 0; i < kMaxFramesInFlight; ++i) {
-        sceneDataUniforms_.emplace_back(ctx_, sceneDataUBO_);
+        sceneDataUniforms_.emplace_back(std::make_unique<UniformBuffer<SceneDataUBO>>(ctx_, sceneDataUBO_));
     }
 
     // Create HDR sky options uniform buffers
     skyOptionsUniforms_.clear();
     skyOptionsUniforms_.reserve(kMaxFramesInFlight);
     for (uint32_t i = 0; i < kMaxFramesInFlight; ++i) {
-        skyOptionsUniforms_.emplace_back(ctx_, skyOptionsUBO_);
+        skyOptionsUniforms_.emplace_back(std::make_unique<UniformBuffer<SkyOptionsUBO>>(ctx_, skyOptionsUBO_));
     }
 
     // Create descriptor sets for scene data and options (set 0)
@@ -120,15 +120,15 @@ void Ex11_PostProcessingExample::initializeSkybox()
     for (size_t i = 0; i < kMaxFramesInFlight; i++) {
         sceneDescriptorSets_[i].create(ctx_,
                                        {
-                                           sceneDataUniforms_[i].resourceBinding(), // binding 0
-                                           skyOptionsUniforms_[i].resourceBinding() // binding 1
+                                           *sceneDataUniforms_[i], // binding 0
+                                           *skyOptionsUniforms_[i] // binding 1
                                        });
     }
 
     // Create descriptor set for skybox textures (set 1)
-    skyDescriptorSet_.create(ctx_, {skyTextures_.prefiltered().resourceBinding(),
-                                    skyTextures_.irradiance().resourceBinding(),
-                                    skyTextures_.brdfLUT().resourceBinding()});
+    skyDescriptorSet_.create(ctx_, {skyTextures_.prefiltered(),
+                                    skyTextures_.irradiance(),
+                                    skyTextures_.brdfLUT()});
 }
 
 void Ex11_PostProcessingExample::initializePostProcessing()
@@ -180,8 +180,8 @@ void Ex11_PostProcessingExample::renderFrame()
     check(vkResetFences(ctx_.device(), 1, &inFlightFences_[currentFrame_]));
 
     // Update uniform buffers
-    sceneDataUniforms_[currentFrame_].updateData();
-    skyOptionsUniforms_[currentFrame_].updateData();
+    sceneDataUniforms_[currentFrame_]->updateData();
+    skyOptionsUniforms_[currentFrame_]->updateData();
 
     uint32_t imageIndex = 0;
     VkResult acquireResult =

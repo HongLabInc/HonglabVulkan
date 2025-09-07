@@ -1,18 +1,18 @@
 #pragma once
 
 #include "Context.h"
-#include "ResourceBinding.h"
+#include "Resource.h"
 
 #include <string>
 #include <vulkan/vulkan.h>
 
 namespace hlab {
 
-class MappedBuffer
+class MappedBuffer : public Resource
 {
   public:
     MappedBuffer(Context& ctx);
-    MappedBuffer(MappedBuffer&&) noexcept;
+    MappedBuffer(MappedBuffer&&) = delete;
     MappedBuffer(const MappedBuffer&) = delete;
     MappedBuffer& operator=(const MappedBuffer&) = delete;
     MappedBuffer& operator=(MappedBuffer&&) = delete;
@@ -22,16 +22,23 @@ class MappedBuffer
     auto descriptorBufferInfo() const -> VkDescriptorBufferInfo;
     auto mapped() const -> void*;
     auto name() -> string&;
+    
+    // Legacy interface for backward compatibility
     auto resourceBinding() -> ResourceBinding&
     {
-        return resourceBinding_;
+        return Resource::resourceBinding();
     }
     
     // Add getters for size information
     auto allocatedSize() const -> VkDeviceSize { return allocatedSize_; }
     auto dataSize() const -> VkDeviceSize { return dataSize_; }
 
-    void cleanup();
+    void cleanup() override;
+
+    // Implement required Resource methods
+    void updateBinding(VkDescriptorSetLayoutBinding& binding) override;
+    void updateWrite(VkWriteDescriptorSet& write) override;
+    
     void create(VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memPropFlags,
                 VkDeviceSize size, void* data);
     void createVertexBuffer(VkDeviceSize size, void* data);
@@ -42,8 +49,6 @@ class MappedBuffer
     void flush() const;
 
   private:
-    Context& ctx_;
-
     VkBuffer buffer_{VK_NULL_HANDLE};
     VkDeviceMemory memory_{VK_NULL_HANDLE};
 
@@ -58,8 +63,6 @@ class MappedBuffer
     void* mapped_{nullptr};
 
     string name_{};
-
-    ResourceBinding resourceBinding_;
 };
 
 } // namespace hlab

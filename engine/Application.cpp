@@ -99,8 +99,8 @@ void Application::setupCamera(const CameraConfig& cameraConfig)
 void Application::loadModels(const vector<ModelConfig>& modelConfigs)
 {
     for (const auto& modelConfig : modelConfigs) {
-        models_.emplace_back(ctx_);
-        auto& model = models_.back();
+        models_.emplace_back(std::make_unique<Model>(ctx_));
+        auto& model = *models_.back();
 
         string fullPath = kAssetsPathPrefix + modelConfig.filePath;
         model.loadFromModelFile(fullPath, modelConfig.isBistroObj);
@@ -201,12 +201,12 @@ void Application::setupCallbacks()
             case GLFW_KEY_SPACE:
                 // Toggle animation play/pause
                 for (auto& model : app->models_) {
-                    if (model.hasAnimations()) {
-                        if (model.isAnimationPlaying()) {
-                            model.pauseAnimation();
+                    if (model->hasAnimations()) {
+                        if (model->isAnimationPlaying()) {
+                            model->pauseAnimation();
                             printLog("Animation paused");
                         } else {
-                            model.playAnimation();
+                            model->playAnimation();
                             printLog("Animation resumed");
                         }
                     }
@@ -216,9 +216,9 @@ void Application::setupCallbacks()
             case GLFW_KEY_R:
                 // Restart animation
                 for (auto& model : app->models_) {
-                    if (model.hasAnimations()) {
-                        model.stopAnimation();
-                        model.playAnimation();
+                    if (model->hasAnimations()) {
+                        model->stopAnimation();
+                        model->playAnimation();
                         printLog("Animation restarted");
                     }
                 }
@@ -233,11 +233,11 @@ void Application::setupCallbacks()
                 {
                     uint32_t animIndex = key - GLFW_KEY_1;
                     for (auto& model : app->models_) {
-                        if (model.hasAnimations() && animIndex < model.getAnimationCount()) {
-                            model.setAnimationIndex(animIndex);
-                            model.playAnimation();
+                        if (model->hasAnimations() && animIndex < model->getAnimationCount()) {
+                            model->setAnimationIndex(animIndex);
+                            model->playAnimation();
                             printLog("Switched to animation {}: '{}'", animIndex,
-                                     model.getAnimation()->getCurrentAnimationName());
+                                     model->getAnimation()->getCurrentAnimationName());
                         }
                     }
                 }
@@ -373,8 +373,8 @@ void Application::run()
         renderer_.sceneUBO().cameraPos = camera_.position;
 
         for (auto& model : models_) {
-            if (model.hasAnimations()) {
-                model.updateAnimation(deltaTime);
+            if (model->hasAnimations()) {
+                model->updateAnimation(deltaTime);
             }
         }
 
@@ -388,9 +388,9 @@ void Application::run()
 
                 // Transform the first model's bounding box to world space
                 vec3 firstMin =
-                    vec3(models_[0].modelMatrix() * vec4(models_[0].boundingBoxMin(), 1.0f));
+                    vec3(models_[0]->modelMatrix() * vec4(models_[0]->boundingBoxMin(), 1.0f));
                 vec3 firstMax =
-                    vec3(models_[0].modelMatrix() * vec4(models_[0].boundingBoxMax(), 1.0f));
+                    vec3(models_[0]->modelMatrix() * vec4(models_[0]->boundingBoxMax(), 1.0f));
 
                 // Ensure min is actually smaller than max for each component
                 vec3 min_ = glm::min(firstMin, firstMax);
@@ -400,9 +400,9 @@ void Application::run()
                 for (uint32_t i = 1; i < models_.size(); i++) {
                     // Transform this model's bounding box to world space
                     vec3 modelMin =
-                        vec3(models_[i].modelMatrix() * vec4(models_[i].boundingBoxMin(), 1.0f));
+                        vec3(models_[i]->modelMatrix() * vec4(models_[i]->boundingBoxMin(), 1.0f));
                     vec3 modelMax =
-                        vec3(models_[i].modelMatrix() * vec4(models_[i].boundingBoxMax(), 1.0f));
+                        vec3(models_[i]->modelMatrix() * vec4(models_[i]->boundingBoxMax(), 1.0f));
 
                     // Ensure proper min/max ordering
                     vec3 transformedMin = glm::min(modelMin, modelMax);
@@ -443,13 +443,13 @@ void Application::run()
 
         renderer_.update(camera_, currentFrame, (float)glfwGetTime() * 0.5f);
         renderer_.updateBoneData(models_, currentFrame);
-        
+
         // Update world bounds for all meshes (used for culling and other spatial operations)
         renderer_.updateWorldBounds(models_);
-        
+
         // Perform frustum culling after updating world bounds
         renderer_.performFrustumCulling(models_);
-        
+
         guiRenderer_.update(currentFrame);
 
         // Acquire using currentSemaphore index (GPU-side semaphore)
@@ -674,9 +674,10 @@ void Application::updateGui()
         ImGui::Text("  Total Meshes: %u", stats.totalMeshes);
         ImGui::Text("  Rendered: %u", stats.renderedMeshes);
         ImGui::Text("  Culled: %u", stats.culledMeshes);
-        
+
         if (stats.totalMeshes > 0) {
-            float cullingPercentage = (float(stats.culledMeshes) / float(stats.totalMeshes)) * 100.0f;
+            float cullingPercentage =
+                (float(stats.culledMeshes) / float(stats.totalMeshes)) * 100.0f;
             ImGui::Text("  Culled: %.1f%%", cullingPercentage);
         }
     }
@@ -684,7 +685,7 @@ void Application::updateGui()
     ImGui::Separator();
 
     for (uint32_t i = 0; i < models_.size(); i++) {
-        auto& m = models_[i];
+        auto& m = *models_[i];
         ImGui::Checkbox(std::format("{}##{}", m.name(), i).c_str(), &m.visible());
 
         // clean
@@ -1187,7 +1188,7 @@ void Application::renderSSAOControlWindow()
         if (ImGui::Button("Off")) {
             renderer_.ssaoOptionsUBO().ssaoRadius = 0.1f;
             renderer_.ssaoOptionsUBO().ssaoBias = 0.025f;
-            renderer_.ssaoOptionsUBO().ssaoSampleCount = 0;  // Disable SSAO
+            renderer_.ssaoOptionsUBO().ssaoSampleCount = 0; // Disable SSAO
             renderer_.ssaoOptionsUBO().ssaoPower = 2.0f;
         }
         ImGui::SameLine();

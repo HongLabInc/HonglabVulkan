@@ -10,7 +10,7 @@ class Sampler
 {
   public:
     Sampler(Context& ctx);
-
+    Sampler(Sampler&& other) noexcept;
     ~Sampler();
 
     auto handle() const -> VkSampler;
@@ -19,6 +19,7 @@ class Sampler
     void createAnisoClamp();
     void createLinearRepeat();
     void createLinearClamp();
+    void createShadow();
 
     void cleanup();
 

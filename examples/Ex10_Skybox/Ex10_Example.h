@@ -100,8 +100,8 @@ class Ex10_Example
     SkyTextures skyTextures_;
     SceneDataUBO sceneDataUBO_;
     SkyOptionsUBO skyOptionsUBO_;
-    std::vector<UniformBuffer<SceneDataUBO>> sceneDataUniforms_;
-    std::vector<UniformBuffer<SkyOptionsUBO>> skyOptionsUniforms_;
+    std::vector<std::unique_ptr<UniformBuffer<SceneDataUBO>>> sceneDataUniforms_;
+    std::vector<std::unique_ptr<UniformBuffer<SkyOptionsUBO>>> skyOptionsUniforms_;
     std::vector<DescriptorSet> sceneDescriptorSets_;
     DescriptorSet skyDescriptorSet_;
 

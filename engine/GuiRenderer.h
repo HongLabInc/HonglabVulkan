@@ -53,7 +53,7 @@ class GuiRenderer
     uint32_t vertexCount_{0};
     uint32_t indexCount_{0};
 
-    Image2D fontImage_;
+    unique_ptr<Image2D> fontImage_;
     Sampler fontSampler_;
     Pipeline guiPipeline_;
 

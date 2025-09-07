@@ -6,9 +6,11 @@
 #include "ModelNode.h"
 #include "Sampler.h"
 #include "Image2D.h"
+#include "TextureManager.h"
 #include "Vertex.h"
 #include "VulkanTools.h"
 #include "Animation.h"
+#include "StorageBuffer.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -30,15 +32,16 @@ class Model
 
   public:
     Model(Context& ctx);
-    Model(Model&& other) noexcept;
     Model(const Model&) = delete;
     Model& operator=(const Model&) = delete;
+    Model& operator=(Model&&) = delete;
     ~Model();
 
     void cleanup();
     void createVulkanResources();
 
-    void createDescriptorSets(Sampler& sampler, Image2D& dummyTexture);
+    void createDescriptorSets(Sampler& sampler, vector<MaterialUBO>& materials,
+                              TextureManager& textureManager);
 
     // Animation methods - ADD THESE
     void updateAnimation(float deltaTime);
@@ -130,19 +133,6 @@ class Model
     {
         return boundingBoxMax_;
     }
-    Image2D& getTexture(int index)
-    {
-        return textures_[index];
-    }
-    vector<Image2D>& textures()
-    {
-        return textures_;
-    }
-
-    const DescriptorSet& materialDescriptorSet(uint32_t mat_index)
-    {
-        return materialDescriptorSets_[mat_index];
-    }
 
     void loadFromModelFile(const string& modelFilename, bool readBistroObj);
 
@@ -172,10 +162,10 @@ class Model
     // Model asset data
     vector<Mesh> meshes_;
     vector<Material> materials_;
-    vector<Image2D> textures_;
+
+    vector<unique_ptr<Image2D>> textures_;
     vector<string> textureFilenames_;
-    vector<bool> textureSRgb_; // sRGB 여부 (임시 저장)
-    // 이름이 같은 텍스쳐 중복 생성 방지
+    vector<bool> textureSRgb_; // sRGB 여부
 
     unique_ptr<ModelNode> rootNode_;
     unique_ptr<Animation> animation_;
@@ -185,9 +175,6 @@ class Model
     // Bounding box
     vec3 boundingBoxMin_ = vec3(FLT_MAX);
     vec3 boundingBoxMax_ = vec3(-FLT_MAX);
-
-    vector<UniformBuffer<MaterialUBO>> materialUBO_{};
-    vector<DescriptorSet> materialDescriptorSets_{};
 
     string name_{};
     bool visible_ = true;

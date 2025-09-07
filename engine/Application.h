@@ -232,7 +232,7 @@ class Application
 
     ShaderManager shaderManager_;
 
-    vector<Model> models_{};
+    vector<unique_ptr<Model>> models_;
 
     GuiRenderer guiRenderer_;
     Renderer renderer_;
