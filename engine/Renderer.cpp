@@ -5,11 +5,12 @@ namespace hlab {
 
 Renderer::Renderer(Context& ctx, ShaderManager& shaderManager, const uint32_t& kMaxFramesInFlight,
                    const string& kAssetsPathPrefix, const string& kShaderPathPrefix_)
-    : ctx_(ctx), shaderManager_(shaderManager), kMaxFramesInFlight_(kMaxFramesInFlight),
-      kAssetsPathPrefix_(kAssetsPathPrefix), kShaderPathPrefix_(kShaderPathPrefix_),
-      dummyTexture_(ctx), msaaColorBuffer_(ctx), depthStencil_(ctx), msaaDepthStencil_(ctx),
-      skyTextures_(ctx), shadowMap_(ctx), samplerLinearRepeat_(ctx), samplerLinearClamp_(ctx),
-      samplerAnisoRepeat_(ctx), samplerAnisoClamp_(ctx), forwardToCompute_(ctx), computeToPost_(ctx)
+    : ctx_(ctx), shaderManager_(shaderManager), textureManager_(ctx),
+      kMaxFramesInFlight_(kMaxFramesInFlight), kAssetsPathPrefix_(kAssetsPathPrefix),
+      kShaderPathPrefix_(kShaderPathPrefix_), dummyTexture_(ctx), msaaColorBuffer_(ctx),
+      depthStencil_(ctx), msaaDepthStencil_(ctx), skyTextures_(ctx), shadowMap_(ctx),
+      samplerLinearRepeat_(ctx), samplerLinearClamp_(ctx), samplerAnisoRepeat_(ctx),
+      samplerAnisoClamp_(ctx), forwardToCompute_(ctx), computeToPost_(ctx)
 {
 }
 
@@ -209,12 +210,12 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
             for (size_t i = 0; i < models[j].meshes().size(); i++) {
 
                 auto& mesh = models[j].meshes()[i];
-                
+
                 // Skip culled meshes
                 if (mesh.isCulled) {
                     continue;
                 }
-                
+
                 uint32_t matIndex = mesh.materialIndex_;
 
                 const auto descriptorSets =
@@ -388,7 +389,7 @@ void Renderer::makeShadowMap(VkCommandBuffer cmd, uint32_t currentFrame, vector<
         // Render all meshes in this model
         for (size_t i = 0; i < models[j].meshes().size(); i++) {
             auto& mesh = models[j].meshes()[i];
-            
+
             // Skip culled meshes for shadow mapping too
             if (mesh.isCulled) {
                 continue;
@@ -431,20 +432,18 @@ void Renderer::createPipelines(const VkFormat swapChainColorFormat, const VkForm
     pipelines_.emplace("pbrForward",
                        Pipeline(ctx_, shaderManager_, PipelineConfig::createPbrForward(),
                                 VK_FORMAT_R16G16B16A16_SFLOAT, depthFormat, msaaSamples));
-                                
-    pipelines_.emplace("sky", 
-                       Pipeline(ctx_, shaderManager_, PipelineConfig::createSky(),
-                                VK_FORMAT_R16G16B16A16_SFLOAT, depthFormat, msaaSamples));
-                                
-    pipelines_.emplace("post", 
-                       Pipeline(ctx_, shaderManager_, PipelineConfig::createPost(),
-                                swapChainColorFormat, depthFormat, VK_SAMPLE_COUNT_1_BIT));
-                                
-    pipelines_.emplace("shadowMap", 
+
+    pipelines_.emplace("sky", Pipeline(ctx_, shaderManager_, PipelineConfig::createSky(),
+                                       VK_FORMAT_R16G16B16A16_SFLOAT, depthFormat, msaaSamples));
+
+    pipelines_.emplace("post", Pipeline(ctx_, shaderManager_, PipelineConfig::createPost(),
+                                        swapChainColorFormat, depthFormat, VK_SAMPLE_COUNT_1_BIT));
+
+    pipelines_.emplace("shadowMap",
                        Pipeline(ctx_, shaderManager_, PipelineConfig::createShadowMap(),
                                 VK_FORMAT_D16_UNORM, VK_FORMAT_D16_UNORM, VK_SAMPLE_COUNT_1_BIT));
 
-    pipelines_.emplace("ssao", 
+    pipelines_.emplace("ssao",
                        Pipeline(ctx_, shaderManager_, PipelineConfig::createSsao(),
                                 VK_FORMAT_D16_UNORM, VK_FORMAT_D16_UNORM, VK_SAMPLE_COUNT_1_BIT));
 }

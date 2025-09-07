@@ -38,6 +38,7 @@
     <ClInclude Include="Skeleton.h" />
     <ClInclude Include="GpuTimer.h" />
     <ClInclude Include="PipelineConfig.h" />
+    <ClInclude Include="TextureManager.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Logger.cpp" />
@@ -78,6 +79,7 @@
     <ClCompile Include="Skeleton.cpp" />
     <ClCompile Include="GpuTimer.cpp" />
     <ClCompile Include="PipelineConfig.cpp" />
+    <ClCompile Include="TextureManager.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\.clang-format" />
