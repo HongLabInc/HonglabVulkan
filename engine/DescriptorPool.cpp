@@ -2,6 +2,7 @@
 #include "Logger.h"
 #include <unordered_map>
 #include <iostream>
+#include <algorithm>
 
 namespace hlab {
 
@@ -144,11 +145,42 @@ DescriptorPool::allocateDescriptorSet(const VkDescriptorSetLayout& descriptorSet
         createNewPool(poolSizes, 1);
     }
 
+    // 4. Check if any binding has variable descriptor count
+    bool hasVariableDescriptorCount = false;
+    uint32_t variableDescriptorCount = 0;
+    uint32_t highestBinding = 0;
+
+    for (const auto& binding : bindings) {
+        if (binding.binding > highestBinding) {
+            highestBinding = binding.binding;
+        }
+    }
+
+    for (const auto& binding : bindings) {
+        if (binding.descriptorCount > 1 && binding.binding == highestBinding) {
+            hasVariableDescriptorCount = true;
+            variableDescriptorCount = binding.descriptorCount;
+            break;
+        }
+    }
+
     // 4. allocate using the last pool
     VkDescriptorSetAllocateInfo allocInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
     allocInfo.descriptorPool = descriptorPools_.back();
     allocInfo.descriptorSetCount = 1;
     allocInfo.pSetLayouts = &descriptorSetLayout;
+
+    // NEW: Add variable descriptor count info if needed
+    VkDescriptorSetVariableDescriptorCountAllocateInfo variableCountInfo{};
+    if (hasVariableDescriptorCount) {
+        variableCountInfo.sType =
+            VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO;
+        variableCountInfo.descriptorSetCount = 1;
+        variableCountInfo.pDescriptorCounts = &variableDescriptorCount;
+        allocInfo.pNext = &variableCountInfo;
+
+        printLog("Allocating descriptor set with variable count: {}", variableDescriptorCount);
+    }
 
     VkDescriptorSet descriptorSet{VK_NULL_HANDLE};
     VkResult res = vkAllocateDescriptorSets(device_, &allocInfo, &descriptorSet);
@@ -197,11 +229,52 @@ auto DescriptorPool::allocateDescriptorSets(
         createNewPool(poolSizes, numRequiredSets);
     }
 
+    // NEW: Check if any layout has variable descriptor count
+    vector<uint32_t> variableDescriptorCounts;
+    bool hasAnyVariableCount = false;
+
+    for (const auto& layout : descriptorSetLayouts) {
+        const auto& bindings = layoutToBindings(layout);
+
+        bool hasVariableCount = false;
+        uint32_t variableCount = 0;
+        uint32_t highestBinding = 0;
+
+        for (const auto& binding : bindings) {
+            if (binding.binding > highestBinding) {
+                highestBinding = binding.binding;
+            }
+        }
+
+        for (const auto& binding : bindings) {
+            if (binding.descriptorCount > 1 && binding.binding == highestBinding) {
+                hasVariableCount = true;
+                hasAnyVariableCount = true;
+                variableCount = binding.descriptorCount;
+                break;
+            }
+        }
+
+        variableDescriptorCounts.push_back(variableCount);
+    }
+
     // Allocate using the last pool
     VkDescriptorSetAllocateInfo allocInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
     allocInfo.descriptorPool = descriptorPools_.back();
     allocInfo.descriptorSetCount = numRequiredSets;
     allocInfo.pSetLayouts = descriptorSetLayouts.data();
+
+    // NEW: Add variable descriptor count info if needed
+    VkDescriptorSetVariableDescriptorCountAllocateInfo variableCountInfo{};
+    if (hasAnyVariableCount) {
+        variableCountInfo.sType =
+            VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO;
+        variableCountInfo.descriptorSetCount = numRequiredSets;
+        variableCountInfo.pDescriptorCounts = variableDescriptorCounts.data();
+        allocInfo.pNext = &variableCountInfo;
+
+        printLog("Allocating {} descriptor sets with variable counts", numRequiredSets);
+    }
 
     vector<VkDescriptorSet> descriptorSets(allocInfo.descriptorSetCount, VK_NULL_HANDLE);
     VkResult res = vkAllocateDescriptorSets(device_, &allocInfo, descriptorSets.data());
@@ -237,9 +310,75 @@ void DescriptorPool::createLayouts(const vector<LayoutInfo>& layoutInfos)
             VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
         createInfo.bindingCount = static_cast<uint32_t>(l.bindings_.size());
         createInfo.pBindings = l.bindings_.data();
+
+        // Sort bindings by binding number to find the highest
+        auto sortedBindings = l.bindings_;
+        std::sort(sortedBindings.begin(), sortedBindings.end(),
+                  [](const VkDescriptorSetLayoutBinding& a, const VkDescriptorSetLayoutBinding& b) {
+                      return a.binding < b.binding;
+                  });
+
+        for (int i = 0; i < l.bindings_.size(); i++) {
+            if (l.bindings_[i].binding != i) {
+                exitWithMessage("binding index mismatch {} vs {}", i, l.bindings_[i].binding);
+            }
+        }
+
+        bool needsPartiallyBound = false;
+        bool needsVariableCount = false;
+        uint32_t highestBinding = sortedBindings.empty() ? 0 : sortedBindings.back().binding;
+
+        // Check each binding for arrays
+        for (const auto& binding : sortedBindings) {
+            if (binding.descriptorCount > 1) {
+                needsPartiallyBound = true;
+
+                // Variable count ONLY allowed on the highest binding number
+                if (binding.binding == highestBinding) {
+                    needsVariableCount = true;
+                    printLog("    Binding {} is variable-length array (count={})", binding.binding,
+                             binding.descriptorCount);
+                } else {
+                    printLog("    Binding {} is fixed-length array (count={}) - not last binding",
+                             binding.binding, binding.descriptorCount);
+                }
+            }
+        }
+
+        // Set layout flags - REMOVE THE INCORRECT FLAGS
+        VkDescriptorSetLayoutCreateFlags flags = 0;
+        // Note: VkDescriptorSetLayoutCreateFlagBits doesn't have equivalents for
+        // PARTIALLY_BOUND or VARIABLE_DESCRIPTOR_COUNT - these go in binding flags only
+        createInfo.flags = flags;
+
+        // Set per-binding flags
+        vector<VkDescriptorBindingFlags> bindingFlags;
+        VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsInfo{};
+
+        if (needsPartiallyBound || needsVariableCount) {
+            bindingFlags.resize(l.bindings_.size(), 0);
+
+            for (size_t i = 0; i < l.bindings_.size(); ++i) {
+                if (l.bindings_[i].descriptorCount > 1) {
+                    bindingFlags[i] |= VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+                    bindingFlags[i] |= VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT;
+
+                    // Variable count ONLY for the highest binding number
+                    if (l.bindings_[i].binding == highestBinding) {
+                        bindingFlags[i] |= VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT;
+                    }
+                }
+            }
+
+            bindingFlagsInfo.sType =
+                VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+            bindingFlagsInfo.bindingCount = static_cast<uint32_t>(bindingFlags.size());
+            bindingFlagsInfo.pBindingFlags = bindingFlags.data();
+            createInfo.pNext = &bindingFlagsInfo;
+        }
+
         VkDescriptorSetLayout layout{VK_NULL_HANDLE};
         check(vkCreateDescriptorSetLayout(device_, &createInfo, nullptr, &layout));
-
         layoutsAndInfos_.push_back({layout, l});
     }
 

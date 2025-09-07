@@ -110,6 +110,34 @@ void Image2D::createFromPixelData(unsigned char* pixelData, int width, int heigh
     copyCmd.submitAndWait();
 }
 
+void Image2D::createSolid(int width, int height, uint8_t rgba[4])
+{
+    if (width <= 0 || height <= 0) {
+        exitWithMessage("Solid texture dimensions must be greater than zero: {}x{}", width, height);
+    }
+
+    // Calculate total pixels and allocate pixel data
+    const int totalPixels = width * height;
+    const int channels = 4; // RGBA
+    const size_t dataSize = totalPixels * channels;
+
+    // Create pixel data array filled with the specified RGBA color
+    std::vector<unsigned char> pixelData(dataSize);
+
+    // Fill all pixels with the specified RGBA color
+    for (int i = 0; i < totalPixels; ++i) {
+        int pixelOffset = i * 4;
+        pixelData[pixelOffset + 0] = rgba[0]; // Red
+        pixelData[pixelOffset + 1] = rgba[1]; // Green
+        pixelData[pixelOffset + 2] = rgba[2]; // Blue
+        pixelData[pixelOffset + 3] = rgba[3]; // Alpha
+    }
+
+    // Use the existing createFromPixelData method
+    // false = not sRGB (solid colors are typically linear)
+    createFromPixelData(pixelData.data(), width, height, channels, false);
+}
+
 std::string fixPath(const std::string& path) // for linux path
 {
     std::string fixed = path;

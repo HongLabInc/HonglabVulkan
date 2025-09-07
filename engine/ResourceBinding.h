@@ -14,6 +14,7 @@ class ResourceBinding
     friend class MappedBuffer;
     friend class ShadowMap;
     friend class DepthStencil;
+    friend class TextureManager;
 
   public:
     void update()

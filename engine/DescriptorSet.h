@@ -50,9 +50,10 @@ class DescriptorSet
             write.pNext = nullptr;
             write.dstSet = descriptorSet_;
             write.dstBinding = layoutBindings[bindingIndex].binding;
-            write.dstArrayElement = 0;
+            write.dstArrayElement = 0; // <- Bindless Texture의 인덱스로 지정
             write.descriptorType = layoutBindings[bindingIndex].descriptorType;
-            write.descriptorCount = layoutBindings[bindingIndex].descriptorCount;
+            // write.descriptorCount = layoutBindings[bindingIndex].descriptorCount;
+            write.descriptorCount = 1; // <- 임시로 하나만 지정
             write.pBufferInfo = rb.buffer_ ? &rb.bufferInfo_ : nullptr;
             write.pImageInfo = rb.image_ ? &rb.imageInfo_ : nullptr;
             write.pTexelBufferView = nullptr; /* Not implememted */

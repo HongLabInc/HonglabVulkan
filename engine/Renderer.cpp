@@ -500,7 +500,7 @@ void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight,
                                     skyTextures_.brdfLUT().resourceBinding()});
 
     // Create descriptor set for shadow mapping
-    shadowMapSet_.create(ctx_, {shadowMap_.resourceBinding()});
+    shadowMapSet_.create(ctx_, {shadowMap_.resourceBinding(), textureManager_.resourceBinding()});
 }
 
 void Renderer::updateViewFrustum(const glm::mat4& viewProjection)

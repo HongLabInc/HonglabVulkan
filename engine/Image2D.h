@@ -21,6 +21,7 @@ class Image2D
     ~Image2D();
 
     void createFromPixelData(unsigned char* pixels, int w, int h, int c, bool sRGB);
+    void createSolid(int width, int height, uint8_t rgba[4]);
     void createTextureFromKtx2(string filename, bool isCubemap);
     void createTextureFromImage(string filename, bool isCubemap, bool sRGB);
     void createRGBA32F(uint32_t width, uint32_t height);

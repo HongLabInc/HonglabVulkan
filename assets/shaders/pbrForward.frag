@@ -1,4 +1,5 @@
 #version 450
+#extension GL_EXT_nonuniform_qualifier : require
 
 layout(location = 0) in vec3 fragPos;
 layout(location = 1) in vec3 fragNormal;
@@ -56,6 +57,7 @@ layout(set = 1, binding = 4) uniform sampler2D opacityTexture;
 layout(set = 1, binding = 5) uniform sampler2D metallicRoughnessTexture;
 layout(set = 1, binding = 6) uniform sampler2D occlusionTexture;
 
+
 // IBL textures
 layout(set = 2, binding = 0) uniform samplerCube prefilteredMap;
 layout(set = 2, binding = 1) uniform samplerCube irradianceMap;
@@ -63,6 +65,7 @@ layout(set = 2, binding = 2) uniform sampler2D brdfLUT;
 
 // Shadow map (주의: 각 셋의 바인딩은 0에서 시작해야 함)
 layout(set = 3, binding = 0) uniform sampler2DShadow shadowMap;
+layout(set = 3, binding = 1) uniform sampler2D materialTextures[512]; // <- TextureManager::kMaxTextures_
 
 layout(location = 0) out vec4 outColor;
 
@@ -249,7 +252,10 @@ void main() {
     float shadowOffset = pushConstants.coeffs[3];
 
     // Sample material properties
-    vec4 baseColorRGBA = (options.textureOn != 0 && material.baseColorTextureIndex >= 0) ? texture(baseColorTexture, fragTexCoord) : vec4(1.0);
+    //vec4 baseColorRGBA = (options.textureOn != 0 && material.baseColorTextureIndex >= 0) ? texture(baseColorTexture, fragTexCoord) : vec4(1.0);
+
+    // TEST: bindless texture sampling
+    vec4 baseColorRGBA = texture(materialTextures[nonuniformEXT(0)], fragTexCoord);
 
     if(material.opacityTextureIndex >= 0) {
         float opacity = texture(opacityTexture, fragTexCoord).r;
