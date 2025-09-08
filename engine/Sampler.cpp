@@ -9,6 +9,11 @@ Sampler::Sampler(Context& ctx) : ctx_(ctx)
 {
 }
 
+Sampler::Sampler(Sampler&& other) noexcept : ctx_(other.ctx_), sampler_(other.sampler_)
+{
+    other.sampler_ = VK_NULL_HANDLE;
+}
+
 Sampler::~Sampler()
 {
     cleanup();

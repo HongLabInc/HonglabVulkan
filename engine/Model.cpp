@@ -15,7 +15,7 @@ namespace hlab {
 using namespace std;
 using namespace glm;
 
-Model::Model(Context& ctx) : ctx_(ctx)
+Model::Model(Context& ctx) : ctx_(ctx), textureManager_(ctx)
 {
     rootNode_ = make_unique<ModelNode>();
     rootNode_->name = "Root";
@@ -33,7 +33,7 @@ Model::Model(Model&& other) noexcept
       boundingBoxMin_(other.boundingBoxMin_), boundingBoxMax_(other.boundingBoxMax_),
       materialUBO_(std::move(other.materialUBO_)),
       materialDescriptorSets_(std::move(other.materialDescriptorSets_)), visible_(other.visible_),
-      modelMatrix_(other.modelMatrix_)
+      modelMatrix_(other.modelMatrix_), textureManager_(std::move(other.textureManager_))
 {
     // Reset moved-from object to safe state
     other.globalInverseTransform_ = mat4(1.0f);
@@ -77,10 +77,10 @@ void Model::createDescriptorSets(Sampler& sampler, Image2D& dummyTexture)
         auto& b6 = mat.ubo_.occlusionTextureIndex_ < 0
                        ? dummyTexture
                        : getTexture(mat.ubo_.occlusionTextureIndex_);
-        materialDescriptorSets_[i].create(ctx_, {materialUBO_[i].resourceBinding(),
-                                                 b1.resourceBinding(), b2.resourceBinding(),
-                                                 b3.resourceBinding(), b4.resourceBinding(),
-                                                 b5.resourceBinding(), b6.resourceBinding()});
+        materialDescriptorSets_[i].create(
+            ctx_, {materialUBO_[i].resourceBinding(), b1.resourceBinding(), b2.resourceBinding(),
+                   b3.resourceBinding(), b4.resourceBinding(), b5.resourceBinding(),
+                   b6.resourceBinding(), textureManager_.resourceBinding()});
     }
 }
 

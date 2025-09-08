@@ -18,9 +18,10 @@ class TextureManager
 {
   public:
     TextureManager(Context& ctx);
+    TextureManager(TextureManager&& other) noexcept;
     ~TextureManager();
-
     TextureManager(const TextureManager&) = delete;
+    TextureManager& operator=(TextureManager&& other) = delete;
     TextureManager& operator=(const TextureManager&) = delete;
 
     auto resourceBinding() -> ResourceBinding&

@@ -5,12 +5,11 @@ namespace hlab {
 
 Renderer::Renderer(Context& ctx, ShaderManager& shaderManager, const uint32_t& kMaxFramesInFlight,
                    const string& kAssetsPathPrefix, const string& kShaderPathPrefix_)
-    : ctx_(ctx), shaderManager_(shaderManager), textureManager_(ctx),
-      kMaxFramesInFlight_(kMaxFramesInFlight), kAssetsPathPrefix_(kAssetsPathPrefix),
-      kShaderPathPrefix_(kShaderPathPrefix_), dummyTexture_(ctx), msaaColorBuffer_(ctx),
-      depthStencil_(ctx), msaaDepthStencil_(ctx), skyTextures_(ctx), shadowMap_(ctx),
-      samplerLinearRepeat_(ctx), samplerLinearClamp_(ctx), samplerAnisoRepeat_(ctx),
-      samplerAnisoClamp_(ctx), forwardToCompute_(ctx), computeToPost_(ctx)
+    : ctx_(ctx), shaderManager_(shaderManager), kMaxFramesInFlight_(kMaxFramesInFlight),
+      kAssetsPathPrefix_(kAssetsPathPrefix), kShaderPathPrefix_(kShaderPathPrefix_),
+      dummyTexture_(ctx), msaaColorBuffer_(ctx), depthStencil_(ctx), msaaDepthStencil_(ctx),
+      skyTextures_(ctx), shadowMap_(ctx), samplerLinearRepeat_(ctx), samplerLinearClamp_(ctx),
+      samplerAnisoRepeat_(ctx), samplerAnisoClamp_(ctx), forwardToCompute_(ctx), computeToPost_(ctx)
 {
 }
 
@@ -500,7 +499,7 @@ void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight,
                                     skyTextures_.brdfLUT().resourceBinding()});
 
     // Create descriptor set for shadow mapping
-    shadowMapSet_.create(ctx_, {shadowMap_.resourceBinding(), textureManager_.resourceBinding()});
+    shadowMapSet_.create(ctx_, {shadowMap_.resourceBinding()});
 }
 
 void Renderer::updateViewFrustum(const glm::mat4& viewProjection)

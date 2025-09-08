@@ -14,7 +14,6 @@
 #include "UniformBuffer.h"
 #include "ShaderManager.h"
 #include "ShadowMap.h"
-#include "TextureManager.h"
 #include <glm/glm.hpp>
 #include <vector>
 #include <functional>
@@ -184,8 +183,6 @@ class Renderer
 
     Context& ctx_;
     ShaderManager& shaderManager_;
-
-    TextureManager textureManager_;
 
     // Per frame uniform buffers
     SceneUniform sceneUBO_{};

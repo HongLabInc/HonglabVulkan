@@ -10,7 +10,7 @@ class Sampler
 {
   public:
     Sampler(Context& ctx);
-
+    Sampler(Sampler&& other) noexcept;
     ~Sampler();
 
     auto handle() const -> VkSampler;

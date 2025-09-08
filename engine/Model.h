@@ -6,6 +6,7 @@
 #include "ModelNode.h"
 #include "Sampler.h"
 #include "Image2D.h"
+#include "TextureManager.h"
 #include "Vertex.h"
 #include "VulkanTools.h"
 #include "Animation.h"
@@ -172,6 +173,8 @@ class Model
     // Model asset data
     vector<Mesh> meshes_;
     vector<Material> materials_;
+
+    TextureManager textureManager_;
     vector<Image2D> textures_;
     vector<string> textureFilenames_;
     vector<bool> textureSRgb_; // sRGB 여부 (임시 저장)

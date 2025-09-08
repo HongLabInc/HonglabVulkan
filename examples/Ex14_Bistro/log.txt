@@ -96,19 +96,9 @@ Available Present Modes: 5
 Selected Present Mode: VK_PRESENT_MODE_IMMEDIATE_KHR
 Designed Num of Swapchain Images: 3
 Added VK_IMAGE_USAGE_STORAGE_BIT to swapchain
-    Binding 1 is variable-length array (count=512)
-ShaderManager: Created 8 unique layout(s)
-  Layout 0 (0x190000000019): 3 binding(s), used by:
-    - Pipeline 'shadowMap', Set 0
-    - Pipeline 'pbrForward', Set 0
-    Binding 0: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
-    Binding 1: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
-    Binding 2: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
-  Layout 1 (0x1a000000001a): 2 binding(s), used by:
-    - Pipeline 'post', Set 0
-    Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
-    Binding 1: type=UNIFORM_BUFFER, count=1, stages=FRAGMENT
-  Layout 2 (0x1b000000001b): 7 binding(s), used by:
+    Binding 7 is variable-length array (count=512)
+ShaderManager: Created 7 unique layout(s)
+  Layout 0 (0x190000000019): 8 binding(s), used by:
     - Pipeline 'pbrForward', Set 1
     Binding 0: type=UNIFORM_BUFFER, count=1, stages=FRAGMENT
     Binding 1: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
@@ -117,30 +107,38 @@ ShaderManager: Created 8 unique layout(s)
     Binding 4: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 5: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 6: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
-  Layout 3 (0x1c000000001c): 1 binding(s), used by:
-    - Pipeline 'gui', Set 0
-    Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
-  Layout 4 (0x1d000000001d): 2 binding(s), used by:
+    Binding 7: type=COMBINED_IMAGE_SAMPLER, count=512, stages=FRAGMENT
+  Layout 1 (0x1a000000001a): 3 binding(s), used by:
+    - Pipeline 'shadowMap', Set 0
+    - Pipeline 'pbrForward', Set 0
+    Binding 0: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
+    Binding 1: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
+    Binding 2: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
+  Layout 2 (0x1b000000001b): 2 binding(s), used by:
     - Pipeline 'sky', Set 0
     Binding 0: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
-  Layout 5 (0x1e000000001e): 3 binding(s), used by:
+  Layout 3 (0x1c000000001c): 1 binding(s), used by:
+    - Pipeline 'pbrForward', Set 3
+    - Pipeline 'gui', Set 0
+    Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
+  Layout 4 (0x1d000000001d): 3 binding(s), used by:
     - Pipeline 'pbrForward', Set 2
     - Pipeline 'sky', Set 1
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 1: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 2: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
-  Layout 6 (0x1f000000001f): 5 binding(s), used by:
+  Layout 5 (0x1e000000001e): 5 binding(s), used by:
     - Pipeline 'ssao', Set 0
     Binding 0: type=UNIFORM_BUFFER, count=1, stages=COMPUTE
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=COMPUTE
     Binding 2: type=STORAGE_IMAGE, count=1, stages=COMPUTE
     Binding 3: type=STORAGE_IMAGE, count=1, stages=COMPUTE
     Binding 4: type=COMBINED_IMAGE_SAMPLER, count=1, stages=COMPUTE
-  Layout 7 (0x200000000020): 2 binding(s), used by:
-    - Pipeline 'pbrForward', Set 3
+  Layout 6 (0x1f000000001f): 2 binding(s), used by:
+    - Pipeline 'post', Set 0
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
-    Binding 1: type=COMBINED_IMAGE_SAMPLER, count=512, stages=FRAGMENT
+    Binding 1: type=UNIFORM_BUFFER, count=1, stages=FRAGMENT
 Creating graphics pipeline from config: gui
 Successfully created graphics pipeline: gui
 Model directory: ../../assets/characters/Leonard
@@ -178,14 +176,14 @@ Texture filename: ../../assets/characters/Leonard/Ch31_1002_Diffuse.png
 Successfully loaded model: ../../assets/characters/Leonard/Bboy Hip Hop Move.fbx
   Meshes: 7
   Materials: 2
-  Loading time: 2564 ms
+  Loading time: 2601 ms
 Found 1 animations in model 'Dancer'
 Started animation: 'mixamo.com'
 Animation duration: 2.20 seconds
 Successfully loaded model from cache: ../../assets/models/AmazonLumberyardBistroMorganMcGuire\exterior_cache.bin
   Meshes: 3184
   Materials: 128
-  Loading time: 1866 ms
+  Loading time: 1841 ms
 No animations found in model 'Bistro'
 Creating graphics pipeline from config: pbrForward
 Successfully created graphics pipeline: pbrForward
@@ -204,13 +202,142 @@ Loading IBL textures...
   Irradiance: ../../assets/textures/golden_gate_hills_4k/diffuseLambertian.ktx2
   BRDF LUT: ../../assets/textures/golden_gate_hills_4k/outputLUT.png
 Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
+Allocating descriptor set with variable count: 512
 hasAnimation changed to: true
 Saved descriptor pool statistics to DescriptorPoolSize.txt
 
 === DescriptorPool Allocated Statistics ===
-Total Pools Created: 1
+Total Pools Created: 129
 Total Allocated Sets: 141
-  COMBINED_IMAGE_SAMPLER: 1301
+  COMBINED_IMAGE_SAMPLER: 67349
   UNIFORM_BUFFER: 146
   STORAGE_IMAGE: 4
 ============================================

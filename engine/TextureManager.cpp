@@ -25,4 +25,13 @@ TextureManager::~TextureManager()
 {
 }
 
+TextureManager::TextureManager(TextureManager&& other) noexcept
+    : ctx_(other.ctx_), dummyTexture_(std::move(other.dummyTexture_)),
+      samplerLinearRepeat_(std::move(other.samplerLinearRepeat_)),
+      bindlessResourceBinding_(std::move(other.bindlessResourceBinding_))
+{
+    // No additional cleanup needed for the moved-from object
+    // since all members have been properly moved
+}
+
 } // namespace hlab

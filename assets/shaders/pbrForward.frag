@@ -57,6 +57,8 @@ layout(set = 1, binding = 4) uniform sampler2D opacityTexture;
 layout(set = 1, binding = 5) uniform sampler2D metallicRoughnessTexture;
 layout(set = 1, binding = 6) uniform sampler2D occlusionTexture;
 
+// Intermediate Step (moving textureManager to Model)
+layout(set = 1, binding = 7) uniform sampler2D materialTextures[512]; // <- TextureManager::kMaxTextures_
 
 // IBL textures
 layout(set = 2, binding = 0) uniform samplerCube prefilteredMap;
@@ -65,7 +67,6 @@ layout(set = 2, binding = 2) uniform sampler2D brdfLUT;
 
 // Shadow map (주의: 각 셋의 바인딩은 0에서 시작해야 함)
 layout(set = 3, binding = 0) uniform sampler2DShadow shadowMap;
-layout(set = 3, binding = 1) uniform sampler2D materialTextures[512]; // <- TextureManager::kMaxTextures_
 
 layout(location = 0) out vec4 outColor;
 
