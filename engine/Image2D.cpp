@@ -22,13 +22,14 @@ Image2D::Image2D(Context& ctx) : ctx_(ctx)
 
 Image2D::Image2D(Image2D&& other) noexcept
     : ctx_(other.ctx_), image_(other.image_), memory_(other.memory_), imageView_(other.imageView_),
-      format_(other.format_), width_(other.width_), height_(other.height_),
+      depthStencilView_(other.depthStencilView_), format_(other.format_), width_(other.width_), height_(other.height_),
       usageFlags_(other.usageFlags_)
 {
     // Reset the moved-from object to a safe state
     other.image_ = VK_NULL_HANDLE;
     other.memory_ = VK_NULL_HANDLE;
     other.imageView_ = VK_NULL_HANDLE;
+    other.depthStencilView_ = VK_NULL_HANDLE;
     other.format_ = VK_FORMAT_UNDEFINED;
     other.width_ = 0;
     other.height_ = 0;
@@ -45,9 +46,15 @@ auto Image2D::image() const -> VkImage
     return image_;
 }
 
-VkImageView Image2D::view()
+VkImageView Image2D::view() const
 {
     return imageView_;
+}
+
+VkImageView Image2D::attachmentView() const
+{
+    // Return depth-stencil view if available, otherwise regular view
+    return (depthStencilView_ != VK_NULL_HANDLE) ? depthStencilView_ : imageView_;
 }
 
 auto Image2D::width() const -> uint32_t
@@ -419,6 +426,10 @@ void Image2D::createImage(VkFormat format, uint32_t width, uint32_t height,
 
 void Image2D::cleanup()
 {
+    if (depthStencilView_ != VK_NULL_HANDLE) {
+        vkDestroyImageView(ctx_.device(), depthStencilView_, nullptr);
+        depthStencilView_ = VK_NULL_HANDLE;
+    }
     if (imageView_ != VK_NULL_HANDLE) {
         vkDestroyImageView(ctx_.device(), imageView_, nullptr);
         imageView_ = VK_NULL_HANDLE;
@@ -438,4 +449,56 @@ void Image2D::cleanup()
     height_ = 0;
 }
 
+void Image2D::createDepthBuffer(uint32_t width, uint32_t height, VkSampleCountFlagBits sampleCount)
+{
+    // Create depth buffer with appropriate format and usage flags for depth-stencil operations
+    createImage(
+        ctx_.depthFormat(),                                                     // Use context's preferred depth format
+        width,                                                                  // Width
+        height,                                                                 // Height  
+        sampleCount,                                                           // Sample count (for MSAA support)
+        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |                          // Can be used as depth-stencil attachment
+        VK_IMAGE_USAGE_SAMPLED_BIT,                                            // Can be sampled in shaders (depth-only aspect)
+        VK_IMAGE_ASPECT_DEPTH_BIT,                                             // Start with depth-only aspect for the primary view
+        1,                                                                     // Single mip level
+        1,                                                                     // Single array layer
+        0,                                                                     // No special flags
+        VK_IMAGE_VIEW_TYPE_2D                                                  // 2D image view
+    );
+    
+    // Create additional depth-stencil view for attachment usage
+    createDepthStencilAttachmentView();
+}
+
+void Image2D::createDepthStencilAttachmentView()
+{
+    // Only create if we don't already have one and this is a depth format
+    if (depthStencilView_ != VK_NULL_HANDLE) {
+        vkDestroyImageView(ctx_.device(), depthStencilView_, nullptr);
+        depthStencilView_ = VK_NULL_HANDLE;
+    }
+    
+    // Only create depth-stencil view for depth formats
+    if (format_ < VK_FORMAT_D16_UNORM || format_ > VK_FORMAT_D32_SFLOAT_S8_UINT) {
+        return;  // Not a depth format
+    }
+    
+    VkImageViewCreateInfo viewInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+    viewInfo.image = image_;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.format = format_;
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    
+    // Include stencil aspect if format supports it
+    if (format_ >= VK_FORMAT_D16_UNORM_S8_UINT) {
+        viewInfo.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+    }
+    
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
+    
+    check(vkCreateImageView(ctx_.device(), &viewInfo, nullptr, &depthStencilView_));
+}
 } // namespace hlab

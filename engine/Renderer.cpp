@@ -180,8 +180,8 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
             msaaColorBuffer_.view(), VK_ATTACHMENT_LOAD_OP_CLEAR, {0.0f, 0.0f, 0.5f, 0.0f},
             forwardToCompute_.view(), VK_RESOLVE_MODE_AVERAGE_BIT);
         auto depthAttachment =
-            createDepthAttachment(msaaDepthStencil_.view, VK_ATTACHMENT_LOAD_OP_CLEAR, 1.0f,
-                                  depthStencil_.view, VK_RESOLVE_MODE_SAMPLE_ZERO_BIT);
+            createDepthAttachment(msaaDepthStencil_.attachmentView(), VK_ATTACHMENT_LOAD_OP_CLEAR, 1.0f,
+                                  depthStencil_.attachmentView(), VK_RESOLVE_MODE_SAMPLE_ZERO_BIT);
         auto renderingInfo = createRenderingInfo(renderArea, &colorAttachment, &depthAttachment);
 
         vkCmdBeginRendering(cmd, &renderingInfo);
@@ -456,8 +456,8 @@ void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight,
 
     // Create render targets
     msaaColorBuffer_.createMsaaColorBuffer(swapchainWidth, swapchainHeight, msaaSamples);
-    msaaDepthStencil_.create(swapchainWidth, swapchainHeight, msaaSamples);
-    depthStencil_.create(swapchainWidth, swapchainHeight, VK_SAMPLE_COUNT_1_BIT);
+    msaaDepthStencil_.createDepthBuffer(swapchainWidth, swapchainHeight, msaaSamples);
+    depthStencil_.createDepthBuffer(swapchainWidth, swapchainHeight, VK_SAMPLE_COUNT_1_BIT);
     forwardToCompute_.createGeneralStorage(swapchainWidth, swapchainHeight);
     computeToPost_.createGeneralStorage(swapchainWidth, swapchainHeight);
 

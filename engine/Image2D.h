@@ -29,6 +29,7 @@ class Image2D
     void createMsaaColorBuffer(uint16_t width, uint32_t height, VkSampleCountFlagBits sampleCount);
     void createGeneralStorage(uint16_t width, uint32_t height);
     void createShadow(uint32_t width, uint32_t height); // Create shadow map depth texture
+    void createDepthBuffer(uint32_t width, uint32_t height, VkSampleCountFlagBits sampleCount);
     void createImage(VkFormat format, uint32_t width, uint32_t height,
                      VkSampleCountFlagBits sampleCount, VkImageUsageFlags usage,
                      VkImageAspectFlags aspectMask, uint32_t mipLevels, uint32_t arrayLayers,
@@ -36,7 +37,8 @@ class Image2D
     void cleanup();
 
     auto image() const -> VkImage;
-    auto view() -> VkImageView;
+    auto view() const -> VkImageView;
+    auto attachmentView() const -> VkImageView;  // For depth-stencil attachment usage (both aspects)
     auto width() const -> uint32_t;
     auto height() const -> uint32_t;
 
@@ -118,12 +120,14 @@ class Image2D
         return resourceBinding_.barrierHelper_;
     }
 
-  private:
+  protected:
     Context& ctx_;
 
+  private:
     VkImage image_{VK_NULL_HANDLE};
     VkDeviceMemory memory_{VK_NULL_HANDLE};
     VkImageView imageView_{VK_NULL_HANDLE};
+    VkImageView depthStencilView_{VK_NULL_HANDLE};  // For depth-stencil attachment usage (both aspects)
     VkFormat format_{VK_FORMAT_UNDEFINED};
     uint32_t width_{0};
     uint32_t height_{0};
@@ -163,6 +167,9 @@ class Image2D
         resourceBinding_.imageInfo_.imageView = imageView_;
         resourceBinding_.imageInfo_.sampler = resourceBinding_.sampler_;
     }
+
+    // Helper method to create depth-stencil attachment view for dual-aspect usage
+    void createDepthStencilAttachmentView();
 };
 
 } // namespace hlab

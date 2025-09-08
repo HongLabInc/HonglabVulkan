@@ -8,7 +8,6 @@
 #include "Sampler.h"
 #include "SkyTextures.h"
 #include "Pipeline.h"
-#include "DepthStencil.h"
 #include "ViewFrustum.h"
 #include "Model.h"
 #include "UniformBuffer.h"
@@ -205,8 +204,8 @@ class Renderer
 
     // Resources
     Image2D msaaColorBuffer_;
-    DepthStencil depthStencil_;
-    DepthStencil msaaDepthStencil_;
+    Image2D depthStencil_;     // Now using Image2D directly
+    Image2D msaaDepthStencil_; // Now using Image2D directly
 
     Image2D forwardToCompute_;
     Image2D computeToPost_;
@@ -264,4 +263,4 @@ class Renderer
                         const VkRenderingAttachmentInfo* depthAttachment = nullptr) const;
 };
 
-} // namespace hlab
+} // namespace hlab} // namespace hlab

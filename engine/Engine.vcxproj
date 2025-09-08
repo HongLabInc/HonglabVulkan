@@ -25,7 +25,6 @@
     <ClInclude Include="Camera.h" />
     <ClInclude Include="CommandBuffer.h" />
     <ClInclude Include="Context.h" />
-    <ClInclude Include="DepthStencil.h" />
     <ClInclude Include="DescriptorPool.h" />
     <ClInclude Include="DescriptorSet.h" />
     <ClInclude Include="GpuTimer.h" />
@@ -65,7 +64,6 @@
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="CommandBuffer.cpp" />
     <ClCompile Include="Context.cpp" />
-    <ClCompile Include="DepthStencil.cpp" />
     <ClCompile Include="DescriptorPool.cpp" />
     <ClCompile Include="DescriptorSet.cpp" />
     <ClCompile Include="GpuTimer.cpp" />
