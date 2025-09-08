@@ -28,6 +28,7 @@ class Image2D
     void createRGBA16F(uint16_t width, uint32_t height);
     void createMsaaColorBuffer(uint16_t width, uint32_t height, VkSampleCountFlagBits sampleCount);
     void createGeneralStorage(uint16_t width, uint32_t height);
+    void createShadow(uint32_t width, uint32_t height); // Create shadow map depth texture
     void createImage(VkFormat format, uint32_t width, uint32_t height,
                      VkSampleCountFlagBits sampleCount, VkImageUsageFlags usage,
                      VkImageAspectFlags aspectMask, uint32_t mipLevels, uint32_t arrayLayers,
@@ -90,20 +91,20 @@ class Image2D
         updateResourceBindingAfterTransition();
     }
 
+    void transitionToDepthStencilAttachment(VkCommandBuffer cmd)
+    {
+        resourceBinding_.barrierHelper_.transitionTo(cmd, VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+                                                     VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                                                     VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT);
+        updateResourceBindingAfterTransition();
+    }
+
     void transitionToGeneral(VkCommandBuffer cmd, VkAccessFlags2 accessFlags,
                              VkPipelineStageFlags2 stageFlags)
     {
         resourceBinding_.barrierHelper_.transitionTo(cmd, accessFlags, VK_IMAGE_LAYOUT_GENERAL,
                                                      stageFlags);
         updateResourceBindingAfterTransition();
-    }
-
-    // Legacy method - delegates to transitionTo for consistency
-    [[deprecated("Use transitionTo() instead")]]
-    void transitionLayout(VkCommandBuffer cmd, VkAccessFlags2 newAccess, VkImageLayout newLayout,
-                          VkPipelineStageFlags2 newStage)
-    {
-        transitionTo(cmd, newAccess, newLayout, newStage);
     }
 
     auto resourceBinding() -> ResourceBinding&

@@ -13,7 +13,6 @@
 #include "Model.h"
 #include "UniformBuffer.h"
 #include "ShaderManager.h"
-#include "ShadowMap.h"
 #include <glm/glm.hpp>
 #include <vector>
 #include <functional>
@@ -219,8 +218,9 @@ class Renderer
     Sampler samplerLinearClamp_;
     Sampler samplerAnisoRepeat_;
     Sampler samplerAnisoClamp_;
+    Sampler samplerShadow_;
 
-    ShadowMap shadowMap_;
+    Image2D shadowMap_;
 
     DescriptorSet skyDescriptorSet_;
     DescriptorSet postDescriptorSet_;

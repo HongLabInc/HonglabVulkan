@@ -199,6 +199,46 @@ void Sampler::createLinearClamp()
     check(vkCreateSampler(ctx_.device(), &samplerInfo, nullptr, &sampler_));
 }
 
+void Sampler::createShadow()
+{
+    cleanup();
+
+    VkSamplerCreateInfo samplerInfo{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
+    samplerInfo.pNext = nullptr;
+    samplerInfo.flags = 0;
+
+    // Filtering - Linear filtering for smooth shadow edges (PCF)
+    samplerInfo.magFilter = VK_FILTER_LINEAR;
+    samplerInfo.minFilter = VK_FILTER_LINEAR;
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+
+    // Address modes - Clamp to edge to prevent shadow wrapping
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+
+    // LOD settings
+    samplerInfo.mipLodBias = 0.0f;
+    samplerInfo.minLod = 0.0f;
+    samplerInfo.maxLod = VK_LOD_CLAMP_NONE;
+
+    // No anisotropy for shadow maps
+    samplerInfo.anisotropyEnable = VK_FALSE;
+    samplerInfo.maxAnisotropy = 1.0f;
+
+    // Enable comparison for shadow mapping - this is the key difference
+    samplerInfo.compareEnable = VK_TRUE;
+    samplerInfo.compareOp = VK_COMPARE_OP_LESS_OR_EQUAL; // For shadow comparison
+
+    // Border color - white means fully lit (outside shadow map bounds)
+    samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+
+    // Normalized coordinates
+    samplerInfo.unnormalizedCoordinates = VK_FALSE;
+
+    check(vkCreateSampler(ctx_.device(), &samplerInfo, nullptr, &sampler_));
+}
+
 void Sampler::cleanup()
 {
     if (sampler_ != VK_NULL_HANDLE) {

@@ -333,6 +333,25 @@ void Image2D::createGeneralStorage(uint16_t width, uint32_t height)
                 VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, 0, VK_IMAGE_VIEW_TYPE_2D);
 }
 
+void Image2D::createShadow(uint32_t width, uint32_t height)
+{
+    // Create shadow map with appropriate format and usage flags for depth testing and sampling
+    createImage(
+        VK_FORMAT_D16_UNORM,                                                    // 16-bit depth format, suitable for shadow maps
+        width,                                                                  // Width
+        height,                                                                 // Height  
+        VK_SAMPLE_COUNT_1_BIT,                                                  // No MSAA for shadow maps
+        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |                          // Can be used as depth attachment
+        VK_IMAGE_USAGE_SAMPLED_BIT |                                           // Can be sampled in shaders
+        VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,     // Can be copied to/from
+        VK_IMAGE_ASPECT_DEPTH_BIT,                                             // Depth aspect only
+        1,                                                                     // Single mip level
+        1,                                                                     // Single array layer
+        0,                                                                     // No special flags
+        VK_IMAGE_VIEW_TYPE_2D                                                  // 2D image view
+    );
+}
+
 void Image2D::createImage(VkFormat format, uint32_t width, uint32_t height,
                           VkSampleCountFlagBits sampleCount, VkImageUsageFlags usage,
                           VkImageAspectFlags aspectMask, uint32_t mipLevels, uint32_t arrayLayers,

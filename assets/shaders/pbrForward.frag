@@ -253,10 +253,10 @@ void main() {
     float shadowOffset = pushConstants.coeffs[3];
 
     // Sample material properties
-    //vec4 baseColorRGBA = (options.textureOn != 0 && material.baseColorTextureIndex >= 0) ? texture(baseColorTexture, fragTexCoord) : vec4(1.0);
+    vec4 baseColorRGBA = (options.textureOn != 0 && material.baseColorTextureIndex >= 0) ? texture(baseColorTexture, fragTexCoord) : vec4(1.0);
 
     // TEST: bindless texture sampling
-    vec4 baseColorRGBA = texture(materialTextures[nonuniformEXT(0)], fragTexCoord);
+    //vec4 baseColorRGBA = texture(materialTextures[nonuniformEXT(0)], fragTexCoord);
 
     if(material.opacityTextureIndex >= 0) {
         float opacity = texture(opacityTexture, fragTexCoord).r;

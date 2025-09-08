@@ -19,6 +19,7 @@ class Sampler
     void createAnisoClamp();
     void createLinearRepeat();
     void createLinearClamp();
+    void createShadow();
 
     void cleanup();
 

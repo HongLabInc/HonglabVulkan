@@ -46,7 +46,6 @@
     <ClInclude Include="Sampler.h" />
     <ClInclude Include="Shader.h" />
     <ClInclude Include="ShaderManager.h" />
-    <ClInclude Include="ShadowMap.h" />
     <ClInclude Include="Skeleton.h" />
     <ClInclude Include="SkyTextures.h" />
     <ClInclude Include="StorageBuffer.h" />
@@ -88,7 +87,6 @@
     <ClCompile Include="Sampler.cpp" />
     <ClCompile Include="Shader.cpp" />
     <ClCompile Include="ShaderManager.cpp" />
-    <ClCompile Include="ShadowMap.cpp" />
     <ClCompile Include="Skeleton.cpp" />
     <ClCompile Include="SkyTextures.cpp" />
     <ClCompile Include="StorageBuffer.cpp" />

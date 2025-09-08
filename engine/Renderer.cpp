@@ -8,8 +8,9 @@ Renderer::Renderer(Context& ctx, ShaderManager& shaderManager, const uint32_t& k
     : ctx_(ctx), shaderManager_(shaderManager), kMaxFramesInFlight_(kMaxFramesInFlight),
       kAssetsPathPrefix_(kAssetsPathPrefix), kShaderPathPrefix_(kShaderPathPrefix_),
       dummyTexture_(ctx), msaaColorBuffer_(ctx), depthStencil_(ctx), msaaDepthStencil_(ctx),
-      skyTextures_(ctx), shadowMap_(ctx), samplerLinearRepeat_(ctx), samplerLinearClamp_(ctx),
-      samplerAnisoRepeat_(ctx), samplerAnisoClamp_(ctx), forwardToCompute_(ctx), computeToPost_(ctx)
+      skyTextures_(ctx), shadowMap_(ctx), samplerShadow_(ctx), samplerLinearRepeat_(ctx),
+      samplerLinearClamp_(ctx), samplerAnisoRepeat_(ctx), samplerAnisoClamp_(ctx),
+      forwardToCompute_(ctx), computeToPost_(ctx)
 {
 }
 
@@ -322,25 +323,10 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
 void Renderer::makeShadowMap(VkCommandBuffer cmd, uint32_t currentFrame, vector<Model>& models)
 {
     // Transition shadow map image to depth-stencil attachment layout
-    VkImageMemoryBarrier2 shadowMapBarrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
-    shadowMapBarrier.srcStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT;
-    shadowMapBarrier.dstStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT;
-    shadowMapBarrier.srcAccessMask = VK_ACCESS_2_NONE;
-    shadowMapBarrier.dstAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-    shadowMapBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    shadowMapBarrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    shadowMapBarrier.image = shadowMap_.image();
-    shadowMapBarrier.subresourceRange = {VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1};
-    shadowMapBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    shadowMapBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-
-    VkDependencyInfo depInfo{VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-    depInfo.imageMemoryBarrierCount = 1;
-    depInfo.pImageMemoryBarriers = &shadowMapBarrier;
-    vkCmdPipelineBarrier2(cmd, &depInfo);
+    shadowMap_.transitionToDepthStencilAttachment(cmd);
 
     VkRenderingAttachmentInfo shadowDepthAttachment{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
-    shadowDepthAttachment.imageView = shadowMap_.imageView();
+    shadowDepthAttachment.imageView = shadowMap_.view();
     shadowDepthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
     shadowDepthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     shadowDepthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -406,22 +392,7 @@ void Renderer::makeShadowMap(VkCommandBuffer cmd, uint32_t currentFrame, vector<
     vkCmdEndRendering(cmd);
 
     // Transition shadow map to shader read-only for sampling in main render pass
-    VkImageMemoryBarrier2 shadowMapReadBarrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
-    shadowMapReadBarrier.srcStageMask = VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
-    shadowMapReadBarrier.dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
-    shadowMapReadBarrier.srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-    shadowMapReadBarrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
-    shadowMapReadBarrier.oldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    shadowMapReadBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    shadowMapReadBarrier.image = shadowMap_.image();
-    shadowMapReadBarrier.subresourceRange = {VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1};
-    shadowMapReadBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    shadowMapReadBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-
-    VkDependencyInfo readDepInfo{VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-    readDepInfo.imageMemoryBarrierCount = 1;
-    readDepInfo.pImageMemoryBarriers = &shadowMapReadBarrier;
-    vkCmdPipelineBarrier2(cmd, &readDepInfo);
+    shadowMap_.transitionToShaderRead(cmd);
 }
 
 void Renderer::createPipelines(const VkFormat swapChainColorFormat, const VkFormat depthFormat,
@@ -454,6 +425,7 @@ void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight,
     samplerLinearClamp_.createLinearClamp();
     samplerAnisoRepeat_.createAnisoRepeat();
     samplerAnisoClamp_.createAnisoClamp();
+    samplerShadow_.createShadow();
 
     string dummyImagePath = kAssetsPathPrefix_ + "textures/blender_uv_grid_2k.png";
 
@@ -489,10 +461,16 @@ void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight,
     forwardToCompute_.createGeneralStorage(swapchainWidth, swapchainHeight);
     computeToPost_.createGeneralStorage(swapchainWidth, swapchainHeight);
 
+    // Create shadow map using Image2D
+    uint32_t shadowMapSize = 2048 * 2;
+    shadowMap_.createShadow(shadowMapSize, shadowMapSize);
+    shadowMap_.setSampler(samplerShadow_.handle());
+
     // Set samplers
     forwardToCompute_.setSampler(samplerLinearRepeat_.handle());
     computeToPost_.setSampler(samplerLinearRepeat_.handle());
     depthStencil_.setSampler(samplerLinearClamp_.handle());
+
     // Create descriptor sets for sky textures (set 1 for sky pipeline)
     skyDescriptorSet_.create(ctx_, {skyTextures_.prefiltered().resourceBinding(),
                                     skyTextures_.irradiance().resourceBinding(),
