@@ -133,11 +133,7 @@ class Model
     }
     Image2D& getTexture(int index)
     {
-        return textures_[index];
-    }
-    vector<Image2D>& textures()
-    {
-        return textures_;
+        return textureManager_.textures_[index];
     }
 
     const DescriptorSet& materialDescriptorSet(uint32_t mat_index)
@@ -175,7 +171,7 @@ class Model
     vector<Material> materials_;
 
     TextureManager textureManager_;
-    vector<Image2D> textures_;
+    vector<Image2D> textures_; // 삭제 예정
     vector<string> textureFilenames_;
     vector<bool> textureSRgb_; // sRGB 여부 (임시 저장)
     // 이름이 같은 텍스쳐 중복 생성 방지

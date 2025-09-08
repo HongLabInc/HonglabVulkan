@@ -59,6 +59,8 @@ void Model::createDescriptorSets(Sampler& sampler, Image2D& dummyTexture)
         t.setSampler(sampler.handle());
     }
 
+    textureManager_.textures_ = std::move(textures_);
+
     materialDescriptorSets_.resize(materials_.size());
     for (size_t i = 0; i < materials_.size(); i++) {
         auto& mat = materials_[i];

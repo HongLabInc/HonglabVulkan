@@ -46,6 +46,9 @@ class DescriptorSet
         for (size_t bindingIndex = 0; bindingIndex < layoutBindings.size(); ++bindingIndex) {
             const ResourceBinding& rb = resourceBindings[bindingIndex].get();
             VkWriteDescriptorSet& write = descriptorWrites[bindingIndex];
+
+            // rb.updateWrite(write); // <- 상속을 이용해서 이런 구조로 변경 예정
+
             write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             write.pNext = nullptr;
             write.dstSet = descriptorSet_;

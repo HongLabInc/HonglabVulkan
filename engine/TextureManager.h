@@ -16,6 +16,8 @@ using namespace std;
 
 class TextureManager
 {
+    friend class Model;
+
   public:
     TextureManager(Context& ctx);
     TextureManager(TextureManager&& other) noexcept;
@@ -34,6 +36,7 @@ class TextureManager
 
     Context& ctx_;
 
+    vector<Image2D> textures_;
     Image2D dummyTexture_;
     Sampler samplerLinearRepeat_;
 
