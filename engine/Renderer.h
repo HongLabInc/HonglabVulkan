@@ -185,12 +185,12 @@ class Renderer
     PostOptionsUBO postOptionsUBO_{};
     SsaoOptionsUBO ssaoOptionsUBO_{};
 
-    vector<UniformBuffer<SceneUniform>> sceneUniforms_{};
-    vector<UniformBuffer<SkyOptionsUBO>> skyOptionsUniforms_;
-    vector<UniformBuffer<OptionsUniform>> optionsUniforms_{};
-    vector<UniformBuffer<BoneDataUniform>> boneDataUniforms_;
-    vector<UniformBuffer<PostOptionsUBO>> postOptionsUniforms_;
-    vector<UniformBuffer<SsaoOptionsUBO>> ssaoOptionsUniforms_;
+    vector<unique_ptr<UniformBuffer<SceneUniform>>> sceneUniforms_{};
+    vector<unique_ptr<UniformBuffer<SkyOptionsUBO>>> skyOptionsUniforms_;
+    vector<unique_ptr<UniformBuffer<OptionsUniform>>> optionsUniforms_{};
+    vector<unique_ptr<UniformBuffer<BoneDataUniform>>> boneDataUniforms_;
+    vector<unique_ptr<UniformBuffer<PostOptionsUBO>>> postOptionsUniforms_;
+    vector<unique_ptr<UniformBuffer<SsaoOptionsUBO>>> ssaoOptionsUniforms_;
 
     vector<DescriptorSet> sceneOptionsBoneDataSets_{};
     vector<DescriptorSet> sceneSkyOptionsSets_{};

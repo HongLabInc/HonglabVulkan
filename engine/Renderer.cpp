@@ -41,58 +41,58 @@ void Renderer::createUniformBuffers()
     sceneUniforms_.clear();
     sceneUniforms_.reserve(kMaxFramesInFlight_);
     for (uint32_t i = 0; i < kMaxFramesInFlight_; ++i) {
-        sceneUniforms_.emplace_back(ctx_, sceneUBO_);
+        sceneUniforms_.emplace_back(make_unique<UniformBuffer<SceneUniform>>(ctx_, sceneUBO_));
     }
 
     // Create options uniform buffers
     optionsUniforms_.clear();
     optionsUniforms_.reserve(kMaxFramesInFlight_);
     for (uint32_t i = 0; i < kMaxFramesInFlight_; ++i) {
-        optionsUniforms_.emplace_back(ctx_, optionsUBO_);
+        optionsUniforms_.emplace_back(make_unique<UniformBuffer<OptionsUniform>>(ctx_, optionsUBO_));
     }
 
     skyOptionsUniforms_.clear();
     skyOptionsUniforms_.reserve(kMaxFramesInFlight_);
     for (uint32_t i = 0; i < kMaxFramesInFlight_; ++i) {
-        skyOptionsUniforms_.emplace_back(ctx_, skyOptionsUBO_);
+        skyOptionsUniforms_.emplace_back(make_unique<UniformBuffer<SkyOptionsUBO>>(ctx_, skyOptionsUBO_));
     }
 
     postOptionsUniforms_.clear();
     postOptionsUniforms_.reserve(kMaxFramesInFlight_);
     for (uint32_t i = 0; i < kMaxFramesInFlight_; ++i) {
-        postOptionsUniforms_.emplace_back(ctx_, postOptionsUBO_);
+        postOptionsUniforms_.emplace_back(make_unique<UniformBuffer<PostOptionsUBO>>(ctx_, postOptionsUBO_));
     }
 
     // Create SSAO uniform buffers
     ssaoOptionsUniforms_.clear();
     ssaoOptionsUniforms_.reserve(kMaxFramesInFlight_);
     for (uint32_t i = 0; i < kMaxFramesInFlight_; ++i) {
-        ssaoOptionsUniforms_.emplace_back(ctx_, ssaoOptionsUBO_);
+        ssaoOptionsUniforms_.emplace_back(make_unique<UniformBuffer<SsaoOptionsUBO>>(ctx_, ssaoOptionsUBO_));
     }
 
     boneDataUniforms_.clear();
     boneDataUniforms_.reserve(kMaxFramesInFlight_);
     for (uint32_t i = 0; i < kMaxFramesInFlight_; ++i) {
-        boneDataUniforms_.emplace_back(ctx_, boneDataUBO_);
+        boneDataUniforms_.emplace_back(make_unique<UniformBuffer<BoneDataUniform>>(ctx_, boneDataUBO_));
     }
 
     sceneOptionsBoneDataSets_.resize(kMaxFramesInFlight_);
     for (size_t i = 0; i < kMaxFramesInFlight_; i++) {
-        sceneOptionsBoneDataSets_[i].create(ctx_, {sceneUniforms_[i].resourceBinding(),
-                                                   optionsUniforms_[i].resourceBinding(),
-                                                   boneDataUniforms_[i].resourceBinding()});
+        sceneOptionsBoneDataSets_[i].create(ctx_, {sceneUniforms_[i]->resourceBinding(),
+                                                   optionsUniforms_[i]->resourceBinding(),
+                                                   boneDataUniforms_[i]->resourceBinding()});
     }
 
     sceneSkyOptionsSets_.resize(kMaxFramesInFlight_);
     for (size_t i = 0; i < kMaxFramesInFlight_; i++) {
         sceneSkyOptionsSets_[i].create(
-            ctx_, {sceneUniforms_[i].resourceBinding(), skyOptionsUniforms_[i].resourceBinding()});
+            ctx_, {sceneUniforms_[i]->resourceBinding(), skyOptionsUniforms_[i]->resourceBinding()});
     }
 
     postProcessingDescriptorSets_.resize(kMaxFramesInFlight_);
     for (size_t i = 0; i < kMaxFramesInFlight_; i++) {
         postProcessingDescriptorSets_[i].create(
-            ctx_, {computeToPost_->resourceBinding(), postOptionsUniforms_[i].resourceBinding()});
+            ctx_, {computeToPost_->resourceBinding(), postOptionsUniforms_[i]->resourceBinding()});
     }
 
     // Create SSAO descriptor sets
@@ -109,7 +109,7 @@ void Renderer::createUniformBuffers()
     ssaoDescriptorSets_.resize(kMaxFramesInFlight_);
     for (size_t i = 0; i < kMaxFramesInFlight_; i++) {
         ssaoDescriptorSets_[i].create(
-            ctx_, {sceneUniforms_[i].resourceBinding(), ssaoOptionsUniforms_[i].resourceBinding(),
+            ctx_, {sceneUniforms_[i]->resourceBinding(), ssaoOptionsUniforms_[i]->resourceBinding(),
                    forwardToCompute_->resourceBinding(), computeToPost_->resourceBinding(),
                    depthStencil_->resourceBinding()});
     }
@@ -120,15 +120,15 @@ void Renderer::update(Camera& camera, uint32_t currentFrame, double time)
     // Update view frustum based on current camera view-projection matrix
     updateViewFrustum(camera.matrices.perspective * camera.matrices.view);
 
-    sceneUniforms_[currentFrame].updateData();
+    sceneUniforms_[currentFrame]->updateData();
 
-    optionsUniforms_[currentFrame].updateData();
+    optionsUniforms_[currentFrame]->updateData();
 
-    skyOptionsUniforms_[currentFrame].updateData();
+    skyOptionsUniforms_[currentFrame]->updateData();
 
-    postOptionsUniforms_[currentFrame].updateData();
+    postOptionsUniforms_[currentFrame]->updateData();
 
-    ssaoOptionsUniforms_[currentFrame].updateData();
+    ssaoOptionsUniforms_[currentFrame]->updateData();
 }
 
 void Renderer::updateBoneData(const vector<Model>& models, uint32_t currentFrame)
@@ -169,7 +169,7 @@ void Renderer::updateBoneData(const vector<Model>& models, uint32_t currentFrame
     }
 
     // Update the GPU buffer
-    boneDataUniforms_[currentFrame].updateData();
+    boneDataUniforms_[currentFrame]->updateData();
 }
 
 void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swapchainImageView,
