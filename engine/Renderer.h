@@ -98,12 +98,6 @@ struct BoneDataUniform
 static_assert(sizeof(BoneDataUniform) % 16 == 0, "BoneDataUniform must be 16-byte aligned");
 static_assert(sizeof(BoneDataUniform) == 256 * 64 + 16, "Unexpected BoneDataUniform size");
 
-struct VulkanBuffer
-{
-    VkDeviceMemory memory_{VK_NULL_HANDLE};
-    VkBuffer handle_{VK_NULL_HANDLE};
-};
-
 struct CullingStats
 {
     uint32_t totalMeshes = 0;
