@@ -15,7 +15,7 @@ class ResourceBinding
     friend class ShadowMap;
     friend class DepthStencil;
     friend class TextureManager;
-    friend class ResourceBase; // Add ResourceBase as friend
+    friend class Resource; // Add Resource as friend
     friend class StorageBuffer; // Add StorageBuffer as friend
 
   public:

@@ -37,8 +37,8 @@
     <ClInclude Include="GpuTimer.h" />
     <ClInclude Include="PipelineConfig.h" />
     <ClInclude Include="TextureManager.h" />
-    <ClInclude Include="Resource.h" />
     <ClInclude Include="ResourceBase.h" />
+    <ClInclude Include="Resource.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Logger.cpp" />
@@ -78,7 +78,6 @@
     <ClCompile Include="GpuTimer.cpp" />
     <ClCompile Include="PipelineConfig.cpp" />
     <ClCompile Include="TextureManager.cpp" />
-    <ClCompile Include="Resource.cpp" />
     <ClCompile Include="ResourceBase.cpp" />
   </ItemGroup>
   <ItemGroup>

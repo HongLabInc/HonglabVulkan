@@ -40,8 +40,8 @@ void ModelLoader::loadFromModelFile(const string& modelFilename, bool readBistro
             model_.textures_.reserve(model_.textureFilenames_.size());
             for (auto& filename : model_.textureFilenames_) {
                 string prefix = readBistroObj ? directory_ + "/LowRes/" : "";
-                model_.textures_.emplace_back(model_.ctx_);
-                model_.textures_.back().createTextureFromImage(
+                model_.textures_.emplace_back(make_unique<Image2D>(model_.ctx_));
+                model_.textures_.back()->createTextureFromImage(
                     prefix + filename, false, model_.textureSRgb_[model_.textures_.size() - 1]);
             }
 
@@ -125,7 +125,7 @@ void ModelLoader::loadFromModelFile(const string& modelFilename, bool readBistro
     model_.textures_.reserve(model_.textureFilenames_.size());
     for (auto& filename : model_.textureFilenames_) {
         string prefix = readBistroObj ? directory_ + "/LowRes/" : directory_ + "/";
-        model_.textures_.emplace_back(model_.ctx_);
+        model_.textures_.emplace_back(make_unique<Image2D>(model_.ctx_));
         // Check if this is an embedded texture (indicated by * prefix)
         if (!filename.empty() && filename[0] == '*') {
             // Parse the texture index from the path (e.g., "*0" -> 0)
@@ -164,7 +164,7 @@ void ModelLoader::loadFromModelFile(const string& modelFilename, bool readBistro
 
                 if (data) {
                     // Create texture directly from memory data
-                    model_.textures_.back().createFromPixelData(
+                    model_.textures_.back()->createFromPixelData(
                         data, width, height, 4, model_.textureSRgb_[model_.textures_.size() - 1]);
 
                     // Free memory
@@ -202,7 +202,7 @@ void ModelLoader::loadFromModelFile(const string& modelFilename, bool readBistro
 
             printLog("Texture filename: {}", prefix + shortFilename);
 
-            model_.textures_.back().createTextureFromImage(
+            model_.textures_.back()->createTextureFromImage(
                 prefix + shortFilename, false, model_.textureSRgb_[model_.textures_.size() - 1]);
         }
     }

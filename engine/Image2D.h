@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Sampler.h"
-#include "ResourceBase.h"
+#include "Resource.h"
 #include <optional>
 #include <functional>
 #include <string>
@@ -13,12 +13,12 @@ using namespace std;
 
 class Context;
 
-class Image2D : public ResourceBase
+class Image2D : public Resource
 {
   public:
     Image2D(Context& ctx);
     Image2D(const Image2D&) = delete;
-    Image2D(Image2D&& other) noexcept;
+    Image2D(Image2D&&) = delete;
     Image2D& operator=(const Image2D&) = delete;
     Image2D& operator=(Image2D&&) = delete;
     ~Image2D();
@@ -39,6 +39,10 @@ class Image2D : public ResourceBase
                      VkImageCreateFlags flags, VkImageViewType viewType);
     void cleanup() override;
 
+    // Implement required Resource methods
+    void updateBinding(VkDescriptorSetLayoutBinding& binding) override;
+    void updateWrite(VkWriteDescriptorSet& write) override;
+
     auto image() const -> VkImage;
     auto view() const -> VkImageView;
     auto attachmentView() const -> VkImageView; // For depth-stencil attachment usage (both aspects)
@@ -54,13 +58,22 @@ class Image2D : public ResourceBase
     // Legacy interface for backward compatibility
     auto resourceBinding() -> ResourceBinding&
     {
-        return ResourceBase::resourceBinding();
+        return Resource::resourceBinding();
     }
 
     // Direct access to barrier helper for advanced usage
     auto barrierHelper() -> BarrierHelper&
     {
-        return ResourceBase::barrierHelper();
+        return Resource::barrierHelper();
+    }
+
+    void updateImageInfo(VkDescriptorImageInfo& imageInfo)
+    {
+        const auto& rb = resourceBinding();
+
+        imageInfo.sampler = rb.imageInfo_.sampler;
+        imageInfo.imageView = imageView_;
+        imageInfo.imageLayout = rb.imageInfo_.imageLayout;
     }
 
   private:

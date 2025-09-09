@@ -8,28 +8,24 @@
 
 namespace hlab {
 
-class Resource
+class ResourceBase
 {
   public:
     enum class Type { Image, Buffer };
 
-    Resource(Context& ctx, Type type);
-    virtual ~Resource() = default;
+    ResourceBase(Context& ctx, Type type);
+    virtual ~ResourceBase() = default;
 
     // Deleted copy operations to enforce move-only semantics
-    Resource(const Resource&) = delete;
-    Resource& operator=(const Resource&) = delete;
+    ResourceBase(const ResourceBase&) = delete;
+    ResourceBase& operator=(const ResourceBase&) = delete;
 
-    // Move operations
-    Resource(Resource&& other) noexcept;
-    Resource& operator=(Resource&& other) noexcept;
+    // Deleted move operations - use unique_ptr for resource management
+    ResourceBase(ResourceBase&&) = delete;
+    ResourceBase& operator=(ResourceBase&&) = delete;
 
     // Common interface
     virtual void cleanup() = 0;
-
-    // Pure virtual methods that must be implemented by derived classes
-    virtual void updateBinding(VkDescriptorSetLayoutBinding& binding) = 0;
-    virtual void updateWrite(VkWriteDescriptorSet& write) = 0;
 
     // Resource identification
     Type getType() const
@@ -43,6 +39,34 @@ class Resource
     bool isBuffer() const
     {
         return type_ == Type::Buffer;
+    }
+
+    virtual void updateBinding(VkDescriptorSetLayoutBinding& binding)
+    {
+        const ResourceBinding& rb = resourceBinding_;
+
+        // Set up basic binding information
+        // Note: binding.binding will be set by DescriptorSet based on array index
+        binding.binding = 0; // This will be overridden by DescriptorSet::create()
+        binding.descriptorType = rb.descriptorType_;
+        binding.descriptorCount = rb.descriptorCount_;
+        binding.pImmutableSamplers = nullptr;
+        binding.stageFlags = 0; // Will be filled by shader reflection
+    }
+
+    virtual void updateWrite(VkWriteDescriptorSet& write)
+    {
+        //    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        //    write.pNext = nullptr;
+        //    write.dstSet = descriptorSet_;
+        //    write.dstBinding = layoutBindings[bindingIndex].binding;
+        //    write.dstArrayElement = 0; // <- Bindless Texture의 인덱스로 지정
+        //    write.descriptorType = layoutBindings[bindingIndex].descriptorType;
+        //    // write.descriptorCount = layoutBindings[bindingIndex].descriptorCount;
+        //    write.descriptorCount = 1; // <- 임시로 하나만 지정
+        //    write.pBufferInfo = rb.buffer_ ? &rb.bufferInfo_ : nullptr;
+        //    write.pImageInfo = rb.image_ ? &rb.imageInfo_ : nullptr;
+        //    write.pTexelBufferView = nullptr; /* Not implememted */
     }
 
     // Common resource management

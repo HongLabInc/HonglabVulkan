@@ -11,7 +11,8 @@ layout(location = 6) in vec4 fragPosLightSpace;
 
 layout(push_constant) uniform PushConstants {
     mat4 model;
-    float coeffs[16];
+    float coeffs[15];
+    uint materialIndex;
 } pushConstants;
 
 layout(set = 0, binding = 0) uniform SceneDataUBO {
@@ -33,8 +34,8 @@ layout(set = 0, binding = 1) uniform OptionsUBO {
     int animationOn;
 } options;
 
-// Material properties
-layout(set = 1, binding = 0) uniform MaterialUBO {
+// Material structure matching MaterialUBO in C++
+struct MaterialUBO {
     vec4 emissiveFactor;
     vec4 baseColorFactor;
     float roughnessFactor;
@@ -47,18 +48,15 @@ layout(set = 1, binding = 0) uniform MaterialUBO {
     int opacityTextureIndex;
     int metallicRoughnessTextureIndex;
     int occlusionTextureIndex;
-} material;
+};
+
+// Bindless material storage buffer
+layout(set = 1, binding = 0) restrict readonly buffer MaterialBuffer {
+    MaterialUBO materials[];
+} materialBuffer;
 
 // Material textures
-layout(set = 1, binding = 1) uniform sampler2D baseColorTexture;
-layout(set = 1, binding = 2) uniform sampler2D emissiveTexture;
-layout(set = 1, binding = 3) uniform sampler2D normalTexture;
-layout(set = 1, binding = 4) uniform sampler2D opacityTexture;
-layout(set = 1, binding = 5) uniform sampler2D metallicRoughnessTexture;
-layout(set = 1, binding = 6) uniform sampler2D occlusionTexture;
-
-// Intermediate Step (moving textureManager to Model)
-layout(set = 1, binding = 7) uniform sampler2D materialTextures[512]; // <- TextureManager::kMaxTextures_
+layout(set = 1, binding = 1) uniform sampler2D materialTextures[512]; // <- TextureManager::kMaxTextures_
 
 // IBL textures
 layout(set = 2, binding = 0) uniform samplerCube prefilteredMap;
@@ -227,7 +225,7 @@ float V_GGX(float NdotL, float NdotV, float alphaRoughness)
     return 0.0;
 }
 
-// The following equation(s) model the distribution of microfacet normals across the area being drawn (aka D())
+// The following equation(s) model the distribution of microfacet normals across the area being drawn (aka D()
 // Implementation from "Average Irregularity Representation of a Roughened Surface for Ray Reflection" by T. S. Trowbridge, and K. P. Reitz
 // Follows the distribution function recommended in the SIGGRAPH 2013 course notes from EPIC Games [1], Equation 3.
 float D_GGX(float NdotH, float alphaRoughness)
@@ -252,15 +250,16 @@ void main() {
     float emissiveWeight = pushConstants.coeffs[2];
     float shadowOffset = pushConstants.coeffs[3];
 
-    // Sample material properties
-    vec4 baseColorRGBA = (options.textureOn != 0 && material.baseColorTextureIndex >= 0) ? texture(baseColorTexture, fragTexCoord) : vec4(1.0);
+    // Access material using push constant index
+    MaterialUBO material = materialBuffer.materials[pushConstants.materialIndex];
 
-    // TEST: bindless texture sampling
-    //vec4 baseColorRGBA = texture(materialTextures[nonuniformEXT(0)], fragTexCoord);
+    // Sample material properties using bindless access
+    vec4 baseColorRGBA = material.baseColorTextureIndex >= 0 ? texture(materialTextures[nonuniformEXT(material.baseColorTextureIndex)], fragTexCoord) : vec4(1.0) ;
 
-    if(material.opacityTextureIndex >= 0) {
-        float opacity = texture(opacityTexture, fragTexCoord).r;
-        if(options.discardOn != 0 && opacity < 0.08)
+    if(options.discardOn != 0 && material.opacityTextureIndex >= 0)
+    {
+        float opacity = texture(materialTextures[nonuniformEXT(material.opacityTextureIndex)], fragTexCoord).r;
+        if(opacity < 0.08)
             discard;
     }
 
@@ -269,20 +268,19 @@ void main() {
     float roughness = material.roughnessFactor * pushConstants.coeffs[5];
 
     if(material.metallicRoughnessTextureIndex >= 0){
-        vec3 metallicRoughness = texture(metallicRoughnessTexture, fragTexCoord).rgb;
+        vec3 metallicRoughness = texture(materialTextures[nonuniformEXT(material.metallicRoughnessTextureIndex)], fragTexCoord).rgb;
         metallic *= metallicRoughness.b; // Blue channel
         roughness *= metallicRoughness.g; // Green channel
     }
 
     float ao = 1.0;
-    if(material.occlusionTextureIndex >= 0) {
-       ao = texture(occlusionTexture, fragTexCoord).r;
-   }
+    if(material.occlusionTextureIndex >= 0){
+        ao = texture(materialTextures[nonuniformEXT(material.occlusionTextureIndex)], fragTexCoord).r;
+    }
 
     vec3 emissive = material.emissiveFactor.xyz * emissiveWeight;
-    if(material.emissiveTextureIndex >= 0)
-    {
-        emissive *= texture(emissiveTexture, fragTexCoord).xyz;
+    if(material.emissiveTextureIndex >= 0){
+        emissive *= texture(materialTextures[nonuniformEXT(material.emissiveTextureIndex)], fragTexCoord).rgb;
     }
 
     vec3 V = normalize(fragCameraPos - fragPos);
@@ -291,11 +289,12 @@ void main() {
     vec3 T = normalize(fragTangent);
     vec3 B = normalize(fragBitangent);
     mat3 TBN = mat3(T, B, N);
+
     if(material.normalTextureIndex >= 0) {
-      vec3 tangentNormal = texture(normalTexture, fragTexCoord).xyz * 2.0 - 1.0;
+      vec3 tangentNormal = texture(materialTextures[nonuniformEXT(material.normalTextureIndex)], fragTexCoord).xyz * 2.0 - 1.0;
       if (length(tangentNormal) > 0.5)
         N = normalize(TBN * tangentNormal);
-   }
+    }
 
     float NdotV = clamp(dot(N, V), 0.0, 1.0);
     float TdotV = clamp(dot(T, V), 0.0, 1.0);

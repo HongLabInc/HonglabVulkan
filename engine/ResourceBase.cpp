@@ -1,20 +1,25 @@
-#include "ResourceBase.h"
+#include "Resource.h"
 
 namespace hlab {
 
-ResourceBase::ResourceBase(Context& ctx, Type type) : ctx_(ctx), type_(type)
+Resource::Resource(Context& ctx, Type type) : ctx_(ctx), type_(type)
 {
 }
 
-ResourceBase::ResourceBase(ResourceBase&& other) noexcept
-    : ctx_(other.ctx_), type_(other.type_), barrierHelper_(std::move(other.barrierHelper_)),
+// Move constructor implementation
+Resource::Resource(Resource&& other) noexcept
+    : ctx_(other.ctx_), type_(other.type_), 
+      barrierHelper_(std::move(other.barrierHelper_)), 
       resourceBinding_(std::move(other.resourceBinding_))
 {
+    // Nothing special needed - members handle their own move
 }
 
-ResourceBase& ResourceBase::operator=(ResourceBase&& other) noexcept
+// Move assignment operator implementation
+Resource& Resource::operator=(Resource&& other) noexcept
 {
     if (this != &other) {
+        // Note: ctx_ is a reference so we can't move it, but it should reference the same context
         type_ = other.type_;
         barrierHelper_ = std::move(other.barrierHelper_);
         resourceBinding_ = std::move(other.resourceBinding_);
@@ -22,7 +27,7 @@ ResourceBase& ResourceBase::operator=(ResourceBase&& other) noexcept
     return *this;
 }
 
-void ResourceBase::transitionTo(VkCommandBuffer cmd, VkAccessFlags2 newAccess,
+void Resource::transitionTo(VkCommandBuffer cmd, VkAccessFlags2 newAccess,
                                 VkImageLayout newLayout, VkPipelineStageFlags2 newStage)
 {
     assertImageType();
@@ -30,7 +35,7 @@ void ResourceBase::transitionTo(VkCommandBuffer cmd, VkAccessFlags2 newAccess,
     updateResourceBinding();
 }
 
-void ResourceBase::transitionToColorAttachment(VkCommandBuffer cmd)
+void Resource::transitionToColorAttachment(VkCommandBuffer cmd)
 {
     assertImageType();
     barrierHelper_.transitionTo(cmd, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
@@ -39,7 +44,7 @@ void ResourceBase::transitionToColorAttachment(VkCommandBuffer cmd)
     updateResourceBinding();
 }
 
-void ResourceBase::transitionToTransferSrc(VkCommandBuffer cmd)
+void Resource::transitionToTransferSrc(VkCommandBuffer cmd)
 {
     assertImageType();
     barrierHelper_.transitionTo(cmd, VK_ACCESS_2_TRANSFER_READ_BIT,
@@ -48,7 +53,7 @@ void ResourceBase::transitionToTransferSrc(VkCommandBuffer cmd)
     updateResourceBinding();
 }
 
-void ResourceBase::transitionToTransferDst(VkCommandBuffer cmd)
+void Resource::transitionToTransferDst(VkCommandBuffer cmd)
 {
     assertImageType();
     barrierHelper_.transitionTo(cmd, VK_ACCESS_2_TRANSFER_WRITE_BIT,
@@ -57,7 +62,7 @@ void ResourceBase::transitionToTransferDst(VkCommandBuffer cmd)
     updateResourceBinding();
 }
 
-void ResourceBase::transitionToShaderRead(VkCommandBuffer cmd)
+void Resource::transitionToShaderRead(VkCommandBuffer cmd)
 {
     assertImageType();
     barrierHelper_.transitionTo(cmd, VK_ACCESS_2_SHADER_READ_BIT,
@@ -66,7 +71,7 @@ void ResourceBase::transitionToShaderRead(VkCommandBuffer cmd)
     updateResourceBinding();
 }
 
-void ResourceBase::transitionToDepthStencilAttachment(VkCommandBuffer cmd)
+void Resource::transitionToDepthStencilAttachment(VkCommandBuffer cmd)
 {
     assertImageType();
     barrierHelper_.transitionTo(cmd, VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
@@ -75,7 +80,7 @@ void ResourceBase::transitionToDepthStencilAttachment(VkCommandBuffer cmd)
     updateResourceBinding();
 }
 
-void ResourceBase::transitionToGeneral(VkCommandBuffer cmd, VkAccessFlags2 accessFlags,
+void Resource::transitionToGeneral(VkCommandBuffer cmd, VkAccessFlags2 accessFlags,
                                        VkPipelineStageFlags2 stageFlags)
 {
     assertImageType();
@@ -88,13 +93,13 @@ void ResourceBase::transitionToGeneral(VkCommandBuffer cmd, VkAccessFlags2 acces
     // Need to check if this is an image and for compute pipeline.
 }
 
-void ResourceBase::setSampler(VkSampler sampler)
+void Resource::setSampler(VkSampler sampler)
 {
     assertImageType();
     resourceBinding_.setSampler(sampler);
 }
 
-void ResourceBase::transitionBuffer(VkCommandBuffer cmd, VkAccessFlags2 srcAccess,
+void Resource::transitionBuffer(VkCommandBuffer cmd, VkAccessFlags2 srcAccess,
                                     VkAccessFlags2 dstAccess, VkPipelineStageFlags2 srcStage,
                                     VkPipelineStageFlags2 dstStage)
 {
@@ -105,14 +110,14 @@ void ResourceBase::transitionBuffer(VkCommandBuffer cmd, VkAccessFlags2 srcAcces
     // is focused on image transitions
 }
 
-void ResourceBase::initializeImageResource(VkImage image, VkFormat format, uint32_t mipLevels,
+void Resource::initializeImageResource(VkImage image, VkFormat format, uint32_t mipLevels,
                                            uint32_t arrayLayers)
 {
     assertImageType();
     barrierHelper_.update(image, format, mipLevels, arrayLayers);
 }
 
-void ResourceBase::initializeBufferResource(VkBuffer buffer, VkDeviceSize size)
+void Resource::initializeBufferResource(VkBuffer buffer, VkDeviceSize size)
 {
     assertBufferType();
     // Initialize buffer-specific ResourceBinding data
@@ -121,19 +126,19 @@ void ResourceBase::initializeBufferResource(VkBuffer buffer, VkDeviceSize size)
     resourceBinding_.update();
 }
 
-void ResourceBase::updateResourceBinding()
+void Resource::updateResourceBinding()
 {
     resourceBinding_.update();
 }
 
-void ResourceBase::assertImageType() const
+void Resource::assertImageType() const
 {
     if (type_ != Type::Image) {
         exitWithMessage("Operation only valid for Image resources");
     }
 }
 
-void ResourceBase::assertBufferType() const
+void Resource::assertBufferType() const
 {
     if (type_ != Type::Buffer) {
         exitWithMessage("Operation only valid for Buffer resources");

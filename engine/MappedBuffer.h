@@ -1,18 +1,18 @@
 #pragma once
 
 #include "Context.h"
-#include "ResourceBase.h"
+#include "Resource.h"
 
 #include <string>
 #include <vulkan/vulkan.h>
 
 namespace hlab {
 
-class MappedBuffer : public ResourceBase
+class MappedBuffer : public Resource
 {
   public:
     MappedBuffer(Context& ctx);
-    MappedBuffer(MappedBuffer&&) noexcept;
+    MappedBuffer(MappedBuffer&&) = delete;
     MappedBuffer(const MappedBuffer&) = delete;
     MappedBuffer& operator=(const MappedBuffer&) = delete;
     MappedBuffer& operator=(MappedBuffer&&) = delete;
@@ -26,7 +26,7 @@ class MappedBuffer : public ResourceBase
     // Legacy interface for backward compatibility
     auto resourceBinding() -> ResourceBinding&
     {
-        return ResourceBase::resourceBinding();
+        return Resource::resourceBinding();
     }
     
     // Add getters for size information
@@ -34,6 +34,11 @@ class MappedBuffer : public ResourceBase
     auto dataSize() const -> VkDeviceSize { return dataSize_; }
 
     void cleanup() override;
+
+    // Implement required Resource methods
+    void updateBinding(VkDescriptorSetLayoutBinding& binding) override;
+    void updateWrite(VkWriteDescriptorSet& write) override;
+    
     void create(VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memPropFlags,
                 VkDeviceSize size, void* data);
     void createVertexBuffer(VkDeviceSize size, void* data);

@@ -3,23 +3,8 @@
 
 namespace hlab {
 
-MappedBuffer::MappedBuffer(Context& ctx) : ResourceBase(ctx, Type::Buffer)
+MappedBuffer::MappedBuffer(Context& ctx) : Resource(ctx, Type::Buffer)
 {
-}
-
-MappedBuffer::MappedBuffer(MappedBuffer&& other) noexcept
-    : ResourceBase(std::move(other)), buffer_(other.buffer_), memory_(other.memory_), offset_(other.offset_),
-      dataSize_(other.dataSize_), allocatedSize_(other.allocatedSize_),
-      alignment_(other.alignment_), memPropFlags_(other.memPropFlags_),
-      usageFlags_(other.usageFlags_), mapped_(other.mapped_), name_(std::move(other.name_))
-{
-    // Reset moved-from object
-    other.buffer_ = VK_NULL_HANDLE;
-    other.memory_ = VK_NULL_HANDLE;
-    other.mapped_ = nullptr;
-    other.dataSize_ = 0;
-    other.allocatedSize_ = 0;
-    other.alignment_ = 0;
 }
 
 void MappedBuffer::flush() const
@@ -178,6 +163,32 @@ void MappedBuffer::updateData(const void* data, VkDeviceSize size, VkDeviceSize 
     if ((memPropFlags_ & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
         flush();
     }
+}
+
+void MappedBuffer::updateBinding(VkDescriptorSetLayoutBinding& binding)
+{
+    const ResourceBinding& rb = resourceBinding();
+    
+    binding.descriptorType = rb.descriptorType_;
+    binding.descriptorCount = rb.descriptorCount_;
+    binding.pImmutableSamplers = nullptr;
+    binding.stageFlags = 0; // Will be set by shader reflection
+}
+
+void MappedBuffer::updateWrite(VkWriteDescriptorSet& write)
+{
+    const ResourceBinding& rb = resourceBinding();
+    
+    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write.pNext = nullptr;
+    write.dstSet = VK_NULL_HANDLE; // Will be set by DescriptorSet::create()
+    write.dstBinding = 0;          // Will be set by DescriptorSet::create()
+    write.dstArrayElement = 0;
+    write.descriptorType = rb.descriptorType_;
+    write.descriptorCount = rb.descriptorCount_;
+    write.pBufferInfo = &rb.bufferInfo_;
+    write.pImageInfo = nullptr;
+    write.pTexelBufferView = nullptr;
 }
 
 } // namespace hlab

@@ -20,10 +20,10 @@ class UniformBuffer : public MappedBuffer
         createUniformBuffer(sizeof(T_DATA), &cpuData);
     }
 
-    UniformBuffer(UniformBuffer&& other) noexcept
-        : MappedBuffer(std::move(other)), cpuData_(other.cpuData_)
-    {
-    }
+    UniformBuffer(UniformBuffer&&) = delete;
+    UniformBuffer(const UniformBuffer&) = delete;
+    UniformBuffer& operator=(const UniformBuffer&) = delete;
+    UniformBuffer& operator=(UniformBuffer&&) = delete;
 
     ~UniformBuffer() = default; // MappedBuffer handles cleanup
 

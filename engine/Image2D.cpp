@@ -16,24 +16,8 @@
 
 namespace hlab {
 
-Image2D::Image2D(Context& ctx) : ResourceBase(ctx, Type::Image)
+Image2D::Image2D(Context& ctx) : Resource(ctx, Type::Image)
 {
-}
-
-Image2D::Image2D(Image2D&& other) noexcept
-    : ResourceBase(std::move(other)), image_(other.image_), memory_(other.memory_), imageView_(other.imageView_),
-      depthStencilView_(other.depthStencilView_), format_(other.format_), width_(other.width_),
-      height_(other.height_), usageFlags_(other.usageFlags_)
-{
-    // Reset the moved-from object to a safe state
-    other.image_ = VK_NULL_HANDLE;
-    other.memory_ = VK_NULL_HANDLE;
-    other.imageView_ = VK_NULL_HANDLE;
-    other.depthStencilView_ = VK_NULL_HANDLE;
-    other.format_ = VK_FORMAT_UNDEFINED;
-    other.width_ = 0;
-    other.height_ = 0;
-    other.usageFlags_ = 0;
 }
 
 Image2D::~Image2D()
@@ -539,4 +523,32 @@ auto Image2D::format() const -> VkFormat
 {
     return format_;
 }
+
+void Image2D::updateBinding(VkDescriptorSetLayoutBinding& binding)
+{
+    const ResourceBinding& rb = resourceBinding();
+    
+    // Set descriptor type based on current usage and state
+    binding.descriptorType = rb.descriptorType_;
+    binding.descriptorCount = rb.descriptorCount_;
+    binding.pImmutableSamplers = nullptr;
+    binding.stageFlags = 0; // Will be set by shader reflection
+}
+
+void Image2D::updateWrite(VkWriteDescriptorSet& write)
+{
+    const ResourceBinding& rb = resourceBinding();
+    
+    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write.pNext = nullptr;
+    write.dstSet = VK_NULL_HANDLE; // Will be set by DescriptorSet::create()
+    write.dstBinding = 0;          // Will be set by DescriptorSet::create()
+    write.dstArrayElement = 0;
+    write.descriptorType = rb.descriptorType_;
+    write.descriptorCount = rb.descriptorCount_;
+    write.pImageInfo = &rb.imageInfo_;
+    write.pBufferInfo = nullptr;
+    write.pTexelBufferView = nullptr;
+}
+
 } // namespace hlab

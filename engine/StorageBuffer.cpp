@@ -4,7 +4,7 @@
 
 namespace hlab {
 
-StorageBuffer::StorageBuffer(Context& ctx) : ResourceBase(ctx, Type::Buffer)
+StorageBuffer::StorageBuffer(Context& ctx) : Resource(ctx, Type::Buffer)
 {
 }
 

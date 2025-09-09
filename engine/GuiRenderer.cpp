@@ -6,7 +6,7 @@ namespace hlab {
 GuiRenderer::GuiRenderer(Context& ctx, ShaderManager& shaderManager, VkFormat colorFormat)
     : ctx_(ctx), shaderManager_(shaderManager), 
       frameData_{FrameData(ctx), FrameData(ctx)}, // Initialize frame data array
-      fontImage_(ctx), fontSampler_(ctx), pushConsts_(ctx), 
+      fontImage_(make_unique<Image2D>(ctx)), fontSampler_(ctx), pushConsts_(ctx), 
       guiPipeline_(ctx, shaderManager_, PipelineConfig::createGui(), colorFormat)
 {
     pushConsts_.setStageFlags(VK_SHADER_STAGE_VERTEX_BIT);
@@ -59,14 +59,14 @@ GuiRenderer::GuiRenderer(Context& ctx, ShaderManager& shaderManager, VkFormat co
             exitWithMessage("Failed to load font data from: {}", fontFileName);
         }
 
-        fontImage_.createFromPixelData(fontData, texWidth, texHeight, 4, false);
+        fontImage_->createFromPixelData(fontData, texWidth, texHeight, 4, false);
     }
 
     fontSampler_.createAnisoRepeat();
 
-    fontImage_.setSampler(fontSampler_.handle()); // VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+    fontImage_->setSampler(fontSampler_.handle()); // VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
 
-    fontSet_.create(ctx_, {ref(fontImage_.resourceBinding())});
+    fontSet_.create(ctx_, {*fontImage_});
 }
 
 GuiRenderer::~GuiRenderer()

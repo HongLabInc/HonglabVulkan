@@ -7,20 +7,12 @@ Renderer::Renderer(Context& ctx, ShaderManager& shaderManager, const uint32_t& k
                    const string& kAssetsPathPrefix, const string& kShaderPathPrefix_)
     : ctx_(ctx), shaderManager_(shaderManager), kMaxFramesInFlight_(kMaxFramesInFlight),
       kAssetsPathPrefix_(kAssetsPathPrefix), kShaderPathPrefix_(kShaderPathPrefix_),
-      dummyTexture_(make_unique<Image2D>(ctx)), 
-      msaaColorBuffer_(make_unique<Image2D>(ctx)), 
-      depthStencil_(make_unique<Image2D>(ctx)), 
-      msaaDepthStencil_(make_unique<Image2D>(ctx)),
-      skyTextures_(ctx), 
-      shadowMap_(make_unique<Image2D>(ctx)), 
-      samplerShadow_(ctx), samplerLinearRepeat_(ctx),
-      samplerLinearClamp_(ctx), samplerAnisoRepeat_(ctx), samplerAnisoClamp_(ctx),
-      forwardToCompute_(make_unique<Image2D>(ctx)), 
-      computeToPost_(make_unique<Image2D>(ctx))
+      skyTextures_(ctx), samplerShadow_(ctx), samplerLinearRepeat_(ctx), samplerLinearClamp_(ctx),
+      samplerAnisoRepeat_(ctx), samplerAnisoClamp_(ctx)
 {
 }
 
-void Renderer::prepareForModels(vector<Model>& models, VkFormat outColorFormat,
+void Renderer::prepareForModels(vector<unique_ptr<Model>>& models, VkFormat outColorFormat,
                                 VkFormat depthFormat, VkSampleCountFlagBits msaaSamples,
                                 uint32_t swapChainWidth, uint32_t swapChainHeight)
 {
@@ -28,8 +20,8 @@ void Renderer::prepareForModels(vector<Model>& models, VkFormat outColorFormat,
     createTextures(swapChainWidth, swapChainHeight, msaaSamples);
     createUniformBuffers();
 
-    for (Model& m : models) {
-        m.createDescriptorSets(samplerLinearRepeat_, *dummyTexture_);
+    for (auto& m : models) {
+        m->createDescriptorSets(samplerLinearRepeat_, *dummyTexture_);
     }
 }
 
@@ -48,51 +40,53 @@ void Renderer::createUniformBuffers()
     optionsUniforms_.clear();
     optionsUniforms_.reserve(kMaxFramesInFlight_);
     for (uint32_t i = 0; i < kMaxFramesInFlight_; ++i) {
-        optionsUniforms_.emplace_back(make_unique<UniformBuffer<OptionsUniform>>(ctx_, optionsUBO_));
+        optionsUniforms_.emplace_back(
+            make_unique<UniformBuffer<OptionsUniform>>(ctx_, optionsUBO_));
     }
 
     skyOptionsUniforms_.clear();
     skyOptionsUniforms_.reserve(kMaxFramesInFlight_);
     for (uint32_t i = 0; i < kMaxFramesInFlight_; ++i) {
-        skyOptionsUniforms_.emplace_back(make_unique<UniformBuffer<SkyOptionsUBO>>(ctx_, skyOptionsUBO_));
+        skyOptionsUniforms_.emplace_back(
+            make_unique<UniformBuffer<SkyOptionsUBO>>(ctx_, skyOptionsUBO_));
     }
 
     postOptionsUniforms_.clear();
     postOptionsUniforms_.reserve(kMaxFramesInFlight_);
     for (uint32_t i = 0; i < kMaxFramesInFlight_; ++i) {
-        postOptionsUniforms_.emplace_back(make_unique<UniformBuffer<PostOptionsUBO>>(ctx_, postOptionsUBO_));
+        postOptionsUniforms_.emplace_back(
+            make_unique<UniformBuffer<PostOptionsUBO>>(ctx_, postOptionsUBO_));
     }
 
     // Create SSAO uniform buffers
     ssaoOptionsUniforms_.clear();
     ssaoOptionsUniforms_.reserve(kMaxFramesInFlight_);
     for (uint32_t i = 0; i < kMaxFramesInFlight_; ++i) {
-        ssaoOptionsUniforms_.emplace_back(make_unique<UniformBuffer<SsaoOptionsUBO>>(ctx_, ssaoOptionsUBO_));
+        ssaoOptionsUniforms_.emplace_back(
+            make_unique<UniformBuffer<SsaoOptionsUBO>>(ctx_, ssaoOptionsUBO_));
     }
 
     boneDataUniforms_.clear();
     boneDataUniforms_.reserve(kMaxFramesInFlight_);
     for (uint32_t i = 0; i < kMaxFramesInFlight_; ++i) {
-        boneDataUniforms_.emplace_back(make_unique<UniformBuffer<BoneDataUniform>>(ctx_, boneDataUBO_));
+        boneDataUniforms_.emplace_back(
+            make_unique<UniformBuffer<BoneDataUniform>>(ctx_, boneDataUBO_));
     }
 
     sceneOptionsBoneDataSets_.resize(kMaxFramesInFlight_);
     for (size_t i = 0; i < kMaxFramesInFlight_; i++) {
-        sceneOptionsBoneDataSets_[i].create(ctx_, {sceneUniforms_[i]->resourceBinding(),
-                                                   optionsUniforms_[i]->resourceBinding(),
-                                                   boneDataUniforms_[i]->resourceBinding()});
+        sceneOptionsBoneDataSets_[i].create(
+            ctx_, {*sceneUniforms_[i], *optionsUniforms_[i], *boneDataUniforms_[i]});
     }
 
     sceneSkyOptionsSets_.resize(kMaxFramesInFlight_);
     for (size_t i = 0; i < kMaxFramesInFlight_; i++) {
-        sceneSkyOptionsSets_[i].create(
-            ctx_, {sceneUniforms_[i]->resourceBinding(), skyOptionsUniforms_[i]->resourceBinding()});
+        sceneSkyOptionsSets_[i].create(ctx_, {*sceneUniforms_[i], *skyOptionsUniforms_[i]});
     }
 
     postProcessingDescriptorSets_.resize(kMaxFramesInFlight_);
     for (size_t i = 0; i < kMaxFramesInFlight_; i++) {
-        postProcessingDescriptorSets_[i].create(
-            ctx_, {computeToPost_->resourceBinding(), postOptionsUniforms_[i]->resourceBinding()});
+        postProcessingDescriptorSets_[i].create(ctx_, {*computeToPost_, *postOptionsUniforms_[i]});
     }
 
     // Create SSAO descriptor sets
@@ -102,16 +96,14 @@ void Renderer::createUniformBuffers()
     // Create a command buffer for image layout transitions
     auto cmd = ctx_.createGraphicsCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
     forwardToCompute_->transitionToGeneral(cmd.handle(), VK_ACCESS_2_SHADER_READ_BIT,
-                                          VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+                                           VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
     computeToPost_->transitionToGeneral(cmd.handle(), VK_ACCESS_2_SHADER_WRITE_BIT,
-                                       VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+                                        VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
     cmd.submitAndWait();
     ssaoDescriptorSets_.resize(kMaxFramesInFlight_);
     for (size_t i = 0; i < kMaxFramesInFlight_; i++) {
-        ssaoDescriptorSets_[i].create(
-            ctx_, {sceneUniforms_[i]->resourceBinding(), ssaoOptionsUniforms_[i]->resourceBinding(),
-                   forwardToCompute_->resourceBinding(), computeToPost_->resourceBinding(),
-                   depthStencil_->resourceBinding()});
+        ssaoDescriptorSets_[i].create(ctx_, {*sceneUniforms_[i], *ssaoOptionsUniforms_[i],
+                                             *forwardToCompute_, *computeToPost_, *depthStencil_});
     }
 }
 
@@ -131,7 +123,7 @@ void Renderer::update(Camera& camera, uint32_t currentFrame, double time)
     ssaoOptionsUniforms_[currentFrame]->updateData();
 }
 
-void Renderer::updateBoneData(const vector<Model>& models, uint32_t currentFrame)
+void Renderer::updateBoneData(const vector<unique_ptr<Model>>& models, uint32_t currentFrame)
 {
     // Reset bone data
     boneDataUBO_.animationData.x = 0.0f;
@@ -142,11 +134,11 @@ void Renderer::updateBoneData(const vector<Model>& models, uint32_t currentFrame
     // Check if any model has animation data
     bool hasAnyAnimation = false;
     for (const auto& model : models) {
-        if (model.hasAnimations() && model.hasBones()) {
+        if (model->hasAnimations() && model->hasBones()) {
             hasAnyAnimation = true;
 
             // Get bone matrices from the first animated model
-            const auto& boneMatrices = model.getBoneMatrices();
+            const auto& boneMatrices = model->getBoneMatrices();
 
             // Copy bone matrices (up to 256 bones)
             const size_t maxBones = 256;
@@ -173,7 +165,7 @@ void Renderer::updateBoneData(const vector<Model>& models, uint32_t currentFrame
 }
 
 void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swapchainImageView,
-                    vector<Model>& models, VkViewport viewport, VkRect2D scissor)
+                    vector<unique_ptr<Model>>& models, VkViewport viewport, VkRect2D scissor)
 {
     VkRect2D renderArea = {0, 0, scissor.extent.width, scissor.extent.height};
 
@@ -186,9 +178,9 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
         auto colorAttachment = createColorAttachment(
             msaaColorBuffer_->view(), VK_ATTACHMENT_LOAD_OP_CLEAR, {0.0f, 0.0f, 0.5f, 0.0f},
             forwardToCompute_->view(), VK_RESOLVE_MODE_AVERAGE_BIT);
-        auto depthAttachment =
-            createDepthAttachment(msaaDepthStencil_->attachmentView(), VK_ATTACHMENT_LOAD_OP_CLEAR, 1.0f,
-                                  depthStencil_->attachmentView(), VK_RESOLVE_MODE_SAMPLE_ZERO_BIT);
+        auto depthAttachment = createDepthAttachment(
+            msaaDepthStencil_->attachmentView(), VK_ATTACHMENT_LOAD_OP_CLEAR, 1.0f,
+            depthStencil_->attachmentView(), VK_RESOLVE_MODE_SAMPLE_ZERO_BIT);
         auto renderingInfo = createRenderingInfo(renderArea, &colorAttachment, &depthAttachment);
 
         vkCmdBeginRendering(cmd, &renderingInfo);
@@ -202,21 +194,27 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
                           pipelines_.at("pbrForward").pipeline());
 
         for (size_t j = 0; j < models.size(); j++) {
-            if (!models[j].visible()) {
+            if (!models[j]->visible()) {
                 continue;
             }
 
-            vkCmdPushConstants(cmd, pipelines_.at("pbrForward").pipelineLayout(),
-                               VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                               sizeof(models[j].modelMatrix()), &models[j].modelMatrix());
-            vkCmdPushConstants(cmd, pipelines_.at("pbrForward").pipelineLayout(),
-                               VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                               sizeof(models[j].modelMatrix()), sizeof(float) * 16,
-                               models[j].coeffs());
+            // Bind descriptor sets once per model (no longer per material)
+            const auto descriptorSets = vector{
+                sceneOptionsBoneDataSets_[currentFrame]
+                    .handle(), // Set 0: scene, options, bone data
+                models[j]
+                    ->materialDescriptorSet()
+                    .handle(),              // Set 1: material storage buffer + textures
+                skyDescriptorSet_.handle(), // Set 2: sky textures
+                shadowMapSet_.handle()      // Set 3: shadow map
+            };
 
-            for (size_t i = 0; i < models[j].meshes().size(); i++) {
+            vkCmdBindDescriptorSets(
+                cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines_.at("pbrForward").pipelineLayout(),
+                0, static_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(), 0, nullptr);
 
-                auto& mesh = models[j].meshes()[i];
+            for (size_t i = 0; i < models[j]->meshes().size(); i++) {
+                auto& mesh = models[j]->meshes()[i];
 
                 // Skip culled meshes
                 if (mesh.isCulled) {
@@ -225,16 +223,20 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
 
                 uint32_t matIndex = mesh.materialIndex_;
 
-                const auto descriptorSets =
-                    vector{sceneOptionsBoneDataSets_[currentFrame]
-                               .handle(), // Now includes scene, options, and bone data
-                           models[j].materialDescriptorSet(matIndex).handle(),
-                           skyDescriptorSet_.handle(), shadowMapSet_.handle()};
+                // Create push constants with material index
+                PbrPushConstants pushConstants;
+                pushConstants.model = models[j]->modelMatrix();
+                pushConstants.materialIndex = matIndex;
 
-                vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                        pipelines_.at("pbrForward").pipelineLayout(), 0,
-                                        static_cast<uint32_t>(descriptorSets.size()),
-                                        descriptorSets.data(), 0, nullptr);
+                // Copy existing coeffs (reduced to 15)
+                for (int k = 0; k < 15; ++k) {
+                    pushConstants.coeffs[k] = models[j]->coeffs()[k];
+                }
+
+                // Push constants with material index
+                vkCmdPushConstants(cmd, pipelines_.at("pbrForward").pipelineLayout(),
+                                   VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                                   sizeof(PbrPushConstants), &pushConstants);
 
                 vkCmdBindVertexBuffers(cmd, 0, 1, &mesh.vertexBuffer_, offsets);
                 vkCmdBindIndexBuffer(cmd, mesh.indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
@@ -262,11 +264,11 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
         // Transition images for SSAO compute pass to proper storage layouts
         // forwardToCompute_: Forward rendering result → readonly storage image for SSAO input
         forwardToCompute_->transitionToGeneral(cmd, VK_ACCESS_2_SHADER_READ_BIT,
-                                              VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+                                               VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
 
         // computeToPost_: Empty buffer → writeonly storage image for SSAO output
         computeToPost_->transitionToGeneral(cmd, VK_ACCESS_2_SHADER_WRITE_BIT,
-                                           VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+                                            VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
 
         // depthStencil_: Depth buffer → sampled texture for depth-based calculations
         depthStencil_->transitionToShaderRead(cmd);
@@ -327,7 +329,8 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
     }
 }
 
-void Renderer::makeShadowMap(VkCommandBuffer cmd, uint32_t currentFrame, vector<Model>& models)
+void Renderer::makeShadowMap(VkCommandBuffer cmd, uint32_t currentFrame,
+                             vector<unique_ptr<Model>>& models)
 {
     // Transition shadow map image to depth-stencil attachment layout
     shadowMap_->transitionToDepthStencilAttachment(cmd);
@@ -370,17 +373,17 @@ void Renderer::makeShadowMap(VkCommandBuffer cmd, uint32_t currentFrame, vector<
     VkDeviceSize offsets[1]{0};
 
     for (size_t j = 0; j < models.size(); j++) {
-        if (!models[j].visible()) {
+        if (!models[j]->visible()) {
             continue;
         }
 
         vkCmdPushConstants(cmd, pipelines_.at("shadowMap").pipelineLayout(),
-                           VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(models[j].modelMatrix()),
-                           &models[j].modelMatrix());
+                           VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(models[j]->modelMatrix()),
+                           &models[j]->modelMatrix());
 
         // Render all meshes in this model
-        for (size_t i = 0; i < models[j].meshes().size(); i++) {
-            auto& mesh = models[j].meshes()[i];
+        for (size_t i = 0; i < models[j]->meshes().size(); i++) {
+            auto& mesh = models[j]->meshes()[i];
 
             // Skip culled meshes for shadow mapping too
             if (mesh.isCulled) {
@@ -434,6 +437,15 @@ void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight,
     samplerAnisoClamp_.createAnisoClamp();
     samplerShadow_.createShadow();
 
+    // Create Image2D objects here when dimensions are known
+    dummyTexture_ = make_unique<Image2D>(ctx_);
+    msaaColorBuffer_ = make_unique<Image2D>(ctx_);
+    depthStencil_ = make_unique<Image2D>(ctx_);
+    msaaDepthStencil_ = make_unique<Image2D>(ctx_);
+    forwardToCompute_ = make_unique<Image2D>(ctx_);
+    computeToPost_ = make_unique<Image2D>(ctx_);
+    shadowMap_ = make_unique<Image2D>(ctx_);
+
     string dummyImagePath = kAssetsPathPrefix_ + "textures/blender_uv_grid_2k.png";
 
     // Load texture from file using stb_image
@@ -479,12 +491,11 @@ void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight,
     depthStencil_->setSampler(samplerLinearClamp_.handle());
 
     // Create descriptor sets for sky textures (set 1 for sky pipeline)
-    skyDescriptorSet_.create(ctx_, {skyTextures_.prefiltered().resourceBinding(),
-                                    skyTextures_.irradiance().resourceBinding(),
-                                    skyTextures_.brdfLUT().resourceBinding()});
+    skyDescriptorSet_.create(
+        ctx_, {skyTextures_.prefiltered(), skyTextures_.irradiance(), skyTextures_.brdfLUT()});
 
     // Create descriptor set for shadow mapping
-    shadowMapSet_.create(ctx_, {shadowMap_->resourceBinding()});
+    shadowMapSet_.create(ctx_, {*shadowMap_});
 }
 
 void Renderer::updateViewFrustum(const glm::mat4& viewProjection)
@@ -494,42 +505,8 @@ void Renderer::updateViewFrustum(const glm::mat4& viewProjection)
     }
 }
 
-void Renderer::performFrustumCulling(vector<Model>& models, const glm::mat4& modelMatrix)
-{
-    cullingStats_.totalMeshes = 0;
-    cullingStats_.culledMeshes = 0;
-    cullingStats_.renderedMeshes = 0;
-
-    if (!frustumCullingEnabled_) {
-        for (auto& model : models) {
-            for (auto& mesh : model.meshes()) {
-                mesh.isCulled = false;
-                cullingStats_.totalMeshes++;
-                cullingStats_.renderedMeshes++;
-            }
-        }
-        return;
-    }
-
-    for (auto& model : models) {
-        for (auto& mesh : model.meshes()) {
-            cullingStats_.totalMeshes++;
-
-            bool isVisible = viewFrustum_.intersects(mesh.worldBounds);
-
-            mesh.isCulled = !isVisible;
-
-            if (isVisible) {
-                cullingStats_.renderedMeshes++;
-            } else {
-                cullingStats_.culledMeshes++;
-            }
-        }
-    }
-}
-
 // Add overload for all models
-void Renderer::performFrustumCulling(vector<Model>& models)
+void Renderer::performFrustumCulling(vector<unique_ptr<Model>>& models)
 {
     cullingStats_.totalMeshes = 0;
     cullingStats_.culledMeshes = 0;
@@ -537,7 +514,7 @@ void Renderer::performFrustumCulling(vector<Model>& models)
 
     if (!frustumCullingEnabled_) {
         for (auto& model : models) {
-            for (auto& mesh : model.meshes()) {
+            for (auto& mesh : model->meshes()) {
                 mesh.isCulled = false;
                 cullingStats_.totalMeshes++;
                 cullingStats_.renderedMeshes++;
@@ -547,7 +524,7 @@ void Renderer::performFrustumCulling(vector<Model>& models)
     }
 
     for (auto& model : models) {
-        for (auto& mesh : model.meshes()) {
+        for (auto& mesh : model->meshes()) {
             cullingStats_.totalMeshes++;
 
             bool isVisible = viewFrustum_.intersects(mesh.worldBounds);
@@ -563,11 +540,11 @@ void Renderer::performFrustumCulling(vector<Model>& models)
     }
 }
 
-void Renderer::updateWorldBounds(vector<Model>& models)
+void Renderer::updateWorldBounds(vector<unique_ptr<Model>>& models)
 {
     for (auto& model : models) {
-        for (auto& mesh : model.meshes()) {
-            mesh.updateWorldBounds(model.modelMatrix());
+        for (auto& mesh : model->meshes()) {
+            mesh.updateWorldBounds(model->modelMatrix());
         }
     }
 }
