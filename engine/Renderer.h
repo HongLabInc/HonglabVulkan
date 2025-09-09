@@ -15,6 +15,7 @@
 #include <glm/glm.hpp>
 #include <vector>
 #include <functional>
+#include <memory>
 
 namespace hlab {
 
@@ -203,14 +204,14 @@ class Renderer
     vector<DescriptorSet> ssaoDescriptorSets_;
 
     // Resources
-    Image2D msaaColorBuffer_;
-    Image2D depthStencil_;     // Now using Image2D directly
-    Image2D msaaDepthStencil_; // Now using Image2D directly
+    unique_ptr<Image2D> msaaColorBuffer_;  // unique_ptr<Image2D> msaaColorBuffer_;
+    unique_ptr<Image2D> depthStencil_;     // unique_ptr<Image2D>
+    unique_ptr<Image2D> msaaDepthStencil_; // unique_ptr<Image2D>
 
-    Image2D forwardToCompute_;
-    Image2D computeToPost_;
+    unique_ptr<Image2D> forwardToCompute_; // unique_ptr<Image2D>
+    unique_ptr<Image2D> computeToPost_;    // unique_ptr<Image2D>
 
-    Image2D dummyTexture_;
+    unique_ptr<Image2D> dummyTexture_; // unique_ptr<Image2D>
     SkyTextures skyTextures_;
 
     Sampler samplerLinearRepeat_;
@@ -219,7 +220,7 @@ class Renderer
     Sampler samplerAnisoClamp_;
     Sampler samplerShadow_;
 
-    Image2D shadowMap_;
+    unique_ptr<Image2D> shadowMap_; // unique_ptr<Image2D>
 
     DescriptorSet skyDescriptorSet_;
     DescriptorSet postDescriptorSet_;
@@ -263,4 +264,4 @@ class Renderer
                         const VkRenderingAttachmentInfo* depthAttachment = nullptr) const;
 };
 
-} // namespace hlab} // namespace hlab
+} // namespace hlab

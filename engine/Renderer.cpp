@@ -7,10 +7,16 @@ Renderer::Renderer(Context& ctx, ShaderManager& shaderManager, const uint32_t& k
                    const string& kAssetsPathPrefix, const string& kShaderPathPrefix_)
     : ctx_(ctx), shaderManager_(shaderManager), kMaxFramesInFlight_(kMaxFramesInFlight),
       kAssetsPathPrefix_(kAssetsPathPrefix), kShaderPathPrefix_(kShaderPathPrefix_),
-      dummyTexture_(ctx), msaaColorBuffer_(ctx), depthStencil_(ctx), msaaDepthStencil_(ctx),
-      skyTextures_(ctx), shadowMap_(ctx), samplerShadow_(ctx), samplerLinearRepeat_(ctx),
+      dummyTexture_(make_unique<Image2D>(ctx)), 
+      msaaColorBuffer_(make_unique<Image2D>(ctx)), 
+      depthStencil_(make_unique<Image2D>(ctx)), 
+      msaaDepthStencil_(make_unique<Image2D>(ctx)),
+      skyTextures_(ctx), 
+      shadowMap_(make_unique<Image2D>(ctx)), 
+      samplerShadow_(ctx), samplerLinearRepeat_(ctx),
       samplerLinearClamp_(ctx), samplerAnisoRepeat_(ctx), samplerAnisoClamp_(ctx),
-      forwardToCompute_(ctx), computeToPost_(ctx)
+      forwardToCompute_(make_unique<Image2D>(ctx)), 
+      computeToPost_(make_unique<Image2D>(ctx))
 {
 }
 
@@ -23,7 +29,7 @@ void Renderer::prepareForModels(vector<Model>& models, VkFormat outColorFormat,
     createUniformBuffers();
 
     for (Model& m : models) {
-        m.createDescriptorSets(samplerLinearRepeat_, dummyTexture_);
+        m.createDescriptorSets(samplerLinearRepeat_, *dummyTexture_);
     }
 }
 
@@ -86,7 +92,7 @@ void Renderer::createUniformBuffers()
     postProcessingDescriptorSets_.resize(kMaxFramesInFlight_);
     for (size_t i = 0; i < kMaxFramesInFlight_; i++) {
         postProcessingDescriptorSets_[i].create(
-            ctx_, {computeToPost_.resourceBinding(), postOptionsUniforms_[i].resourceBinding()});
+            ctx_, {computeToPost_->resourceBinding(), postOptionsUniforms_[i].resourceBinding()});
     }
 
     // Create SSAO descriptor sets
@@ -95,17 +101,17 @@ void Renderer::createUniformBuffers()
     // computeToPost_ will be used as writeonly storage image (output)
     // Create a command buffer for image layout transitions
     auto cmd = ctx_.createGraphicsCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
-    forwardToCompute_.transitionToGeneral(cmd.handle(), VK_ACCESS_2_SHADER_READ_BIT,
+    forwardToCompute_->transitionToGeneral(cmd.handle(), VK_ACCESS_2_SHADER_READ_BIT,
                                           VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
-    computeToPost_.transitionToGeneral(cmd.handle(), VK_ACCESS_2_SHADER_WRITE_BIT,
+    computeToPost_->transitionToGeneral(cmd.handle(), VK_ACCESS_2_SHADER_WRITE_BIT,
                                        VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
     cmd.submitAndWait();
     ssaoDescriptorSets_.resize(kMaxFramesInFlight_);
     for (size_t i = 0; i < kMaxFramesInFlight_; i++) {
         ssaoDescriptorSets_[i].create(
             ctx_, {sceneUniforms_[i].resourceBinding(), ssaoOptionsUniforms_[i].resourceBinding(),
-                   forwardToCompute_.resourceBinding(), computeToPost_.resourceBinding(),
-                   depthStencil_.resourceBinding()});
+                   forwardToCompute_->resourceBinding(), computeToPost_->resourceBinding(),
+                   depthStencil_->resourceBinding()});
     }
 }
 
@@ -143,7 +149,8 @@ void Renderer::updateBoneData(const vector<Model>& models, uint32_t currentFrame
             const auto& boneMatrices = model.getBoneMatrices();
 
             // Copy bone matrices (up to 256 bones)
-            size_t bonesToCopy = std::min(boneMatrices.size(), static_cast<size_t>(256));
+            const size_t maxBones = 256;
+            size_t bonesToCopy = (boneMatrices.size() < maxBones) ? boneMatrices.size() : maxBones;
             for (size_t i = 0; i < bonesToCopy; ++i) {
                 boneDataUBO_.boneMatrices[i] = boneMatrices[i];
             }
@@ -172,16 +179,16 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
 
     // Forward rendering pass
     {
-        forwardToCompute_.resourceBinding().barrierHelper().transitionTo(
+        forwardToCompute_->resourceBinding().barrierHelper().transitionTo(
             cmd, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
 
         auto colorAttachment = createColorAttachment(
-            msaaColorBuffer_.view(), VK_ATTACHMENT_LOAD_OP_CLEAR, {0.0f, 0.0f, 0.5f, 0.0f},
-            forwardToCompute_.view(), VK_RESOLVE_MODE_AVERAGE_BIT);
+            msaaColorBuffer_->view(), VK_ATTACHMENT_LOAD_OP_CLEAR, {0.0f, 0.0f, 0.5f, 0.0f},
+            forwardToCompute_->view(), VK_RESOLVE_MODE_AVERAGE_BIT);
         auto depthAttachment =
-            createDepthAttachment(msaaDepthStencil_.attachmentView(), VK_ATTACHMENT_LOAD_OP_CLEAR, 1.0f,
-                                  depthStencil_.attachmentView(), VK_RESOLVE_MODE_SAMPLE_ZERO_BIT);
+            createDepthAttachment(msaaDepthStencil_->attachmentView(), VK_ATTACHMENT_LOAD_OP_CLEAR, 1.0f,
+                                  depthStencil_->attachmentView(), VK_RESOLVE_MODE_SAMPLE_ZERO_BIT);
         auto renderingInfo = createRenderingInfo(renderArea, &colorAttachment, &depthAttachment);
 
         vkCmdBeginRendering(cmd, &renderingInfo);
@@ -254,15 +261,15 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
     {
         // Transition images for SSAO compute pass to proper storage layouts
         // forwardToCompute_: Forward rendering result → readonly storage image for SSAO input
-        forwardToCompute_.transitionToGeneral(cmd, VK_ACCESS_2_SHADER_READ_BIT,
+        forwardToCompute_->transitionToGeneral(cmd, VK_ACCESS_2_SHADER_READ_BIT,
                                               VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
 
         // computeToPost_: Empty buffer → writeonly storage image for SSAO output
-        computeToPost_.transitionToGeneral(cmd, VK_ACCESS_2_SHADER_WRITE_BIT,
+        computeToPost_->transitionToGeneral(cmd, VK_ACCESS_2_SHADER_WRITE_BIT,
                                            VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
 
         // depthStencil_: Depth buffer → sampled texture for depth-based calculations
-        depthStencil_.transitionToShaderRead(cmd);
+        depthStencil_->transitionToShaderRead(cmd);
 
         // Bind SSAO compute pipeline
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines_.at("ssao").pipeline());
@@ -295,7 +302,7 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
 
     // Post-processing pass
     {
-        computeToPost_.transitionToShaderRead(cmd);
+        computeToPost_->transitionToShaderRead(cmd);
 
         auto colorAttachment = createColorAttachment(
             swapchainImageView, VK_ATTACHMENT_LOAD_OP_CLEAR, {0.0f, 0.0f, 1.0f, 0.0f});
@@ -323,24 +330,24 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
 void Renderer::makeShadowMap(VkCommandBuffer cmd, uint32_t currentFrame, vector<Model>& models)
 {
     // Transition shadow map image to depth-stencil attachment layout
-    shadowMap_.transitionToDepthStencilAttachment(cmd);
+    shadowMap_->transitionToDepthStencilAttachment(cmd);
 
     VkRenderingAttachmentInfo shadowDepthAttachment{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
-    shadowDepthAttachment.imageView = shadowMap_.view();
+    shadowDepthAttachment.imageView = shadowMap_->view();
     shadowDepthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
     shadowDepthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     shadowDepthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     shadowDepthAttachment.clearValue.depthStencil = {1.0f, 0};
 
     VkRenderingInfo shadowRenderingInfo{VK_STRUCTURE_TYPE_RENDERING_INFO_KHR};
-    shadowRenderingInfo.renderArea = {0, 0, shadowMap_.width(), shadowMap_.height()};
+    shadowRenderingInfo.renderArea = {0, 0, shadowMap_->width(), shadowMap_->height()};
     shadowRenderingInfo.layerCount = 1;
     shadowRenderingInfo.colorAttachmentCount = 0;
     shadowRenderingInfo.pDepthAttachment = &shadowDepthAttachment;
 
-    VkViewport shadowViewport{0.0f, 0.0f, (float)shadowMap_.width(), (float)shadowMap_.height(),
+    VkViewport shadowViewport{0.0f, 0.0f, (float)shadowMap_->width(), (float)shadowMap_->height(),
                               0.0f, 1.0f};
-    VkRect2D shadowScissor{0, 0, shadowMap_.width(), shadowMap_.height()};
+    VkRect2D shadowScissor{0, 0, shadowMap_->width(), shadowMap_->height()};
 
     vkCmdBeginRendering(cmd, &shadowRenderingInfo);
     vkCmdSetViewport(cmd, 0, 1, &shadowViewport);
@@ -392,7 +399,7 @@ void Renderer::makeShadowMap(VkCommandBuffer cmd, uint32_t currentFrame, vector<
     vkCmdEndRendering(cmd);
 
     // Transition shadow map to shader read-only for sampling in main render pass
-    shadowMap_.transitionToShaderRead(cmd);
+    shadowMap_->transitionToShaderRead(cmd);
 }
 
 void Renderer::createPipelines(const VkFormat swapChainColorFormat, const VkFormat depthFormat,
@@ -439,14 +446,14 @@ void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight,
             exitWithMessage("Failed to load texture image: {}", dummyImagePath);
         }
 
-        dummyTexture_.createFromPixelData(pixels, width, height, channels, true);
+        dummyTexture_->createFromPixelData(pixels, width, height, channels, true);
 
         // Free the loaded image data (only if we loaded from file)
         if (pixels != nullptr && dummyImagePath.find(".png") != string::npos) {
             stbi_image_free(pixels);
         }
 
-        dummyTexture_.setSampler(samplerLinearRepeat_.handle());
+        dummyTexture_->setSampler(samplerLinearRepeat_.handle());
     }
 
     // Initialize IBL textures for PBR
@@ -455,21 +462,21 @@ void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight,
                              path + "outputLUT.png");
 
     // Create render targets
-    msaaColorBuffer_.createMsaaColorBuffer(swapchainWidth, swapchainHeight, msaaSamples);
-    msaaDepthStencil_.createDepthBuffer(swapchainWidth, swapchainHeight, msaaSamples);
-    depthStencil_.createDepthBuffer(swapchainWidth, swapchainHeight, VK_SAMPLE_COUNT_1_BIT);
-    forwardToCompute_.createGeneralStorage(swapchainWidth, swapchainHeight);
-    computeToPost_.createGeneralStorage(swapchainWidth, swapchainHeight);
+    msaaColorBuffer_->createMsaaColorBuffer(swapchainWidth, swapchainHeight, msaaSamples);
+    msaaDepthStencil_->createDepthBuffer(swapchainWidth, swapchainHeight, msaaSamples);
+    depthStencil_->createDepthBuffer(swapchainWidth, swapchainHeight, VK_SAMPLE_COUNT_1_BIT);
+    forwardToCompute_->createGeneralStorage(swapchainWidth, swapchainHeight);
+    computeToPost_->createGeneralStorage(swapchainWidth, swapchainHeight);
 
     // Create shadow map using Image2D
     uint32_t shadowMapSize = 2048 * 2;
-    shadowMap_.createShadow(shadowMapSize, shadowMapSize);
-    shadowMap_.setSampler(samplerShadow_.handle());
+    shadowMap_->createShadow(shadowMapSize, shadowMapSize);
+    shadowMap_->setSampler(samplerShadow_.handle());
 
     // Set samplers
-    forwardToCompute_.setSampler(samplerLinearRepeat_.handle());
-    computeToPost_.setSampler(samplerLinearRepeat_.handle());
-    depthStencil_.setSampler(samplerLinearClamp_.handle());
+    forwardToCompute_->setSampler(samplerLinearRepeat_.handle());
+    computeToPost_->setSampler(samplerLinearRepeat_.handle());
+    depthStencil_->setSampler(samplerLinearClamp_.handle());
 
     // Create descriptor sets for sky textures (set 1 for sky pipeline)
     skyDescriptorSet_.create(ctx_, {skyTextures_.prefiltered().resourceBinding(),
@@ -477,7 +484,7 @@ void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight,
                                     skyTextures_.brdfLUT().resourceBinding()});
 
     // Create descriptor set for shadow mapping
-    shadowMapSet_.create(ctx_, {shadowMap_.resourceBinding()});
+    shadowMapSet_.create(ctx_, {shadowMap_->resourceBinding()});
 }
 
 void Renderer::updateViewFrustum(const glm::mat4& viewProjection)
