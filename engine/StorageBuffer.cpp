@@ -1,6 +1,17 @@
 #include "StorageBuffer.h"
+#include "VulkanTools.h"
+#include "CommandBuffer.h"
 
 namespace hlab {
+
+StorageBuffer::StorageBuffer(Context& ctx) : ResourceBase(ctx, Type::Buffer)
+{
+}
+
+StorageBuffer::~StorageBuffer()
+{
+    cleanup();
+}
 
 void StorageBuffer::create(VkDeviceSize size, VkBufferUsageFlags additionalUsage)
 {
@@ -33,6 +44,9 @@ void StorageBuffer::create(VkDeviceSize size, VkBufferUsageFlags additionalUsage
     allocInfo.memoryTypeIndex = memoryTypeIndex;
     check(vkAllocateMemory(device, &allocInfo, nullptr, &memory_));
     check(vkBindBufferMemory(device, buffer_, memory_, 0));
+    
+    // Initialize the resource
+    initializeBufferResource(buffer_, size_);
 }
 
 void* StorageBuffer::map()

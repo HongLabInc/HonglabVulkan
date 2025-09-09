@@ -1,47 +1,29 @@
 #pragma once
 
-#include "Context.h"
-#include "VulkanTools.h"
+#include "ResourceBase.h"
 #include <vulkan/vulkan.h>
 
 namespace hlab {
 
-class StorageBuffer
+class StorageBuffer : public ResourceBase
 {
   public:
-    StorageBuffer(Context& ctx) : ctx_(ctx)
-    {
-    }
+    StorageBuffer(Context& ctx);
+    ~StorageBuffer();
 
-    ~StorageBuffer()
-    {
-        cleanup();
-    }
-
-    void create(VkDeviceSize size, VkBufferUsageFlags additionalUsage = 0);
-
-    VkBuffer buffer() const
-    {
-        return buffer_;
-    }
-
-    VkDeviceSize size() const
-    {
-        return size_;
-    }
-
-    void* map();
-    void unmap();
-
-    void copyData(const void* data, VkDeviceSize size, VkDeviceSize offset = 0);
-
+    // Accessors
+    VkBuffer buffer() const { return buffer_; }
+    VkDeviceSize size() const { return size_; }
     VkDescriptorBufferInfo getDescriptorInfo() const;
 
-    void cleanup();
+    // Buffer operations
+    void create(VkDeviceSize size, VkBufferUsageFlags additionalUsage = 0);
+    void* map();
+    void unmap();
+    void copyData(const void* data, VkDeviceSize size, VkDeviceSize offset = 0);
+    void cleanup() override;
 
   private:
-    Context& ctx_;
-
     VkBuffer buffer_{VK_NULL_HANDLE};
     VkDeviceMemory memory_{VK_NULL_HANDLE};
     VkDeviceSize size_{0};

@@ -1,14 +1,14 @@
 #pragma once
 
 #include "Context.h"
-#include "ResourceBinding.h"
+#include "ResourceBase.h"
 
 #include <string>
 #include <vulkan/vulkan.h>
 
 namespace hlab {
 
-class MappedBuffer
+class MappedBuffer : public ResourceBase
 {
   public:
     MappedBuffer(Context& ctx);
@@ -22,16 +22,18 @@ class MappedBuffer
     auto descriptorBufferInfo() const -> VkDescriptorBufferInfo;
     auto mapped() const -> void*;
     auto name() -> string&;
+    
+    // Legacy interface for backward compatibility
     auto resourceBinding() -> ResourceBinding&
     {
-        return resourceBinding_;
+        return ResourceBase::resourceBinding();
     }
     
     // Add getters for size information
     auto allocatedSize() const -> VkDeviceSize { return allocatedSize_; }
     auto dataSize() const -> VkDeviceSize { return dataSize_; }
 
-    void cleanup();
+    void cleanup() override;
     void create(VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memPropFlags,
                 VkDeviceSize size, void* data);
     void createVertexBuffer(VkDeviceSize size, void* data);
@@ -42,8 +44,6 @@ class MappedBuffer
     void flush() const;
 
   private:
-    Context& ctx_;
-
     VkBuffer buffer_{VK_NULL_HANDLE};
     VkDeviceMemory memory_{VK_NULL_HANDLE};
 
@@ -58,8 +58,6 @@ class MappedBuffer
     void* mapped_{nullptr};
 
     string name_{};
-
-    ResourceBinding resourceBinding_;
 };
 
 } // namespace hlab
