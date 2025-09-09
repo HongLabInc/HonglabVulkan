@@ -40,7 +40,8 @@ class Model
     void cleanup();
     void createVulkanResources();
 
-    void createDescriptorSets(Sampler& sampler, Image2D& dummyTexture);
+    void createDescriptorSets(Sampler& sampler, vector<MaterialUBO>& materials,
+                              TextureManager& textureManager);
 
     // Animation methods - ADD THESE
     void updateAnimation(float deltaTime);
@@ -132,15 +133,6 @@ class Model
     {
         return boundingBoxMax_;
     }
-    Image2D& getTexture(int index)
-    {
-        return *textureManager_.textures_[index];
-    }
-
-    const DescriptorSet& materialDescriptorSet() const
-    {
-        return materialDescriptorSet_;
-    }
 
     void loadFromModelFile(const string& modelFilename, bool readBistroObj);
 
@@ -171,7 +163,6 @@ class Model
     vector<Mesh> meshes_;
     vector<Material> materials_;
 
-    TextureManager textureManager_;
     vector<unique_ptr<Image2D>> textures_;
     vector<string> textureFilenames_;
     vector<bool> textureSRgb_; // sRGB 여부
@@ -184,10 +175,6 @@ class Model
     // Bounding box
     vec3 boundingBoxMin_ = vec3(FLT_MAX);
     vec3 boundingBoxMax_ = vec3(-FLT_MAX);
-
-    unique_ptr<StorageBuffer>
-        materialStorageBuffer_;           // Single large StorageBuffer for all materials (bindless)
-    DescriptorSet materialDescriptorSet_; // Single descriptor set for all materials
 
     string name_{};
     bool visible_ = true;

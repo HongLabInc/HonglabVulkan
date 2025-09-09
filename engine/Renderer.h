@@ -12,6 +12,7 @@
 #include "Model.h"
 #include "UniformBuffer.h"
 #include "ShaderManager.h"
+#include "TextureManager.h"
 #include <glm/glm.hpp>
 #include <vector>
 #include <functional>
@@ -101,9 +102,10 @@ static_assert(sizeof(BoneDataUniform) == 256 * 64 + 16, "Unexpected BoneDataUnif
 // Push constants structure for PBR forward rendering
 struct PbrPushConstants
 {
-    alignas(16) glm::mat4 model = glm::mat4(1.0f);  // 64 bytes
-    alignas(4) float coeffs[15] = {0.0f};           // 60 bytes (reduced from 16 to make room for materialIndex)
-    alignas(4) uint32_t materialIndex = 0;          // 4 bytes - Material index for bindless access
+    alignas(16) glm::mat4 model = glm::mat4(1.0f); // 64 bytes
+    alignas(4) float coeffs[15] = {
+        0.0f}; // 60 bytes (reduced from 16 to make room for materialIndex)
+    alignas(4) uint32_t materialIndex = 0; // 4 bytes - Material index for bindless access
 };
 
 static_assert(sizeof(PbrPushConstants) == 128, "PbrPushConstants must be 128 bytes");
@@ -126,9 +128,9 @@ class Renderer
         cleanup();
     }
 
-    void prepareForModels(vector<unique_ptr<Model>>& models, VkFormat outColorFormat, VkFormat depthFormat,
-                          VkSampleCountFlagBits msaaSamples, uint32_t swapChainWidth,
-                          uint32_t swapChainHeight);
+    void prepareForModels(vector<unique_ptr<Model>>& models, VkFormat outColorFormat,
+                          VkFormat depthFormat, VkSampleCountFlagBits msaaSamples,
+                          uint32_t swapChainWidth, uint32_t swapChainHeight);
 
     void createPipelines(const VkFormat colorFormat, const VkFormat depthFormat,
                          VkSampleCountFlagBits msaaSamples);
@@ -142,19 +144,20 @@ class Renderer
     }
 
     void update(Camera& camera, uint32_t currentFrame, double time);
-    void updateBoneData(const vector<unique_ptr<Model>>& models, uint32_t currentFrame); // NEW: Add this method
+    void updateBoneData(const vector<unique_ptr<Model>>& models,
+                        uint32_t currentFrame); // NEW: Add this method
 
     void draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swapchainImageView,
               vector<unique_ptr<Model>>& models, VkViewport viewport, VkRect2D scissor);
 
-    void makeShadowMap(VkCommandBuffer cmd, uint32_t currentFrame, vector<unique_ptr<Model>>& models);
+    void makeShadowMap(VkCommandBuffer cmd, uint32_t currentFrame,
+                       vector<unique_ptr<Model>>& models);
 
     // View frustum culling
     auto getCullingStats() const -> const CullingStats&;
     bool isFrustumCullingEnabled() const;
-    void performFrustumCulling(vector<unique_ptr<Model>>& models, const glm::mat4& modelMatrix);
-    void performFrustumCulling(vector<unique_ptr<Model>>& models); // Overload for all models
-    void updateWorldBounds(vector<unique_ptr<Model>>& models);     // Update world bounds for all models
+    void performFrustumCulling(vector<unique_ptr<Model>>& models);
+    void updateWorldBounds(vector<unique_ptr<Model>>& models);
     void setFrustumCullingEnabled(bool enabled);
     void updateViewFrustum(const glm::mat4& viewProjection);
 
@@ -211,11 +214,14 @@ class Renderer
     unique_ptr<Image2D> msaaColorBuffer_;  // unique_ptr<Image2D> msaaColorBuffer_;
     unique_ptr<Image2D> depthStencil_;     // unique_ptr<Image2D>
     unique_ptr<Image2D> msaaDepthStencil_; // unique_ptr<Image2D>
-
     unique_ptr<Image2D> forwardToCompute_; // unique_ptr<Image2D>
     unique_ptr<Image2D> computeToPost_;    // unique_ptr<Image2D>
+    unique_ptr<Image2D> dummyTexture_;     // unique_ptr<Image2D>
 
-    unique_ptr<Image2D> dummyTexture_; // unique_ptr<Image2D>
+    TextureManager textureManager_;
+    StorageBuffer materialStorageBuffer_;
+    DescriptorSet materialDescriptorSet_;
+
     SkyTextures skyTextures_;
 
     Sampler samplerLinearRepeat_;

@@ -56,7 +56,8 @@ layout(set = 1, binding = 0) restrict readonly buffer MaterialBuffer {
 } materialBuffer;
 
 // Material textures
-layout(set = 1, binding = 1) uniform sampler2D materialTextures[512]; // <- TextureManager::kMaxTextures_
+layout(set = 1, binding = 1) uniform sampler2D materialTextures[512]; 
+// 512 is TextureManager::kMaxTextures_
 
 // IBL textures
 layout(set = 2, binding = 0) uniform samplerCube prefilteredMap;

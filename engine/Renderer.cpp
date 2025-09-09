@@ -8,7 +8,8 @@ Renderer::Renderer(Context& ctx, ShaderManager& shaderManager, const uint32_t& k
     : ctx_(ctx), shaderManager_(shaderManager), kMaxFramesInFlight_(kMaxFramesInFlight),
       kAssetsPathPrefix_(kAssetsPathPrefix), kShaderPathPrefix_(kShaderPathPrefix_),
       skyTextures_(ctx), samplerShadow_(ctx), samplerLinearRepeat_(ctx), samplerLinearClamp_(ctx),
-      samplerAnisoRepeat_(ctx), samplerAnisoClamp_(ctx)
+      samplerAnisoRepeat_(ctx), samplerAnisoClamp_(ctx), textureManager_(ctx),
+      materialStorageBuffer_(ctx)
 {
 }
 
@@ -20,9 +21,18 @@ void Renderer::prepareForModels(vector<unique_ptr<Model>>& models, VkFormat outC
     createTextures(swapChainWidth, swapChainHeight, msaaSamples);
     createUniformBuffers();
 
+    vector<MaterialUBO> allMaterials;
+
     for (auto& m : models) {
-        m->createDescriptorSets(samplerLinearRepeat_, *dummyTexture_);
+        m->createDescriptorSets(samplerLinearRepeat_, allMaterials, textureManager_);
     }
+
+    VkDeviceSize size = sizeof(MaterialUBO) * allMaterials.size();
+    materialStorageBuffer_.create(size);
+    materialStorageBuffer_.copyData(allMaterials.data(), size);
+
+    // Create single descriptor set for all materials
+    materialDescriptorSet_.create(ctx_, {materialStorageBuffer_, textureManager_});
 }
 
 void Renderer::createUniformBuffers()
@@ -201,12 +211,10 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
             // Bind descriptor sets once per model (no longer per material)
             const auto descriptorSets = vector{
                 sceneOptionsBoneDataSets_[currentFrame]
-                    .handle(), // Set 0: scene, options, bone data
-                models[j]
-                    ->materialDescriptorSet()
-                    .handle(),              // Set 1: material storage buffer + textures
-                skyDescriptorSet_.handle(), // Set 2: sky textures
-                shadowMapSet_.handle()      // Set 3: shadow map
+                    .handle(),                   // Set 0: scene, options, bone data
+                materialDescriptorSet_.handle(), // Set 1: material storage buffer + textures
+                skyDescriptorSet_.handle(),      // Set 2: sky textures
+                shadowMapSet_.handle()           // Set 3: shadow map
             };
 
             vkCmdBindDescriptorSets(

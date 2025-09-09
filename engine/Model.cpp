@@ -15,7 +15,7 @@ namespace hlab {
 using namespace std;
 using namespace glm;
 
-Model::Model(Context& ctx) : ctx_(ctx), textureManager_(ctx)
+Model::Model(Context& ctx) : ctx_(ctx)
 {
     rootNode_ = make_unique<ModelNode>();
     rootNode_->name = "Root";
@@ -29,29 +29,56 @@ Model::~Model()
     cleanup();
 }
 
-void Model::createDescriptorSets(Sampler& sampler, Image2D& dummyTexture)
+void Model::createDescriptorSets(Sampler& sampler, vector<MaterialUBO>& allMaterials,
+                                 TextureManager& textureManager)
 {
     for (auto& t : textures_) {
         t->setSampler(sampler.handle());
     }
 
-    textureManager_.textures_ = std::move(textures_);
+    int materialBaseIndex = int(allMaterials.size());
+    int textureBaseIndex = int(textureManager.textures_.size());
+
+    // Append textures to textureManager.textures_
+    textureManager.textures_.reserve(textureManager.textures_.size() + textures_.size());
+    for (auto& texture : textures_) {
+        textureManager.textures_.push_back(std::move(texture));
+    }
+    textures_.clear(); // Clear the source vector since we moved the textures
 
     // Create single large storage buffer for all materials (bindless)
     if (!materials_.empty()) {
-        materialStorageBuffer_ = make_unique<StorageBuffer>(ctx_);
-        VkDeviceSize totalSize = sizeof(MaterialUBO) * materials_.size();
-        materialStorageBuffer_->create(totalSize);
 
-        vector<MaterialUBO> materialData;
-        materialData.reserve(materials_.size());
-        for (const auto& material : materials_) {
-            materialData.push_back(material.ubo_);
+        // Adjust all material texture indices by adding baseIndex if they are not -1
+        for (auto& material : materials_) {
+            if (material.ubo_.baseColorTextureIndex_ != -1) {
+                material.ubo_.baseColorTextureIndex_ += textureBaseIndex;
+            }
+            if (material.ubo_.emissiveTextureIndex_ != -1) {
+                material.ubo_.emissiveTextureIndex_ += textureBaseIndex;
+            }
+            if (material.ubo_.normalTextureIndex_ != -1) {
+                material.ubo_.normalTextureIndex_ += textureBaseIndex;
+            }
+            if (material.ubo_.opacityTextureIndex_ != -1) {
+                material.ubo_.opacityTextureIndex_ += textureBaseIndex;
+            }
+            if (material.ubo_.metallicRoughnessTextureIndex_ != -1) {
+                material.ubo_.metallicRoughnessTextureIndex_ += textureBaseIndex;
+            }
+            if (material.ubo_.occlusionTextureIndex_ != -1) {
+                material.ubo_.occlusionTextureIndex_ += textureBaseIndex;
+            }
         }
-        materialStorageBuffer_->copyData(materialData.data(), totalSize);
 
-        // Create single descriptor set for all materials
-        materialDescriptorSet_.create(ctx_, {*materialStorageBuffer_, textureManager_});
+        for (const auto& material : materials_) {
+            allMaterials.push_back(material.ubo_);
+        }
+
+        // Iterate all meshes and add materialBaseIndex to mesh material index
+        for (auto& mesh : meshes_) {
+            mesh.materialIndex_ += materialBaseIndex;
+        }
     }
 }
 
@@ -91,11 +118,6 @@ void Model::cleanup()
 {
     for (auto& mesh : meshes_) {
         mesh.cleanup(ctx_.device());
-    }
-
-    if (materialStorageBuffer_) {
-        materialStorageBuffer_->cleanup();
-        materialStorageBuffer_.reset();
     }
 
     for (auto& texture : textures_) {

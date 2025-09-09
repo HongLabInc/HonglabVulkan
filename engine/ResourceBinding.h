@@ -7,6 +7,9 @@
 
 namespace hlab {
 
+// 메모: 리소스 생성을 모두 자동으로 하면 이 클래스는 제거할 수 있습니다.
+//      어떤 리소스가 어떤 파이프라인에서 어떻게 사용될지 모두 알 수 있기 때문입니다.
+
 class ResourceBinding
 {
     friend class DescriptorSet;
@@ -15,7 +18,7 @@ class ResourceBinding
     friend class ShadowMap;
     friend class DepthStencil;
     friend class TextureManager;
-    friend class Resource; // Add Resource as friend
+    friend class Resource;      // Add Resource as friend
     friend class StorageBuffer; // Add StorageBuffer as friend
 
   public:

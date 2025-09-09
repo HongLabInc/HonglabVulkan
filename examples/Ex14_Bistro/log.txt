@@ -170,14 +170,14 @@ Texture filename: ../../assets/characters/Leonard/Ch31_1002_Diffuse.png
 Successfully loaded model: ../../assets/characters/Leonard/Bboy Hip Hop Move.fbx
   Meshes: 7
   Materials: 2
-  Loading time: 2845 ms
+  Loading time: 2852 ms
 Found 1 animations in model 'Dancer'
 Started animation: 'mixamo.com'
 Animation duration: 2.20 seconds
 Successfully loaded model from cache: ../../assets/models/AmazonLumberyardBistroMorganMcGuire\exterior_cache.bin
   Meshes: 3184
   Materials: 128
-  Loading time: 1947 ms
+  Loading time: 2722 ms
 No animations found in model 'Bistro'
 Creating graphics pipeline from config: pbrForward
 Successfully created graphics pipeline: pbrForward
@@ -196,16 +196,15 @@ Loading IBL textures...
   Irradiance: ../../assets/textures/golden_gate_hills_4k/diffuseLambertian.ktx2
   BRDF LUT: ../../assets/textures/golden_gate_hills_4k/outputLUT.png
 Allocating descriptor set with variable count: 512
-Allocating descriptor set with variable count: 512
 hasAnimation changed to: true
 Saved descriptor pool statistics to DescriptorPoolSize.txt
 
 === DescriptorPool Allocated Statistics ===
 Total Pools Created: 1
-Total Allocated Sets: 13
-  COMBINED_IMAGE_SAMPLER: 1033
+Total Allocated Sets: 12
+  COMBINED_IMAGE_SAMPLER: 521
   UNIFORM_BUFFER: 16
   STORAGE_IMAGE: 4
-  STORAGE_BUFFER: 2
+  STORAGE_BUFFER: 1
 ============================================
 
