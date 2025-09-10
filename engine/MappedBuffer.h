@@ -22,23 +22,15 @@ class MappedBuffer : public Resource
     auto descriptorBufferInfo() const -> VkDescriptorBufferInfo;
     auto mapped() const -> void*;
     auto name() -> string&;
-    
-    // Legacy interface for backward compatibility
-    auto resourceBinding() -> ResourceBinding&
-    {
-        return Resource::resourceBinding();
-    }
-    
-    // Add getters for size information
-    auto allocatedSize() const -> VkDeviceSize { return allocatedSize_; }
-    auto dataSize() const -> VkDeviceSize { return dataSize_; }
+
+    auto allocatedSize() const -> VkDeviceSize;
 
     void cleanup() override;
 
     // Implement required Resource methods
     void updateBinding(VkDescriptorSetLayoutBinding& binding) override;
     void updateWrite(VkWriteDescriptorSet& write) override;
-    
+
     void create(VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memPropFlags,
                 VkDeviceSize size, void* data);
     void createVertexBuffer(VkDeviceSize size, void* data);
@@ -47,6 +39,33 @@ class MappedBuffer : public Resource
     void createUniformBuffer(VkDeviceSize size, void* data);
     void updateData(const void* data, VkDeviceSize size, VkDeviceSize offset);
     void flush() const;
+
+    // Template methods to replace UniformBuffer functionality
+    template<typename T>
+    void createUniformBuffer(T& cpuData) {
+        static_assert(std::is_trivially_copyable_v<T>,
+                      "Uniform buffer data type must be trivially copyable");
+        
+        cpuData_ = &cpuData;
+        cpuDataSize_ = sizeof(T);
+        createUniformBuffer(sizeof(T), &cpuData);
+    }
+
+    // Update GPU buffer from CPU data
+    void updateFromCpuData() {
+        if (cpuData_ && cpuDataSize_ > 0) {
+            updateData(cpuData_, cpuDataSize_, 0);
+        }
+    }
+
+    // Get CPU data pointer (type-unsafe, for compatibility)
+    void* getCpuData() const { return cpuData_; }
+
+    // Type-safe CPU data access
+    template<typename T>
+    T& getCpuData() {
+        return *static_cast<T*>(cpuData_);
+    }
 
   private:
     VkBuffer buffer_{VK_NULL_HANDLE};
@@ -60,9 +79,10 @@ class MappedBuffer : public Resource
     VkMemoryPropertyFlags memPropFlags_{VK_MEMORY_PROPERTY_FLAG_BITS_MAX_ENUM};
     VkBufferUsageFlags usageFlags_{VK_BUFFER_USAGE_FLAG_BITS_MAX_ENUM};
 
-    void* mapped_{nullptr};
-
     string name_{};
+    void* mapped_{nullptr};
+    void* cpuData_{nullptr};      // Points to CPU-side data structure
+    size_t cpuDataSize_{0};       // Size of CPU data for validation
 };
 
 } // namespace hlab

@@ -32,7 +32,7 @@ void* MappedBuffer::mapped() const
     return mapped_;
 }
 
-auto MappedBuffer::descriptorBufferInfo() const -> VkDescriptorBufferInfo
+VkDescriptorBufferInfo MappedBuffer::descriptorBufferInfo() const
 {
     VkDescriptorBufferInfo descriptor{};
     descriptor.buffer = buffer_;
@@ -42,9 +42,14 @@ auto MappedBuffer::descriptorBufferInfo() const -> VkDescriptorBufferInfo
     return descriptor;
 }
 
-auto MappedBuffer::name() -> string&
+string& MappedBuffer::name()
 {
     return name_;
+}
+
+VkDeviceSize MappedBuffer::allocatedSize() const
+{
+    return allocatedSize_;
 }
 
 void MappedBuffer::cleanup()
@@ -168,7 +173,7 @@ void MappedBuffer::updateData(const void* data, VkDeviceSize size, VkDeviceSize 
 void MappedBuffer::updateBinding(VkDescriptorSetLayoutBinding& binding)
 {
     const ResourceBinding& rb = resourceBinding();
-    
+
     binding.descriptorType = rb.descriptorType_;
     binding.descriptorCount = rb.descriptorCount_;
     binding.pImmutableSamplers = nullptr;
@@ -178,7 +183,7 @@ void MappedBuffer::updateBinding(VkDescriptorSetLayoutBinding& binding)
 void MappedBuffer::updateWrite(VkWriteDescriptorSet& write)
 {
     const ResourceBinding& rb = resourceBinding();
-    
+
     write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     write.pNext = nullptr;
     write.dstSet = VK_NULL_HANDLE; // Will be set by DescriptorSet::create()

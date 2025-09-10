@@ -9,10 +9,10 @@
 #include "engine/Camera.h"
 #include "engine/Pipeline.h"
 #include "engine/SkyTextures.h"
-#include "engine/UniformBuffer.h"
 #include "engine/DescriptorSet.h"
 #include "engine/Image2D.h"
 #include "engine/Sampler.h"
+#include "engine/MappedBuffer.h"
 
 #include <vector>
 #include <glm/glm.hpp>
@@ -143,9 +143,9 @@ class Ex11_PostProcessingExample
     SceneDataUBO sceneDataUBO_;
     SkyOptionsUBO skyOptionsUBO_;
 
-    // Uniform buffers
-    std::vector<std::unique_ptr<UniformBuffer<SceneDataUBO>>> sceneDataUniforms_;
-    std::vector<std::unique_ptr<UniformBuffer<SkyOptionsUBO>>> skyOptionsUniforms_;
+    // Uniform buffers - Updated to use MappedBuffer instead of UniformBuffer
+    std::vector<std::unique_ptr<MappedBuffer>> sceneDataUniforms_;
+    std::vector<std::unique_ptr<MappedBuffer>> skyOptionsUniforms_;
 
     // Descriptor sets
     std::vector<DescriptorSet> sceneDescriptorSets_;

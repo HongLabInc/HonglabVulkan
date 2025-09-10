@@ -27,7 +27,6 @@
     <ClInclude Include="ViewFrustum.h" />
     <ClInclude Include="Renderer.h" />
     <ClInclude Include="SkyTextures.h" />
-    <ClInclude Include="UniformBuffer.h" />
     <ClInclude Include="DescriptorPool.h" />
     <ClInclude Include="VulkanTools.h" />
     <ClInclude Include="ResourceBinding.h" />
@@ -37,7 +36,6 @@
     <ClInclude Include="GpuTimer.h" />
     <ClInclude Include="PipelineConfig.h" />
     <ClInclude Include="TextureManager.h" />
-    <ClInclude Include="ResourceBase.h" />
     <ClInclude Include="Resource.h" />
   </ItemGroup>
   <ItemGroup>
@@ -68,7 +66,6 @@
     <ClCompile Include="ViewFrustum.cpp" />
     <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="SkyTextures.cpp" />
-    <ClCompile Include="UniformBuffer.cpp" />
     <ClCompile Include="DescriptorPool.cpp" />
     <ClCompile Include="VulkanTools.cpp" />
     <ClCompile Include="ResourceBinding.cpp" />
@@ -78,7 +75,7 @@
     <ClCompile Include="GpuTimer.cpp" />
     <ClCompile Include="PipelineConfig.cpp" />
     <ClCompile Include="TextureManager.cpp" />
-    <ClCompile Include="ResourceBase.cpp" />
+    <ClCompile Include="Resource.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\.clang-format" />

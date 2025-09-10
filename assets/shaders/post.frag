@@ -29,7 +29,7 @@ layout (set = 0, binding = 1) uniform PostProcessingOptions {
     float debugSplit;           // Split position for comparison (0.0-1.0)
     int showOnlyChannel;        // 0=All, 1=Red, 2=Green, 3=Blue, 4=Alpha, 5=Luminance
     float padding1;
-} options;
+} postOptions;
 
 layout (location = 0) out vec4 outFragColor;
 
@@ -138,14 +138,14 @@ vec3 hableToneMapping(vec3 color) {
 
 // Apply tone mapping based on selected type
 vec3 applyToneMapping(vec3 color) {
-    switch(options.toneMappingType) {
+    switch(postOptions.toneMappingType) {
         case 1: return reinhardToneMapping(color);
         case 2: return acesToneMapping(color);
         case 3: return uncharted2ToneMapping(color);
         case 4: return gtToneMapping(color);
         case 5: return lottesToneMapping(color);
         case 6: return exponentialToneMapping(color);
-        case 7: return reinhardExtendedToneMapping(color, options.maxWhite);
+        case 7: return reinhardExtendedToneMapping(color, postOptions.maxWhite);
         case 8: return luminanceToneMapping(color);
         case 9: return hableToneMapping(color);
         default: return color; // No tone mapping
@@ -175,30 +175,30 @@ vec3 adjustVibrance(vec3 color, float vibrance) {
 // ===== EFFECT FUNCTIONS =====
 
 vec3 applyVignette(vec3 color, vec2 uv) {
-    if (options.vignetteStrength <= 0.0) return color;
+    if (postOptions.vignetteStrength <= 0.0) return color;
     
     vec2 center = vec2(0.5, 0.5);
     float distance = length(uv - center);
-    float vignette = smoothstep(options.vignetteRadius, options.vignetteRadius - options.vignetteStrength, distance);
+    float vignette = smoothstep(postOptions.vignetteRadius, postOptions.vignetteRadius - postOptions.vignetteStrength, distance);
     return color * vignette;
 }
 
 vec3 addFilmGrain(vec3 color, vec2 uv) {
-    if (options.filmGrainStrength <= 0.0) return color;
+    if (postOptions.filmGrainStrength <= 0.0) return color;
     
     // Simple noise function
     float noise = fract(sin(dot(uv, vec2(12.9898, 78.233))) * 43758.5453);
-    noise = (noise - 0.5) * options.filmGrainStrength;
+    noise = (noise - 0.5) * postOptions.filmGrainStrength;
     return color + noise;
 }
 
 vec3 applyChromaticAberration(vec2 uv) {
-    if (options.chromaticAberration <= 0.0) {
+    if (postOptions.chromaticAberration <= 0.0) {
         return texture(hdrColorBuffer, uv).rgb;
     }
     
     vec2 center = vec2(0.5, 0.5);
-    vec2 offset = (uv - center) * options.chromaticAberration * 0.01;
+    vec2 offset = (uv - center) * postOptions.chromaticAberration * 0.01;
     
     float r = texture(hdrColorBuffer, uv + offset).r;
     float g = texture(hdrColorBuffer, uv).g;
@@ -210,7 +210,7 @@ vec3 applyChromaticAberration(vec2 uv) {
 // ===== DEBUG FUNCTIONS =====
 
 vec3 showColorChannel(vec3 color) {
-    switch(options.showOnlyChannel) {
+    switch(postOptions.showOnlyChannel) {
         case 1: return vec3(color.r, 0.0, 0.0); // Red only
         case 2: return vec3(0.0, color.g, 0.0); // Green only
         case 3: return vec3(0.0, 0.0, color.b); // Blue only
@@ -235,7 +235,7 @@ vec3 toneMappingComparison(vec3 originalColor, vec2 uv) {
         case 4: toneMapped = gtToneMapping(originalColor); break;
         case 5: toneMapped = lottesToneMapping(originalColor); break;
         case 6: toneMapped = exponentialToneMapping(originalColor); break;
-        case 7: toneMapped = reinhardExtendedToneMapping(originalColor, options.maxWhite); break;
+        case 7: toneMapped = reinhardExtendedToneMapping(originalColor, postOptions.maxWhite); break;
         case 8: toneMapped = hableToneMapping(originalColor); break;
         default: toneMapped = originalColor; break;
     }
@@ -266,10 +266,10 @@ void main() {
     vec3 originalColor = applyChromaticAberration(uv);
     
     // Apply exposure
-    vec3 color = originalColor * options.exposure;
+    vec3 color = originalColor * postOptions.exposure;
     
     // Debug mode: tone mapping comparison
-    if (options.debugMode == 1) {
+    if (postOptions.debugMode == 1) {
         color = toneMappingComparison(color, uv);
     } else {
         // Apply tone mapping
@@ -277,37 +277,37 @@ void main() {
     }
     
     // Color grading
-    color = adjustContrast(color, options.contrast);
-    color = color + options.brightness; // Brightness adjustment
-    color = adjustSaturation(color, options.saturation);
-    color = adjustVibrance(color, options.vibrance);
+    color = adjustContrast(color, postOptions.contrast);
+    color = color + postOptions.brightness; // Brightness adjustment
+    color = adjustSaturation(color, postOptions.saturation);
+    color = adjustVibrance(color, postOptions.vibrance);
     
     // Effects
     color = applyVignette(color, uv);
     color = addFilmGrain(color, uv);
     
     // Debug: show individual color channels
-    if (options.debugMode == 2) {
+    if (postOptions.debugMode == 2) {
         color = showColorChannel(color);
     }
     
     // Gamma correction
-    color = pow(max(color, vec3(0.0)), vec3(1.0 / options.gamma));
+    color = pow(max(color, vec3(0.0)), vec3(1.0 / postOptions.gamma));
     
     // Debug split comparison
-    if (options.debugMode == 3 && uv.x > options.debugSplit) {
+    if (postOptions.debugMode == 3 && uv.x > postOptions.debugSplit) {
         // Right side: processed
         outFragColor = vec4(color, 1.0);
-    } else if (options.debugMode == 3) {
+    } else if (postOptions.debugMode == 3) {
         // Left side: original (with basic exposure and gamma)
-        vec3 simple = pow(originalColor * options.exposure, vec3(1.0 / options.gamma));
+        vec3 simple = pow(originalColor * postOptions.exposure, vec3(1.0 / postOptions.gamma));
         outFragColor = vec4(simple, 1.0);
     } else {
         outFragColor = vec4(color, 1.0);
     }
     
     // Add a thin line at the split position for debug mode 3
-    if (options.debugMode == 3 && abs(uv.x - options.debugSplit) < 0.002) {
+    if (postOptions.debugMode == 3 && abs(uv.x - postOptions.debugSplit) < 0.002) {
         outFragColor = vec4(1.0, 1.0, 0.0, 1.0); // Yellow line
     }
 }

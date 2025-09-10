@@ -10,7 +10,7 @@
 #include "Pipeline.h"
 #include "ViewFrustum.h"
 #include "Model.h"
-#include "UniformBuffer.h"
+#include "MappedBuffer.h"
 #include "ShaderManager.h"
 #include "TextureManager.h"
 #include <glm/glm.hpp>
@@ -143,7 +143,8 @@ class Renderer
         // Manual cleanup is not necessary
     }
 
-    void update(Camera& camera, uint32_t currentFrame, double time);
+    void update(Camera& camera, vector<unique_ptr<Model>>& models, uint32_t currentFrame,
+                double time);
     void updateBoneData(const vector<unique_ptr<Model>>& models,
                         uint32_t currentFrame); // NEW: Add this method
 
@@ -198,31 +199,21 @@ class Renderer
     PostOptionsUBO postOptionsUBO_{};
     SsaoOptionsUBO ssaoOptionsUBO_{};
 
-    vector<unique_ptr<UniformBuffer<SceneUniform>>> sceneUniforms_{};
-    vector<unique_ptr<UniformBuffer<SkyOptionsUBO>>> skyOptionsUniforms_;
-    vector<unique_ptr<UniformBuffer<OptionsUniform>>> optionsUniforms_{};
-    vector<unique_ptr<UniformBuffer<BoneDataUniform>>> boneDataUniforms_;
-    vector<unique_ptr<UniformBuffer<PostOptionsUBO>>> postOptionsUniforms_;
-    vector<unique_ptr<UniformBuffer<SsaoOptionsUBO>>> ssaoOptionsUniforms_;
+    // Resources - Consolidated uniform buffers using map structure
+    unordered_map<string, vector<unique_ptr<MappedBuffer>>> uniformBuffers_;
+    // Keys: "sceneData", "skyOptions", "options", "boneData", "postOptions", "ssaoOptions"
 
-    vector<DescriptorSet> sceneOptionsBoneDataSets_{};
-    vector<DescriptorSet> sceneSkyOptionsSets_{};
-    vector<DescriptorSet> postProcessingDescriptorSets_;
-    vector<DescriptorSet> ssaoDescriptorSets_;
-
-    // Resources
-    unique_ptr<Image2D> msaaColorBuffer_;  // unique_ptr<Image2D> msaaColorBuffer_;
-    unique_ptr<Image2D> depthStencil_;     // unique_ptr<Image2D>
-    unique_ptr<Image2D> msaaDepthStencil_; // unique_ptr<Image2D>
-    unique_ptr<Image2D> forwardToCompute_; // unique_ptr<Image2D>
-    unique_ptr<Image2D> computeToPost_;    // unique_ptr<Image2D>
-    unique_ptr<Image2D> dummyTexture_;     // unique_ptr<Image2D>
-
+    unique_ptr<Image2D> msaaColorBuffer_;
+    unique_ptr<Image2D> depthStencil_;
+    unique_ptr<Image2D> msaaDepthStencil_;
+    unique_ptr<Image2D> forwardToCompute_;
+    unique_ptr<Image2D> computeToPost_;
+    unique_ptr<Image2D> dummyTexture_;
+    unique_ptr<Image2D> shadowMap_;
+    SkyTextures skyTextures_;
     TextureManager textureManager_;
     StorageBuffer materialStorageBuffer_;
     DescriptorSet materialDescriptorSet_;
-
-    SkyTextures skyTextures_;
 
     Sampler samplerLinearRepeat_;
     Sampler samplerLinearClamp_;
@@ -230,11 +221,13 @@ class Renderer
     Sampler samplerAnisoClamp_;
     Sampler samplerShadow_;
 
-    unique_ptr<Image2D> shadowMap_; // unique_ptr<Image2D>
-
     DescriptorSet skyDescriptorSet_;
     DescriptorSet postDescriptorSet_;
     DescriptorSet shadowMapSet_;
+    vector<DescriptorSet> sceneOptionsBoneDataSets_{};
+    vector<DescriptorSet> sceneSkyOptionsSets_{};
+    vector<DescriptorSet> postProcessingDescriptorSets_;
+    vector<DescriptorSet> ssaoDescriptorSets_;
 
     unordered_map<string, Pipeline> pipelines_;
 

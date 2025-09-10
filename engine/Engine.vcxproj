@@ -51,7 +51,6 @@
     <ClInclude Include="Image2D.h" />
     <ClInclude Include="Swapchain.h" />
     <ClInclude Include="TextureManager.h" />
-    <ClInclude Include="UniformBuffer.h" />
     <ClInclude Include="Vertex.h" />
     <ClInclude Include="ViewFrustum.h" />
     <ClInclude Include="VulkanTools.h" />
@@ -91,7 +90,6 @@
     <ClCompile Include="Image2D.cpp" />
     <ClCompile Include="Swapchain.cpp" />
     <ClCompile Include="TextureManager.cpp" />
-    <ClCompile Include="UniformBuffer.cpp" />
     <ClCompile Include="Vertex.cpp" />
     <ClCompile Include="ViewFrustum.cpp" />
     <ClCompile Include="VulkanTools.cpp" />

@@ -96,18 +96,22 @@ void Ex10_Example::initializeSkybox()
     skyTextures_.loadKtxMaps(path + "specularGGX.ktx2", path + "diffuseLambertian.ktx2",
                              path + "outputLUT.png");
 
-    // Create uniform buffers for each frame
+    // Create uniform buffers for each frame using MappedBuffer
     sceneDataUniforms_.clear();
     sceneDataUniforms_.reserve(kMaxFramesInFlight);
     for (uint32_t i = 0; i < kMaxFramesInFlight; ++i) {
-        sceneDataUniforms_.emplace_back(std::make_unique<UniformBuffer<SceneDataUBO>>(ctx_, sceneDataUBO_));
+        auto buffer = std::make_unique<MappedBuffer>(ctx_);
+        buffer->createUniformBuffer(sceneDataUBO_);
+        sceneDataUniforms_.emplace_back(std::move(buffer));
     }
 
-    // Create HDR sky options uniform buffers
+    // Create HDR sky options uniform buffers using MappedBuffer
     skyOptionsUniforms_.clear();
     skyOptionsUniforms_.reserve(kMaxFramesInFlight);
     for (uint32_t i = 0; i < kMaxFramesInFlight; ++i) {
-        skyOptionsUniforms_.emplace_back(std::make_unique<UniformBuffer<SkyOptionsUBO>>(ctx_, skyOptionsUBO_));
+        auto buffer = std::make_unique<MappedBuffer>(ctx_);
+        buffer->createUniformBuffer(skyOptionsUBO_);
+        skyOptionsUniforms_.emplace_back(std::move(buffer));
     }
 
     // Create descriptor sets for scene data and options (set 0)
@@ -161,8 +165,8 @@ void Ex10_Example::renderFrame()
     check(vkWaitForFences(ctx_.device(), 1, &inFlightFences_[currentFrame_], VK_TRUE, UINT64_MAX));
     check(vkResetFences(ctx_.device(), 1, &inFlightFences_[currentFrame_]));
 
-    sceneDataUniforms_[currentFrame_]->updateData();
-    skyOptionsUniforms_[currentFrame_]->updateData(); // Update HDR options
+    sceneDataUniforms_[currentFrame_]->updateFromCpuData();
+    skyOptionsUniforms_[currentFrame_]->updateFromCpuData(); // Update HDR options
 
     uint32_t imageIndex = 0;
     VkResult acquireResult =

@@ -441,14 +441,7 @@ void Application::run()
         check(vkWaitForFences(ctx_.device(), 1, &waitFences_[currentFrame], VK_TRUE, UINT64_MAX));
         check(vkResetFences(ctx_.device(), 1, &waitFences_[currentFrame]));
 
-        renderer_.update(camera_, currentFrame, (float)glfwGetTime() * 0.5f);
-        renderer_.updateBoneData(models_, currentFrame);
-
-        // Update world bounds for all meshes (used for culling and other spatial operations)
-        renderer_.updateWorldBounds(models_);
-
-        // Perform frustum culling after updating world bounds
-        renderer_.performFrustumCulling(models_);
+        renderer_.update(camera_, models_, currentFrame, (float)glfwGetTime());
 
         guiRenderer_.update(currentFrame);
 
