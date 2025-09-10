@@ -15,7 +15,7 @@ layout(set = 0, binding = 1) uniform SkyOptionsUBO {
 
 layout(set = 1, binding = 0) uniform samplerCube prefilteredMap;
 layout(set = 1, binding = 1) uniform samplerCube irradianceMap;
-layout(set = 1, binding = 2) uniform sampler2D brdfLUT;
+layout(set = 1, binding = 2) uniform sampler2D brdfLut;
 
 layout(location = 0) out vec4 outColor;
 
@@ -38,6 +38,11 @@ vec3 getCubeFaceColor(vec3 dir) {
         return dir.z > 0.0 ? vec3(0,0,1) : vec3(1,1,0); // +Z: blue, -Z: yellow
     }
 }
+
+layout(push_constant) uniform ShadowPushConstants {
+    mat4 model;
+    mat4 dummy;
+} pushConstants; // TODO: dummy, remove
 
 void main() {
     vec3 envColor;

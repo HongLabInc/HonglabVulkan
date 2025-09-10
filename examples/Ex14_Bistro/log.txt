@@ -25,6 +25,7 @@ Required Instance Extensions:
   VK_KHR_surface
   VK_KHR_win32_surface
   VK_KHR_portability_enumeration
+  VK_EXT_debug_utils
 Available instance layers:
   VK_LAYER_EOS_Overlay
   VK_LAYER_EOS_Overlay
@@ -95,40 +96,85 @@ Available Present Modes: 5
 Selected Present Mode: VK_PRESENT_MODE_IMMEDIATE_KHR
 Designed Num of Swapchain Images: 3
 Added VK_IMAGE_USAGE_STORAGE_BIT to swapchain
+
+=== Shader Manager Binding Information ===
+Pipeline 'shadowMap': 1 sets
+  Set 0: 3 bindings
+    Binding 0: name='sceneData', set=0, binding=0, writeonly=false, layout=UNDEFINED, access=SHADER_READ, stage=VERTEX_SHADER
+    Binding 1: name='options', set=0, binding=1, writeonly=false, layout=UNDEFINED, access=SHADER_READ, stage=VERTEX_SHADER
+    Binding 2: name='boneData', set=0, binding=2, writeonly=false, layout=UNDEFINED, access=SHADER_READ, stage=VERTEX_SHADER
+Pipeline 'pbrForward': 4 sets
+  Set 0: 3 bindings
+    Binding 0: name='sceneData', set=0, binding=0, writeonly=false, layout=UNDEFINED, access=SHADER_READ, stage=FRAGMENT_SHADER
+    Binding 1: name='options', set=0, binding=1, writeonly=false, layout=UNDEFINED, access=SHADER_READ, stage=FRAGMENT_SHADER
+    Binding 2: name='boneData', set=0, binding=2, writeonly=false, layout=UNDEFINED, access=SHADER_READ, stage=VERTEX_SHADER
+  Set 1: 2 bindings
+    Binding 0: name='materialBuffer', set=1, binding=0, writeonly=false, layout=UNDEFINED, access=SHADER_READ|SHADER_WRITE, stage=FRAGMENT_SHADER
+    Binding 1: name='materialTextures', set=1, binding=1, writeonly=false, layout=SHADER_READ_ONLY_OPTIMAL, access=SHADER_READ, stage=FRAGMENT_SHADER
+  Set 2: 3 bindings
+    Binding 0: name='prefilteredMap', set=2, binding=0, writeonly=false, layout=SHADER_READ_ONLY_OPTIMAL, access=SHADER_READ, stage=FRAGMENT_SHADER
+    Binding 1: name='irradianceMap', set=2, binding=1, writeonly=false, layout=SHADER_READ_ONLY_OPTIMAL, access=SHADER_READ, stage=FRAGMENT_SHADER
+    Binding 2: name='brdfLut', set=2, binding=2, writeonly=false, layout=SHADER_READ_ONLY_OPTIMAL, access=SHADER_READ, stage=FRAGMENT_SHADER
+  Set 3: 1 bindings
+    Binding 0: name='shadowMap', set=3, binding=0, writeonly=false, layout=SHADER_READ_ONLY_OPTIMAL, access=SHADER_READ, stage=FRAGMENT_SHADER
+Pipeline 'sky': 2 sets
+  Set 0: 2 bindings
+    Binding 0: name='sceneData', set=0, binding=0, writeonly=false, layout=UNDEFINED, access=SHADER_READ, stage=VERTEX_SHADER
+    Binding 1: name='skyOptions', set=0, binding=1, writeonly=false, layout=UNDEFINED, access=SHADER_READ, stage=FRAGMENT_SHADER
+  Set 1: 3 bindings
+    Binding 0: name='prefilteredMap', set=1, binding=0, writeonly=false, layout=SHADER_READ_ONLY_OPTIMAL, access=SHADER_READ, stage=FRAGMENT_SHADER
+    Binding 1: name='irradianceMap', set=1, binding=1, writeonly=false, layout=SHADER_READ_ONLY_OPTIMAL, access=SHADER_READ, stage=FRAGMENT_SHADER
+    Binding 2: name='brdfLut', set=1, binding=2, writeonly=false, layout=SHADER_READ_ONLY_OPTIMAL, access=SHADER_READ, stage=FRAGMENT_SHADER
+Pipeline 'ssao': 1 sets
+  Set 0: 5 bindings
+    Binding 0: name='sceneData', set=0, binding=0, writeonly=false, layout=UNDEFINED, access=SHADER_READ, stage=COMPUTE_SHADER
+    Binding 1: name='ssaoOptions', set=0, binding=1, writeonly=false, layout=UNDEFINED, access=SHADER_READ, stage=COMPUTE_SHADER
+    Binding 2: name='floatColor1', set=0, binding=2, writeonly=false, layout=GENERAL, access=SHADER_READ|SHADER_WRITE, stage=COMPUTE_SHADER
+    Binding 3: name='floatColor2', set=0, binding=3, writeonly=true, layout=GENERAL, access=SHADER_WRITE, stage=COMPUTE_SHADER
+    Binding 4: name='depthStencil', set=0, binding=4, writeonly=false, layout=SHADER_READ_ONLY_OPTIMAL, access=SHADER_READ, stage=COMPUTE_SHADER
+Pipeline 'post': 1 sets
+  Set 0: 2 bindings
+    Binding 0: name='floatColor2', set=0, binding=0, writeonly=false, layout=SHADER_READ_ONLY_OPTIMAL, access=SHADER_READ, stage=FRAGMENT_SHADER
+    Binding 1: name='postOptions', set=0, binding=1, writeonly=false, layout=UNDEFINED, access=SHADER_READ, stage=FRAGMENT_SHADER
+Pipeline 'gui': 1 sets
+  Set 0: 1 bindings
+    Binding 0: name='fontSampler', set=0, binding=0, writeonly=false, layout=SHADER_READ_ONLY_OPTIMAL, access=SHADER_READ, stage=FRAGMENT_SHADER
+==========================================
+
     Binding 1 is variable-length array (count=512)
 ShaderManager: Created 7 unique layout(s)
-  Layout 0 (0x184dae36380): 3 binding(s), used by:
+  Layout 0 (0x190000000019): 3 binding(s), used by:
     - Pipeline 'shadowMap', Set 0
     - Pipeline 'pbrForward', Set 0
     Binding 0: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
     Binding 2: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
-  Layout 1 (0x184dae36980): 2 binding(s), used by:
+  Layout 1 (0x1a000000001a): 2 binding(s), used by:
     - Pipeline 'pbrForward', Set 1
     Binding 0: type=STORAGE_BUFFER, count=1, stages=FRAGMENT
     Binding 1: type=COMBINED_IMAGE_SAMPLER, count=512, stages=FRAGMENT
-  Layout 2 (0x184dae36800): 2 binding(s), used by:
+  Layout 2 (0x1b000000001b): 2 binding(s), used by:
     - Pipeline 'sky', Set 0
     Binding 0: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
-  Layout 3 (0x184dae36500): 1 binding(s), used by:
+  Layout 3 (0x1c000000001c): 1 binding(s), used by:
     - Pipeline 'pbrForward', Set 3
     - Pipeline 'gui', Set 0
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
-  Layout 4 (0x184dae36680): 3 binding(s), used by:
+  Layout 4 (0x1d000000001d): 3 binding(s), used by:
     - Pipeline 'pbrForward', Set 2
     - Pipeline 'sky', Set 1
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 1: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 2: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
-  Layout 5 (0x184dae36e00): 5 binding(s), used by:
+  Layout 5 (0x1e000000001e): 5 binding(s), used by:
     - Pipeline 'ssao', Set 0
     Binding 0: type=UNIFORM_BUFFER, count=1, stages=COMPUTE
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=COMPUTE
     Binding 2: type=STORAGE_IMAGE, count=1, stages=COMPUTE
     Binding 3: type=STORAGE_IMAGE, count=1, stages=COMPUTE
     Binding 4: type=COMBINED_IMAGE_SAMPLER, count=1, stages=COMPUTE
-  Layout 6 (0x184dae36080): 2 binding(s), used by:
+  Layout 6 (0x1f000000001f): 2 binding(s), used by:
     - Pipeline 'post', Set 0
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=FRAGMENT
@@ -169,14 +215,14 @@ Texture filename: ../../assets/characters/Leonard/Ch31_1002_Diffuse.png
 Successfully loaded model: ../../assets/characters/Leonard/Bboy Hip Hop Move.fbx
   Meshes: 7
   Materials: 2
-  Loading time: 731 ms
+  Loading time: 2645 ms
 Found 1 animations in model 'Dancer'
 Started animation: 'mixamo.com'
 Animation duration: 2.20 seconds
 Successfully loaded model from cache: ../../assets/models/AmazonLumberyardBistroMorganMcGuire\exterior_cache.bin
   Meshes: 3184
   Materials: 128
-  Loading time: 687 ms
+  Loading time: 1687 ms
 No animations found in model 'Bistro'
 Creating graphics pipeline from config: pbrForward
 Successfully created graphics pipeline: pbrForward
@@ -190,11 +236,18 @@ Creating compute pipeline: ssao
 
 Successfully created compute pipeline
 
+Compute shader 'ssao.comp' local workgroup size: 16x16x1
+Pipeline 'ssao' initialized with local workgroup size: 16x16x1
 Loading IBL textures...
   Prefiltered: ../../assets/textures/golden_gate_hills_4k/specularGGX.ktx2
   Irradiance: ../../assets/textures/golden_gate_hills_4k/diffuseLambertian.ktx2
   BRDF LUT: ../../assets/textures/golden_gate_hills_4k/outputLUT.png
+Pipeline 'shadowMap': No write-only image binding found for dimension determination
 Allocating descriptor set with variable count: 512
+Pipeline 'pbrForward': No write-only image binding found for dimension determination
+Pipeline 'sky': No write-only image binding found for dimension determination
+Pipeline 'ssao' dimensions determined from first write-only binding 'floatColor2': 3072x1728
+Pipeline 'post': No write-only image binding found for dimension determination
 hasAnimation changed to: true
 Saved descriptor pool statistics to DescriptorPoolSize.txt
 
@@ -203,7 +256,7 @@ Total Pools Created: 1
 Total Allocated Sets: 12
   COMBINED_IMAGE_SAMPLER: 521
   UNIFORM_BUFFER: 16
-  STORAGE_IMAGE: 4
   STORAGE_BUFFER: 1
+  STORAGE_IMAGE: 4
 ============================================
 

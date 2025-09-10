@@ -29,6 +29,9 @@ auto getVkFormatSize(VkFormat format) -> uint32_t;
 auto getRequiredImageLayout(VkDescriptorType type_) -> VkImageLayout;
 auto getRequiredAccess(VkDescriptorType type_, bool readOnly_, bool writeOnly_) -> VkAccessFlags2;
 auto colorSpaceToString(VkColorSpaceKHR colorSpace) -> const char*;
+auto imageLayoutToString(VkImageLayout layout) -> string;
+auto pipelineStageFlags2ToString(VkPipelineStageFlags2 stages) -> string;
+auto accessFlags2ToString(VkAccessFlags2 access) -> string;
 
 // Custom comparator for vector<VkDescriptorSetLayoutBinding>
 struct BindingComp

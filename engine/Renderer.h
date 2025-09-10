@@ -6,11 +6,11 @@
 #include "Image2D.h"
 #include "StorageBuffer.h"
 #include "Sampler.h"
-#include "SkyTextures.h"
 #include "Pipeline.h"
 #include "ViewFrustum.h"
 #include "Model.h"
-#include "UniformBuffer.h"
+#include "MappedBuffer.h"
+#include "RenderGraph.h"
 #include "ShaderManager.h"
 #include "TextureManager.h"
 #include <glm/glm.hpp>
@@ -103,9 +103,9 @@ static_assert(sizeof(BoneDataUniform) == 256 * 64 + 16, "Unexpected BoneDataUnif
 struct PbrPushConstants
 {
     alignas(16) glm::mat4 model = glm::mat4(1.0f); // 64 bytes
+    alignas(4) uint32_t materialIndex = 0;         // 4 bytes - Material index for bindless access
     alignas(4) float coeffs[15] = {
         0.0f}; // 60 bytes (reduced from 16 to make room for materialIndex)
-    alignas(4) uint32_t materialIndex = 0; // 4 bytes - Material index for bindless access
 };
 
 static_assert(sizeof(PbrPushConstants) == 128, "PbrPushConstants must be 128 bytes");
@@ -121,37 +121,22 @@ class Renderer
 {
   public:
     Renderer(Context& ctx, ShaderManager& shaderManager, const uint32_t& kMaxFramesInFlight,
-             const string& kAssetsPathPrefix, const string& kShaderPathPrefix_);
+             const string& kAssetsPathPrefix, const string& kShaderPathPrefix_,
+             vector<unique_ptr<Model>>& models, VkFormat outColorFormat, VkFormat depthFormat,
+             VkSampleCountFlagBits msaaSamples, uint32_t swapChainWidth, uint32_t swapChainHeight);
 
-    ~Renderer()
-    {
-        cleanup();
-    }
-
-    void prepareForModels(vector<unique_ptr<Model>>& models, VkFormat outColorFormat,
-                          VkFormat depthFormat, VkSampleCountFlagBits msaaSamples,
-                          uint32_t swapChainWidth, uint32_t swapChainHeight);
+    ~Renderer() = default;
 
     void createPipelines(const VkFormat colorFormat, const VkFormat depthFormat,
                          VkSampleCountFlagBits msaaSamples);
     void createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight,
                         VkSampleCountFlagBits msaaSamples);
     void createUniformBuffers();
-
-    void cleanup()
-    {
-        // Manual cleanup is not necessary
-    }
-
-    void update(Camera& camera, uint32_t currentFrame, double time);
-    void updateBoneData(const vector<unique_ptr<Model>>& models,
-                        uint32_t currentFrame); // NEW: Add this method
-
+    void update(Camera& camera, vector<unique_ptr<Model>>& models, uint32_t currentFrame,
+                double time);
+    void updateBoneData(const vector<unique_ptr<Model>>& models, uint32_t currentFrame);
     void draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swapchainImageView,
               vector<unique_ptr<Model>>& models, VkViewport viewport, VkRect2D scissor);
-
-    void makeShadowMap(VkCommandBuffer cmd, uint32_t currentFrame,
-                       vector<unique_ptr<Model>>& models);
 
     // View frustum culling
     auto getCullingStats() const -> const CullingStats&;
@@ -198,31 +183,17 @@ class Renderer
     PostOptionsUBO postOptionsUBO_{};
     SsaoOptionsUBO ssaoOptionsUBO_{};
 
-    vector<unique_ptr<UniformBuffer<SceneUniform>>> sceneUniforms_{};
-    vector<unique_ptr<UniformBuffer<SkyOptionsUBO>>> skyOptionsUniforms_;
-    vector<unique_ptr<UniformBuffer<OptionsUniform>>> optionsUniforms_{};
-    vector<unique_ptr<UniformBuffer<BoneDataUniform>>> boneDataUniforms_;
-    vector<unique_ptr<UniformBuffer<PostOptionsUBO>>> postOptionsUniforms_;
-    vector<unique_ptr<UniformBuffer<SsaoOptionsUBO>>> ssaoOptionsUniforms_;
+    // Resources - Consolidated uniform buffers using map structure
+    unordered_map<string, vector<unique_ptr<MappedBuffer>>> perFrameUniformBuffers_;
+    // Keys: "sceneData", "skyOptions", "options", "boneData", "postOptions", "ssaoOptions"
 
-    vector<DescriptorSet> sceneOptionsBoneDataSets_{};
-    vector<DescriptorSet> sceneSkyOptionsSets_{};
-    vector<DescriptorSet> postProcessingDescriptorSets_;
-    vector<DescriptorSet> ssaoDescriptorSets_;
+    // Resources - Consolidated image buffers using map structure
+    unordered_map<string, unique_ptr<Image2D>> imageBuffers_;
+    // Keys: "msaaColor", "msaaDepthStencil", "depthStencil", "floatColor1", "floatColor2",
+    //       "shadowMap", "prefiltered", "irradiance", "brdfLut"
 
-    // Resources
-    unique_ptr<Image2D> msaaColorBuffer_;  // unique_ptr<Image2D> msaaColorBuffer_;
-    unique_ptr<Image2D> depthStencil_;     // unique_ptr<Image2D>
-    unique_ptr<Image2D> msaaDepthStencil_; // unique_ptr<Image2D>
-    unique_ptr<Image2D> forwardToCompute_; // unique_ptr<Image2D>
-    unique_ptr<Image2D> computeToPost_;    // unique_ptr<Image2D>
-    unique_ptr<Image2D> dummyTexture_;     // unique_ptr<Image2D>
-
-    TextureManager textureManager_;
-    StorageBuffer materialStorageBuffer_;
-    DescriptorSet materialDescriptorSet_;
-
-    SkyTextures skyTextures_;
+    unique_ptr<TextureManager> materialTextures_; // Material textures for bindless rendering
+    unique_ptr<StorageBuffer> materialBuffer_;    // Material data storage buffer
 
     Sampler samplerLinearRepeat_;
     Sampler samplerLinearClamp_;
@@ -230,13 +201,50 @@ class Renderer
     Sampler samplerAnisoClamp_;
     Sampler samplerShadow_;
 
-    unique_ptr<Image2D> shadowMap_; // unique_ptr<Image2D>
+    unordered_map<string, DescriptorSet> descriptorSets_;
+    // Keys: "material", "sky", "post", "shadowMap"
 
-    DescriptorSet skyDescriptorSet_;
-    DescriptorSet postDescriptorSet_;
-    DescriptorSet shadowMapSet_;
+    unordered_map<string, vector<DescriptorSet>> perFrameDescriptorSets_;
+    // Keys: "sceneOptions", "skyOptions", "postProcessing", "ssao"
 
-    unordered_map<string, Pipeline> pipelines_;
+    unordered_map<string, unique_ptr<Pipeline>> pipelines_;
+
+    bool perFrameResources(vector<string> resourceNames)
+    {
+        for (const auto& name : resourceNames) {
+            if (perFrameUniformBuffers_.find(name) != perFrameUniformBuffers_.end()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    void addResource(string resourceName, uint32_t frameNumber,
+                     vector<reference_wrapper<Resource>>& resources)
+    {
+        if (perFrameUniformBuffers_.find(resourceName) != perFrameUniformBuffers_.end()) {
+            resources.push_back(*perFrameUniformBuffers_[resourceName][frameNumber]);
+            return;
+        }
+
+        if (imageBuffers_.find(resourceName) != imageBuffers_.end()) {
+            resources.push_back(*imageBuffers_[resourceName]);
+            return;
+        }
+
+        if (resourceName == "materialBuffer") {
+            resources.push_back(*materialBuffer_);
+            return;
+        }
+
+        if (resourceName == "materialTextures") {
+            resources.push_back(*materialTextures_);
+            return;
+        }
+    }
+
+    RenderGraph renderGraph_;
 
     ViewFrustum viewFrustum_{};
     bool frustumCullingEnabled_{true};
@@ -268,10 +276,10 @@ class Renderer
                           float clearDepth = 1.0f, VkImageView resolveImageView = VK_NULL_HANDLE,
                           VkResolveModeFlagBits resolveMode = VK_RESOLVE_MODE_NONE) const;
 
-    VkRenderingInfo
-    createRenderingInfo(const VkRect2D& renderArea,
-                        const VkRenderingAttachmentInfo* colorAttachment,
-                        const VkRenderingAttachmentInfo* depthAttachment = nullptr) const;
+    VkRenderingInfo createRenderingInfo(const VkRect2D& renderArea,
+                                        const VkRenderingAttachmentInfo* colorAttachment,
+                                        const VkRenderingAttachmentInfo* depthAttachment,
+                                        const VkRenderingAttachmentInfo* stencilAttachment) const;
 };
 
 } // namespace hlab

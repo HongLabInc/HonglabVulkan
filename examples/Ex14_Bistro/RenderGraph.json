@@ -1,0 +1,40 @@
+{
+  "renderNodes": [
+    {
+      "pipelineNames": ["shadowMap"],
+      "msaaColorAttachments": [],
+      "msaaDepthAttachment": "",
+      "msaaStencilAttachment": "",
+      "colorAttachments": [],
+      "depthAttachment": "shadowMap",
+      "stencilAttachment": ""
+    },
+    {
+      "pipelineNames": ["pbrForward", "sky"],
+      "msaaColorAttachments": ["msaaColor"],
+      "msaaDepthAttachment": "msaaDepthStencil",
+      "msaaStencilAttachment": "msaaDepthStencil",
+      "colorAttachments": ["floatColor1"],
+      "depthAttachment": "depthStencil",
+      "stencilAttachment": "depthStencil"
+    },
+    {
+      "pipelineNames": ["ssao"],
+      "msaaColorAttachments": [],
+      "msaaDepthAttachment": "",
+      "msaaStencilAttachment": "",
+      "colorAttachments": [],
+      "depthAttachment": "",
+      "stencilAttachment": ""
+    },
+    {
+      "pipelineNames": ["post"],
+      "msaaColorAttachments": [],
+      "msaaDepthAttachment": "",
+      "msaaStencilAttachment": "",
+      "colorAttachments": ["swapchain"],
+      "depthAttachment": "",
+      "stencilAttachment": ""
+    }
+  ]
+}

@@ -18,7 +18,7 @@ Ex11_PostProcessingExample::Ex11_PostProcessingExample()
                      {{"gui", {"imgui.vert", "imgui.frag"}},
                       {"sky", {"skybox.vert.spv", "skybox.frag.spv"}},
                       {"post", {"post.vert", "post.frag"}}}},
-      guiRenderer_{ctx_, shaderManager_, swapchain_.colorFormat()}, skyTextures_{ctx_},
+      guiRenderer_{ctx_, shaderManager_, swapchain_.colorFormat()},
       skyPipeline_(ctx_, shaderManager_), samplerLinearRepeat_(ctx_), samplerLinearClamp_(ctx_)
 {
     printLog("Current working directory: {}", std::filesystem::current_path().string());
@@ -57,9 +57,6 @@ Ex11_PostProcessingExample::Ex11_PostProcessingExample()
     // Initialize GUI
     guiRenderer_.resize(windowSize_.width, windowSize_.height);
 
-    samplerLinearRepeat_.createLinearRepeat();
-    samplerLinearClamp_.createLinearClamp();
-
     // Camera setup
     const float aspectRatio = float(windowSize_.width) / windowSize_.height;
     camera_.type = hlab::Camera::CameraType::firstperson;
@@ -91,44 +88,64 @@ Ex11_PostProcessingExample::~Ex11_PostProcessingExample()
 void Ex11_PostProcessingExample::initializeSkybox()
 {
     // Create skybox pipeline using PipelineConfig (now renders to HDR buffer instead of swapchain)
-    skyPipeline_.createFromConfig(PipelineConfig::createSky(),
-                                 swapchain_.colorFormat(), 
-                                 ctx_.depthFormat(),
-                                 VK_SAMPLE_COUNT_1_BIT);
+    skyPipeline_.createFromConfig(PipelineConfig::createSky(), swapchain_.colorFormat(),
+                                  ctx_.depthFormat(), VK_SAMPLE_COUNT_1_BIT);
 
-    // Load IBL textures
+    // Initialize samplers
+    samplerLinearRepeat_.createLinearRepeat();
+    samplerLinearClamp_.createLinearClamp();
+
+    // Create individual IBL texture objects
+    prefiltered_ = std::make_unique<Image2D>(ctx_);
+    irradiance_ = std::make_unique<Image2D>(ctx_);
+    brdfLUT_ = std::make_unique<Image2D>(ctx_);
+
+    // Load IBL textures directly (replacing SkyTextures functionality)
     string path = kAssetsPathPrefix + "textures/golden_gate_hills_4k/";
-    skyTextures_.loadKtxMaps(path + "specularGGX.ktx2", path + "diffuseLambertian.ktx2",
-                             path + "outputLUT.png");
 
-    // Create uniform buffers for each frame
+    // Load prefiltered environment map (cubemap for specular reflections)
+    prefiltered_->createTextureFromKtx2(path + "specularGGX.ktx2", true);
+    prefiltered_->setSampler(samplerLinearRepeat_.handle());
+
+    // Load irradiance map (cubemap for diffuse lighting)
+    irradiance_->createTextureFromKtx2(path + "diffuseLambertian.ktx2", true);
+    irradiance_->setSampler(samplerLinearRepeat_.handle());
+
+    // Load BRDF lookup table (2D texture)
+    brdfLUT_->createTextureFromImage(path + "outputLUT.png", false, false);
+    brdfLUT_->setSampler(samplerLinearClamp_.handle());
+
+    // Create uniform buffers for each frame using MappedBuffer
     sceneDataUniforms_.clear();
     sceneDataUniforms_.reserve(kMaxFramesInFlight);
     for (uint32_t i = 0; i < kMaxFramesInFlight; ++i) {
-        sceneDataUniforms_.emplace_back(std::make_unique<UniformBuffer<SceneDataUBO>>(ctx_, sceneDataUBO_));
+        auto buffer = std::make_unique<MappedBuffer>(ctx_);
+        buffer->createUniformBuffer(sceneDataUBO_);
+        sceneDataUniforms_.emplace_back(std::move(buffer));
     }
 
-    // Create HDR sky options uniform buffers
+    // Create HDR sky options uniform buffers using MappedBuffer
     skyOptionsUniforms_.clear();
     skyOptionsUniforms_.reserve(kMaxFramesInFlight);
     for (uint32_t i = 0; i < kMaxFramesInFlight; ++i) {
-        skyOptionsUniforms_.emplace_back(std::make_unique<UniformBuffer<SkyOptionsUBO>>(ctx_, skyOptionsUBO_));
+        auto buffer = std::make_unique<MappedBuffer>(ctx_);
+        buffer->createUniformBuffer(skyOptionsUBO_);
+        skyOptionsUniforms_.emplace_back(std::move(buffer));
     }
 
     // Create descriptor sets for scene data and options (set 0)
     sceneDescriptorSets_.resize(kMaxFramesInFlight);
     for (size_t i = 0; i < kMaxFramesInFlight; i++) {
-        sceneDescriptorSets_[i].create(ctx_,
+        sceneDescriptorSets_[i].create(ctx_, skyPipeline_.layouts()[0],
                                        {
                                            *sceneDataUniforms_[i], // binding 0
                                            *skyOptionsUniforms_[i] // binding 1
                                        });
     }
 
-    // Create descriptor set for skybox textures (set 1)
-    skyDescriptorSet_.create(ctx_, {skyTextures_.prefiltered(),
-                                    skyTextures_.irradiance(),
-                                    skyTextures_.brdfLUT()});
+    // Create descriptor set for skybox textures using individual Image2D objects
+    skyDescriptorSet_.create(ctx_, skyPipeline_.layouts()[1],
+                             {*prefiltered_, *irradiance_, *brdfLUT_});
 }
 
 void Ex11_PostProcessingExample::initializePostProcessing()
@@ -180,8 +197,8 @@ void Ex11_PostProcessingExample::renderFrame()
     check(vkResetFences(ctx_.device(), 1, &inFlightFences_[currentFrame_]));
 
     // Update uniform buffers
-    sceneDataUniforms_[currentFrame_]->updateData();
-    skyOptionsUniforms_[currentFrame_]->updateData();
+    sceneDataUniforms_[currentFrame_]->updateFromCpuData();
+    skyOptionsUniforms_[currentFrame_]->updateFromCpuData();
 
     uint32_t imageIndex = 0;
     VkResult acquireResult =

@@ -1,5 +1,7 @@
+#include "DescriptorSet.h"
 #include "Pipeline.h"
 #include "Vertex.h"
+#include "Image2D.h"
 #include <imgui.h>
 
 namespace hlab {
@@ -24,6 +26,17 @@ void Pipeline::createFromConfig(const PipelineConfig& config, optional<VkFormat>
 {
     name_ = config.name;
 
+    // Set bindPoint_ based on pipeline type
+    bindPoint_ = (config.type == PipelineConfig::Type::Compute) ? VK_PIPELINE_BIND_POINT_COMPUTE
+                                                                : VK_PIPELINE_BIND_POINT_GRAPHICS;
+
+    // Copy binding information from ShaderManager for this pipeline
+    const auto& shaderManagerBindingInfos = shaderManager_.bindingInfos();
+    auto it = shaderManagerBindingInfos.find(name_);
+    if (it != shaderManagerBindingInfos.end()) {
+        bindingInfos_ = it->second;
+    }
+
     // Validate required formats
     validateRequiredFormats(config, outColorFormat, depthFormat, msaaSamples);
 
@@ -31,6 +44,8 @@ void Pipeline::createFromConfig(const PipelineConfig& config, optional<VkFormat>
 
     if (config.type == PipelineConfig::Type::Compute) {
         createCompute();
+        // Initialize compute shader local workgroup size after pipeline creation
+        initializeComputeLocalWorkgroupSize();
     } else {
         createGraphicsFromConfig(config, outColorFormat.value(), depthFormat, msaaSamples);
     }
@@ -299,16 +314,133 @@ ShaderManager& Pipeline::shaderManager()
     return shaderManager_;
 }
 
+void Pipeline::setDescriptorSets(
+    vector<vector<reference_wrapper<DescriptorSet>>>& descriptorSets) // <- use this instead
+{
+    descriptorSets_ = descriptorSets;
+
+    // Update descriptorSetHandles_ to match the same structure as descriptorSets_
+    descriptorSetHandles_.clear();
+    descriptorSetHandles_.resize(descriptorSets_.size());
+
+    for (size_t frameIndex = 0; frameIndex < descriptorSets_.size(); ++frameIndex) {
+        descriptorSetHandles_[frameIndex].reserve(descriptorSets_[frameIndex].size());
+
+        for (const auto& descriptorSetRef : descriptorSets_[frameIndex]) {
+            descriptorSetHandles_[frameIndex].push_back(descriptorSetRef.get().handle());
+        }
+    }
+
+    // Determine dimensions from first write-only binding if not already set
+    if (width_ == 0 && height_ == 0) {
+        determineDimensionsFromFirstWriteOnlyBinding();
+    }
+}
+
+void Pipeline::determineDimensionsFromFirstWriteOnlyBinding()
+{
+    // Search through all descriptor sets and bindings for the first write-only binding
+    for (size_t setIndex = 0; setIndex < bindingInfos_.size(); ++setIndex) {
+        for (size_t bindingIndex = 0; bindingIndex < bindingInfos_[setIndex].size(); ++bindingIndex) {
+            const auto& bindingInfo = bindingInfos_[setIndex][bindingIndex];
+
+            if (bindingInfo.writeonly && !bindingInfo.resourceName.empty()) {
+                // Found first write-only binding, now get its dimensions
+                assert(!descriptorSets_.empty() && "No descriptor sets available for dimension determination");
+                assert(setIndex < descriptorSets_[0].size() && "Set index out of bounds");
+
+                const auto& descriptorSet = descriptorSets_[0][setIndex].get();
+                const auto& resources = descriptorSet.resources();
+
+                assert(bindingIndex < resources.size() && "Binding index out of bounds");
+
+                const Resource& resource = resources[bindingIndex].get();
+
+                // Check if this is an Image resource and get its dimensions
+                if (resource.isImage()) {
+                    const Image2D* image = dynamic_cast<const Image2D*>(&resource);
+                    if (image) {
+                        width_ = image->width();
+                        height_ = image->height();
+
+                        printLog("Pipeline '{}' dimensions determined from first write-only binding '{}': {}x{}",
+                                 name_, bindingInfo.resourceName, width_, height_);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    // If no write-only image binding found, log a warning
+    if (width_ == 0 && height_ == 0) {
+        printLog("Pipeline '{}': No write-only image binding found for dimension determination", name_);
+    }
+}
+
+void Pipeline::initializeComputeLocalWorkgroupSize()
+{
+    // Only initialize for compute pipelines
+    if (bindPoint_ != VK_PIPELINE_BIND_POINT_COMPUTE) {
+        return;
+    }
+
+    // Get local workgroup size from shader manager
+    auto localSize = shaderManager_.getComputeLocalWorkgroupSize(name_);
+    local_size_ = localSize;
+
+    printLog("Pipeline '{}' initialized with local workgroup size: {}x{}x{}", 
+             name_, local_size_[0], local_size_[1], local_size_[2]);
+}
+
+void Pipeline::submitBarriers(const VkCommandBuffer& cmd, uint32_t frameIndex)
+{
+    // Use asserts for boundary checks instead of cascaded if-clauses
+    assert(frameIndex < descriptorSets_.size() && "Frame index out of bounds");
+
+    // Iterate through all descriptor sets for this frame
+    for (size_t setIndex = 0; setIndex < descriptorSets_[frameIndex].size(); ++setIndex) {
+        // Get the descriptor set and corresponding binding info
+        const auto& descriptorSet = descriptorSets_[frameIndex][setIndex].get();
+
+        // Assert that we have binding info for this set
+        assert(setIndex < bindingInfos_.size() && "Set index out of bounds in bindingInfos_");
+
+        const auto& setBindingInfos = bindingInfos_[setIndex];
+        const auto& resources = descriptorSet.resources();
+
+        // Iterate through all bindings in this set
+        for (size_t bindingIndex = 0;
+             bindingIndex < resources.size() && bindingIndex < setBindingInfos.size();
+             ++bindingIndex) {
+
+            const auto& resource = resources[bindingIndex].get();
+            const auto& bindingInfo = setBindingInfos[bindingIndex];
+
+            // Only transition image resources (buffers don't need layout transitions)
+            if (resource.isImage() && bindingInfo.targetLayout != VK_IMAGE_LAYOUT_UNDEFINED) {
+                // Cast to non-const to allow transition (this is safe as we're modifying state)
+                auto& mutableResource = const_cast<Resource&>(resource);
+
+                // Transition the image to the desired layout for this binding
+                mutableResource.transitionTo(cmd, bindingInfo.targetAccess,
+                                             bindingInfo.targetLayout, bindingInfo.targetStage);
+            }
+        }
+    }
+}
+
 void Pipeline::createCommon()
 {
     cleanup();
 
-    vector<VkDescriptorSetLayout> layouts = ctx_.descriptorPool().layoutsForPipeline(name_);
+    layouts_ = ctx_.descriptorPool().layoutsForPipeline(name_);
+
     VkPushConstantRange pushConstantRanges = shaderManager_.pushConstantsRange(name_);
 
     VkPipelineLayoutCreateInfo pipelineLayoutCI{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-    pipelineLayoutCI.setLayoutCount = uint32_t(layouts.size());
-    pipelineLayoutCI.pSetLayouts = layouts.data();
+    pipelineLayoutCI.setLayoutCount = uint32_t(layouts_.size());
+    pipelineLayoutCI.pSetLayouts = layouts_.data();
     pipelineLayoutCI.pushConstantRangeCount = (pushConstantRanges.size > 0) ? 1 : 0;
     pipelineLayoutCI.pPushConstantRanges =
         (pushConstantRanges.size > 0) ? &pushConstantRanges : nullptr;

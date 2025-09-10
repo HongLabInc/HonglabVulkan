@@ -5,7 +5,6 @@
 #include "Image2D.h"
 #include "ResourceBinding.h"
 #include "DescriptorSet.h"
-#include "UniformBuffer.h"
 #include <glm/glm.hpp>
 #include <memory>
 #include <string>

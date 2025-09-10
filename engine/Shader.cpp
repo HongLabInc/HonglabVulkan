@@ -172,4 +172,33 @@ vector<VkVertexInputAttributeDescription> Shader::makeVertexInputAttributeDescri
     return attributes;
 }
 
+array<uint32_t, 3> Shader::getLocalWorkgroupSize() const
+{
+    // Initialize with default values of 1 (minimum valid workgroup size)
+    array<uint32_t, 3> workgroupSize = {1, 1, 1};
+
+    // Only meaningful for compute shaders
+    if (stage_ != VK_SHADER_STAGE_COMPUTE_BIT) {
+        printLog("[Warning] getLocalWorkgroupSize() called on non-compute shader: {}", name_);
+        return workgroupSize;
+    }
+
+    // Extract workgroup size from SPIR-V reflection using entry points
+    // For compute shaders, we use the first (and typically only) entry point
+    if (reflectModule_.shader_stage == SPV_REFLECT_SHADER_STAGE_COMPUTE_BIT && 
+        reflectModule_.entry_point_count > 0) {
+        
+        workgroupSize[0] = reflectModule_.entry_points[0].local_size.x;
+        workgroupSize[1] = reflectModule_.entry_points[0].local_size.y;
+        workgroupSize[2] = reflectModule_.entry_points[0].local_size.z;
+
+        printLog("Compute shader '{}' local workgroup size: {}x{}x{}", 
+                 name_, workgroupSize[0], workgroupSize[1], workgroupSize[2]);
+    } else {
+        printLog("[Warning] Shader '{}' is not a compute shader or has no entry points", name_);
+    }
+
+    return workgroupSize;
+}
+
 } // namespace hlab

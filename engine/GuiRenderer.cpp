@@ -4,9 +4,9 @@
 namespace hlab {
 
 GuiRenderer::GuiRenderer(Context& ctx, ShaderManager& shaderManager, VkFormat colorFormat)
-    : ctx_(ctx), shaderManager_(shaderManager), 
+    : ctx_(ctx), shaderManager_(shaderManager),
       frameData_{FrameData(ctx), FrameData(ctx)}, // Initialize frame data array
-      fontImage_(make_unique<Image2D>(ctx)), fontSampler_(ctx), pushConsts_(ctx), 
+      fontImage_(make_unique<Image2D>(ctx)), fontSampler_(ctx), pushConsts_(ctx),
       guiPipeline_(ctx, shaderManager_, PipelineConfig::createGui(), colorFormat)
 {
     pushConsts_.setStageFlags(VK_SHADER_STAGE_VERTEX_BIT);
@@ -66,7 +66,7 @@ GuiRenderer::GuiRenderer(Context& ctx, ShaderManager& shaderManager, VkFormat co
 
     fontImage_->setSampler(fontSampler_.handle()); // VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
 
-    fontSet_.create(ctx_, {*fontImage_});
+    fontSet_.create(ctx_, guiPipeline_.layouts()[0], {*fontImage_});
 }
 
 GuiRenderer::~GuiRenderer()
@@ -87,7 +87,7 @@ auto GuiRenderer::imguiPipeline() -> Pipeline&
 bool GuiRenderer::update(uint32_t frameIndex)
 {
     ImDrawData* imDrawData = ImGui::GetDrawData();
-    
+
     if (!imDrawData || imDrawData->TotalVtxCount == 0 || imDrawData->TotalIdxCount == 0) {
         return false;
     }
@@ -103,28 +103,28 @@ bool GuiRenderer::update(uint32_t frameIndex)
     indexCount_ = imDrawData->TotalIdxCount;
 
     // Use MappedBuffer's allocatedSize() for capacity checking - no GPU stalls!
-    if ((frame.vertexBuffer.buffer() == VK_NULL_HANDLE) || 
+    if ((frame.vertexBuffer.buffer() == VK_NULL_HANDLE) ||
         (vertexBufferSize > frame.vertexBuffer.allocatedSize())) {
-        
+
         // Calculate new capacity with growth factor to reduce frequent reallocations
-        VkDeviceSize newCapacity = std::max(
-            static_cast<VkDeviceSize>(vertexBufferSize * 1.5f), 
-            static_cast<VkDeviceSize>(512 * sizeof(ImDrawVert)) // Minimum capacity
-        );
-        
+        VkDeviceSize newCapacity =
+            std::max(static_cast<VkDeviceSize>(vertexBufferSize * 1.5f),
+                     static_cast<VkDeviceSize>(512 * sizeof(ImDrawVert)) // Minimum capacity
+            );
+
         frame.vertexBuffer.createVertexBuffer(newCapacity, nullptr);
         updateCmdBuffers = true;
     }
 
-    if ((frame.indexBuffer.buffer() == VK_NULL_HANDLE) || 
+    if ((frame.indexBuffer.buffer() == VK_NULL_HANDLE) ||
         (indexBufferSize > frame.indexBuffer.allocatedSize())) {
-        
+
         // Calculate new capacity with growth factor to reduce frequent reallocations
-        VkDeviceSize newCapacity = std::max(
-            static_cast<VkDeviceSize>(indexBufferSize * 1.5f), 
-            static_cast<VkDeviceSize>(1024 * sizeof(ImDrawIdx)) // Minimum capacity
-        );
-        
+        VkDeviceSize newCapacity =
+            std::max(static_cast<VkDeviceSize>(indexBufferSize * 1.5f),
+                     static_cast<VkDeviceSize>(1024 * sizeof(ImDrawIdx)) // Minimum capacity
+            );
+
         frame.indexBuffer.createIndexBuffer(newCapacity, nullptr);
         updateCmdBuffers = true;
     }

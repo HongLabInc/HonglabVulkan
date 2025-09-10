@@ -8,9 +8,10 @@
 #include "engine/ShaderManager.h"
 #include "engine/Camera.h"
 #include "engine/Pipeline.h"
-#include "engine/SkyTextures.h"
-#include "engine/UniformBuffer.h"
 #include "engine/DescriptorSet.h"
+#include "engine/MappedBuffer.h"
+#include "engine/Image2D.h"
+#include "engine/Sampler.h"
 
 #include <vector>
 #include <glm/glm.hpp>
@@ -97,11 +98,20 @@ class Ex10_Example
 
     // Skybox rendering
     Pipeline skyPipeline_;
-    SkyTextures skyTextures_;
+    
+    // Individual IBL textures (replacing SkyTextures class)
+    std::unique_ptr<Image2D> prefiltered_; // Prefiltered environment map for specular
+    std::unique_ptr<Image2D> irradiance_;  // Convolved irradiance cubemap for diffuse
+    std::unique_ptr<Image2D> brdfLUT_;     // BRDF integration lookup texture
+    
+    // Samplers for IBL textures
+    Sampler samplerLinearRepeat_;
+    Sampler samplerLinearClamp_;
+    
     SceneDataUBO sceneDataUBO_;
     SkyOptionsUBO skyOptionsUBO_;
-    std::vector<std::unique_ptr<UniformBuffer<SceneDataUBO>>> sceneDataUniforms_;
-    std::vector<std::unique_ptr<UniformBuffer<SkyOptionsUBO>>> skyOptionsUniforms_;
+    std::vector<std::unique_ptr<MappedBuffer>> sceneDataUniforms_;
+    std::vector<std::unique_ptr<MappedBuffer>> skyOptionsUniforms_;
     std::vector<DescriptorSet> sceneDescriptorSets_;
     DescriptorSet skyDescriptorSet_;
 

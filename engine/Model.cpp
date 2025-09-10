@@ -29,8 +29,8 @@ Model::~Model()
     cleanup();
 }
 
-void Model::createDescriptorSets(Sampler& sampler, vector<MaterialUBO>& allMaterials,
-                                 TextureManager& textureManager)
+void Model::prepareForBindlessRendering(Sampler& sampler, vector<MaterialUBO>& allMaterials,
+                                        TextureManager& textureManager)
 {
     for (auto& t : textures_) {
         t->setSampler(sampler.handle());

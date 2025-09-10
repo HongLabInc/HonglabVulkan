@@ -8,11 +8,10 @@
 #include "engine/ShaderManager.h"
 #include "engine/Camera.h"
 #include "engine/Pipeline.h"
-#include "engine/SkyTextures.h"
-#include "engine/UniformBuffer.h"
 #include "engine/DescriptorSet.h"
 #include "engine/Image2D.h"
 #include "engine/Sampler.h"
+#include "engine/MappedBuffer.h"
 
 #include <vector>
 #include <glm/glm.hpp>
@@ -132,7 +131,10 @@ class Ex11_PostProcessingExample
     // TODO: postPipeline_;
 
     // Render targets and textures
-    SkyTextures skyTextures_;
+    // Individual IBL textures (replacing SkyTextures class)
+    std::unique_ptr<Image2D> prefiltered_; // Prefiltered environment map for specular
+    std::unique_ptr<Image2D> irradiance_;  // Convolved irradiance cubemap for diffuse
+    std::unique_ptr<Image2D> brdfLUT_;     // BRDF integration lookup texture
     // TODO: Image2D hdrColorBuffer_; // HDR color buffer for post-processing input
     // 힌트: 스카이 파이프라인 -> hdrColorBuffer -> 포스트 파이프라인 -> 스왑체인 이미지
 
@@ -143,9 +145,9 @@ class Ex11_PostProcessingExample
     SceneDataUBO sceneDataUBO_;
     SkyOptionsUBO skyOptionsUBO_;
 
-    // Uniform buffers
-    std::vector<std::unique_ptr<UniformBuffer<SceneDataUBO>>> sceneDataUniforms_;
-    std::vector<std::unique_ptr<UniformBuffer<SkyOptionsUBO>>> skyOptionsUniforms_;
+    // Uniform buffers - Updated to use MappedBuffer instead of UniformBuffer
+    std::vector<std::unique_ptr<MappedBuffer>> sceneDataUniforms_;
+    std::vector<std::unique_ptr<MappedBuffer>> skyOptionsUniforms_;
 
     // Descriptor sets
     std::vector<DescriptorSet> sceneDescriptorSets_;

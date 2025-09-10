@@ -235,7 +235,7 @@ class Application
     vector<unique_ptr<Model>> models_;
 
     GuiRenderer guiRenderer_;
-    Renderer renderer_;
+    unique_ptr<Renderer> renderer_;
 
     // GPU timing
     GpuTimer gpuTimer_;
@@ -251,7 +251,6 @@ class Application
     static constexpr float kFpsUpdateInterval = 0.1f;
 
     // Configuration loading methods
-    void initializeWithConfig(const ApplicationConfig& config);
     void setupCamera(const CameraConfig& cameraConfig);
     void loadModels(const vector<ModelConfig>& modelConfigs);
     void setupCallbacks();
