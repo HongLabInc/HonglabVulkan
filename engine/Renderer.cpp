@@ -1,4 +1,5 @@
 #include "Renderer.h"
+#include "Logger.h"
 #include <stb_image.h>
 
 namespace hlab {
@@ -7,7 +8,7 @@ Renderer::Renderer(Context& ctx, ShaderManager& shaderManager, const uint32_t& k
                    const string& kAssetsPathPrefix, const string& kShaderPathPrefix_)
     : ctx_(ctx), shaderManager_(shaderManager), kMaxFramesInFlight_(kMaxFramesInFlight),
       kAssetsPathPrefix_(kAssetsPathPrefix), kShaderPathPrefix_(kShaderPathPrefix_),
-      skyTextures_(ctx), samplerShadow_(ctx), samplerLinearRepeat_(ctx), samplerLinearClamp_(ctx),
+      samplerShadow_(ctx), samplerLinearRepeat_(ctx), samplerLinearClamp_(ctx),
       samplerAnisoRepeat_(ctx), samplerAnisoClamp_(ctx), textureManager_(ctx),
       materialStorageBuffer_(ctx)
 {
@@ -451,6 +452,11 @@ void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight,
     forwardToCompute_ = make_unique<Image2D>(ctx_);
     computeToPost_ = make_unique<Image2D>(ctx_);
     shadowMap_ = make_unique<Image2D>(ctx_);
+    
+    // Create IBL texture objects
+    prefiltered_ = make_unique<Image2D>(ctx_);
+    irradiance_ = make_unique<Image2D>(ctx_);
+    brdfLUT_ = make_unique<Image2D>(ctx_);
 
     string dummyImagePath = kAssetsPathPrefix_ + "textures/blender_uv_grid_2k.png";
 
@@ -474,10 +480,25 @@ void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight,
         dummyTexture_->setSampler(samplerLinearRepeat_.handle());
     }
 
-    // Initialize IBL textures for PBR
+    // Load IBL textures directly (replacing SkyTextures functionality)
     string path = kAssetsPathPrefix_ + "textures/golden_gate_hills_4k/";
-    skyTextures_.loadKtxMaps(path + "specularGGX.ktx2", path + "diffuseLambertian.ktx2",
-                             path + "outputLUT.png");
+    
+    printLog("Loading IBL textures...");
+    printLog("  Prefiltered: {}", path + "specularGGX.ktx2");
+    printLog("  Irradiance: {}", path + "diffuseLambertian.ktx2");
+    printLog("  BRDF LUT: {}", path + "outputLUT.png");
+    
+    // Load prefiltered environment map (cubemap for specular reflections)
+    prefiltered_->createTextureFromKtx2(path + "specularGGX.ktx2", true);
+    prefiltered_->setSampler(samplerLinearRepeat_.handle());
+    
+    // Load irradiance map (cubemap for diffuse lighting)
+    irradiance_->createTextureFromKtx2(path + "diffuseLambertian.ktx2", true);
+    irradiance_->setSampler(samplerLinearRepeat_.handle());
+    
+    // Load BRDF lookup table (2D texture)
+    brdfLUT_->createTextureFromImage(path + "outputLUT.png", false, false);
+    brdfLUT_->setSampler(samplerLinearClamp_.handle());
 
     // Create render targets
     msaaColorBuffer_->createMsaaColorBuffer(swapchainWidth, swapchainHeight, msaaSamples);
@@ -496,9 +517,8 @@ void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight,
     computeToPost_->setSampler(samplerLinearRepeat_.handle());
     depthStencil_->setSampler(samplerLinearClamp_.handle());
 
-    // Create descriptor sets for sky textures (set 1 for sky pipeline)
-    skyDescriptorSet_.create(
-        ctx_, {skyTextures_.prefiltered(), skyTextures_.irradiance(), skyTextures_.brdfLUT()});
+    // Create descriptor sets for sky textures using individual Image2D objects
+    skyDescriptorSet_.create(ctx_, {*prefiltered_, *irradiance_, *brdfLUT_});
 
     // Create descriptor set for shadow mapping
     shadowMapSet_.create(ctx_, {*shadowMap_});

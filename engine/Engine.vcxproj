@@ -46,7 +46,6 @@
     <ClInclude Include="Shader.h" />
     <ClInclude Include="ShaderManager.h" />
     <ClInclude Include="Skeleton.h" />
-    <ClInclude Include="SkyTextures.h" />
     <ClInclude Include="StorageBuffer.h" />
     <ClInclude Include="Image2D.h" />
     <ClInclude Include="Swapchain.h" />
@@ -85,7 +84,6 @@
     <ClCompile Include="Shader.cpp" />
     <ClCompile Include="ShaderManager.cpp" />
     <ClCompile Include="Skeleton.cpp" />
-    <ClCompile Include="SkyTextures.cpp" />
     <ClCompile Include="StorageBuffer.cpp" />
     <ClCompile Include="Image2D.cpp" />
     <ClCompile Include="Swapchain.cpp" />

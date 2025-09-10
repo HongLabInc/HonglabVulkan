@@ -18,7 +18,7 @@ Ex11_PostProcessingExample::Ex11_PostProcessingExample()
                      {{"gui", {"imgui.vert", "imgui.frag"}},
                       {"sky", {"skybox.vert.spv", "skybox.frag.spv"}},
                       {"post", {"post.vert", "post.frag"}}}},
-      guiRenderer_{ctx_, shaderManager_, swapchain_.colorFormat()}, skyTextures_{ctx_},
+      guiRenderer_{ctx_, shaderManager_, swapchain_.colorFormat()},
       skyPipeline_(ctx_, shaderManager_), samplerLinearRepeat_(ctx_), samplerLinearClamp_(ctx_)
 {
     printLog("Current working directory: {}", std::filesystem::current_path().string());
@@ -57,9 +57,6 @@ Ex11_PostProcessingExample::Ex11_PostProcessingExample()
     // Initialize GUI
     guiRenderer_.resize(windowSize_.width, windowSize_.height);
 
-    samplerLinearRepeat_.createLinearRepeat();
-    samplerLinearClamp_.createLinearClamp();
-
     // Camera setup
     const float aspectRatio = float(windowSize_.width) / windowSize_.height;
     camera_.type = hlab::Camera::CameraType::firstperson;
@@ -96,10 +93,29 @@ void Ex11_PostProcessingExample::initializeSkybox()
                                  ctx_.depthFormat(),
                                  VK_SAMPLE_COUNT_1_BIT);
 
-    // Load IBL textures
+    // Initialize samplers
+    samplerLinearRepeat_.createLinearRepeat();
+    samplerLinearClamp_.createLinearClamp();
+
+    // Create individual IBL texture objects
+    prefiltered_ = std::make_unique<Image2D>(ctx_);
+    irradiance_ = std::make_unique<Image2D>(ctx_);
+    brdfLUT_ = std::make_unique<Image2D>(ctx_);
+
+    // Load IBL textures directly (replacing SkyTextures functionality)
     string path = kAssetsPathPrefix + "textures/golden_gate_hills_4k/";
-    skyTextures_.loadKtxMaps(path + "specularGGX.ktx2", path + "diffuseLambertian.ktx2",
-                             path + "outputLUT.png");
+    
+    // Load prefiltered environment map (cubemap for specular reflections)
+    prefiltered_->createTextureFromKtx2(path + "specularGGX.ktx2", true);
+    prefiltered_->setSampler(samplerLinearRepeat_.handle());
+    
+    // Load irradiance map (cubemap for diffuse lighting)
+    irradiance_->createTextureFromKtx2(path + "diffuseLambertian.ktx2", true);
+    irradiance_->setSampler(samplerLinearRepeat_.handle());
+    
+    // Load BRDF lookup table (2D texture)
+    brdfLUT_->createTextureFromImage(path + "outputLUT.png", false, false);
+    brdfLUT_->setSampler(samplerLinearClamp_.handle());
 
     // Create uniform buffers for each frame using MappedBuffer
     sceneDataUniforms_.clear();
@@ -129,10 +145,8 @@ void Ex11_PostProcessingExample::initializeSkybox()
                                        });
     }
 
-    // Create descriptor set for skybox textures (set 1)
-    skyDescriptorSet_.create(ctx_, {skyTextures_.prefiltered(),
-                                    skyTextures_.irradiance(),
-                                    skyTextures_.brdfLUT()});
+    // Create descriptor set for skybox textures using individual Image2D objects
+    skyDescriptorSet_.create(ctx_, {*prefiltered_, *irradiance_, *brdfLUT_});
 }
 
 void Ex11_PostProcessingExample::initializePostProcessing()

@@ -26,7 +26,6 @@
     <ClInclude Include="Vertex.h" />
     <ClInclude Include="ViewFrustum.h" />
     <ClInclude Include="Renderer.h" />
-    <ClInclude Include="SkyTextures.h" />
     <ClInclude Include="DescriptorPool.h" />
     <ClInclude Include="VulkanTools.h" />
     <ClInclude Include="ResourceBinding.h" />
@@ -65,7 +64,6 @@
     <ClCompile Include="Vertex.cpp" />
     <ClCompile Include="ViewFrustum.cpp" />
     <ClCompile Include="Renderer.cpp" />
-    <ClCompile Include="SkyTextures.cpp" />
     <ClCompile Include="DescriptorPool.cpp" />
     <ClCompile Include="VulkanTools.cpp" />
     <ClCompile Include="ResourceBinding.cpp" />

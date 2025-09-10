@@ -8,7 +8,6 @@
 #include "engine/ShaderManager.h"
 #include "engine/Camera.h"
 #include "engine/Pipeline.h"
-#include "engine/SkyTextures.h"
 #include "engine/DescriptorSet.h"
 #include "engine/Image2D.h"
 #include "engine/Sampler.h"
@@ -132,7 +131,10 @@ class Ex11_PostProcessingExample
     // TODO: postPipeline_;
 
     // Render targets and textures
-    SkyTextures skyTextures_;
+    // Individual IBL textures (replacing SkyTextures class)
+    std::unique_ptr<Image2D> prefiltered_; // Prefiltered environment map for specular
+    std::unique_ptr<Image2D> irradiance_;  // Convolved irradiance cubemap for diffuse
+    std::unique_ptr<Image2D> brdfLUT_;     // BRDF integration lookup texture
     // TODO: Image2D hdrColorBuffer_; // HDR color buffer for post-processing input
     // 힌트: 스카이 파이프라인 -> hdrColorBuffer -> 포스트 파이프라인 -> 스왑체인 이미지
 

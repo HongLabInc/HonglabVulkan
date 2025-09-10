@@ -6,7 +6,6 @@
 #include "Image2D.h"
 #include "StorageBuffer.h"
 #include "Sampler.h"
-#include "SkyTextures.h"
 #include "Pipeline.h"
 #include "ViewFrustum.h"
 #include "Model.h"
@@ -210,7 +209,11 @@ class Renderer
     unique_ptr<Image2D> computeToPost_;
     unique_ptr<Image2D> dummyTexture_;
     unique_ptr<Image2D> shadowMap_;
-    SkyTextures skyTextures_;
+
+    unique_ptr<Image2D> prefiltered_; // Prefiltered environment map for specular
+    unique_ptr<Image2D> irradiance_;  // Convolved irradiance cubemap for diffuse
+    unique_ptr<Image2D> brdfLUT_;     // BRDF integration lookup texture
+
     TextureManager textureManager_;
     StorageBuffer materialStorageBuffer_;
     DescriptorSet materialDescriptorSet_;
@@ -267,4 +270,4 @@ class Renderer
                         const VkRenderingAttachmentInfo* depthAttachment = nullptr) const;
 };
 
-} // namespace hlab
+} // namespace hlab} // namespace hlab
