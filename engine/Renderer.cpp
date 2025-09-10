@@ -98,26 +98,28 @@ void Renderer::createUniformBuffers()
 
     postProcessingDescriptorSets_.resize(kMaxFramesInFlight_);
     for (size_t i = 0; i < kMaxFramesInFlight_; i++) {
-        postProcessingDescriptorSets_[i].create(
-            ctx_, {*computeToPost_, *uniformBuffers_["postOptions"][i]});
+        postProcessingDescriptorSets_[i].create(ctx_, {*imageBuffers_["floatColor2"], 
+                                                       *uniformBuffers_["postOptions"][i]});
     }
 
     // Create SSAO descriptor sets
-    // Ensure forwardToCompute_ and computeToPost_ are properly configured for storage binding
-    // forwardToCompute_ will be used as readonly storage image (input)
-    // computeToPost_ will be used as writeonly storage image (output)
+    // Ensure floatColor1 and floatColor2 are properly configured for storage binding
+    // floatColor1 will be used as readonly storage image (input)
+    // floatColor2 will be used as writeonly storage image (output)
     // Create a command buffer for image layout transitions
     auto cmd = ctx_.createGraphicsCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
-    forwardToCompute_->transitionToGeneral(cmd.handle(), VK_ACCESS_2_SHADER_READ_BIT,
-                                           VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
-    computeToPost_->transitionToGeneral(cmd.handle(), VK_ACCESS_2_SHADER_WRITE_BIT,
-                                        VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+    imageBuffers_["floatColor1"]->transitionToGeneral(cmd.handle(), VK_ACCESS_2_SHADER_READ_BIT,
+                                                      VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+    imageBuffers_["floatColor2"]->transitionToGeneral(cmd.handle(), VK_ACCESS_2_SHADER_WRITE_BIT,
+                                                       VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
     cmd.submitAndWait();
     ssaoDescriptorSets_.resize(kMaxFramesInFlight_);
     for (size_t i = 0; i < kMaxFramesInFlight_; i++) {
-        ssaoDescriptorSets_[i].create(ctx_, {*uniformBuffers_["sceneData"][i],
-                                             *uniformBuffers_["ssaoOptions"][i], *forwardToCompute_,
-                                             *computeToPost_, *depthStencil_});
+        ssaoDescriptorSets_[i].create(ctx_, {*uniformBuffers_["sceneData"][i], 
+                                             *uniformBuffers_["ssaoOptions"][i],
+                                             *imageBuffers_["floatColor1"], 
+                                             *imageBuffers_["floatColor2"], 
+                                             *imageBuffers_["depthStencil"]});
     }
 }
 
@@ -181,16 +183,16 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
 
     // Forward rendering pass
     {
-        forwardToCompute_->resourceBinding().barrierHelper().transitionTo(
+        imageBuffers_["floatColor1"]->resourceBinding().barrierHelper().transitionTo(
             cmd, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
 
         auto colorAttachment = createColorAttachment(
-            msaaColorBuffer_->view(), VK_ATTACHMENT_LOAD_OP_CLEAR, {0.0f, 0.0f, 0.5f, 0.0f},
-            forwardToCompute_->view(), VK_RESOLVE_MODE_AVERAGE_BIT);
+            imageBuffers_["msaaColor"]->view(), VK_ATTACHMENT_LOAD_OP_CLEAR, {0.0f, 0.0f, 0.5f, 0.0f},
+            imageBuffers_["floatColor1"]->view(), VK_RESOLVE_MODE_AVERAGE_BIT);
         auto depthAttachment = createDepthAttachment(
-            msaaDepthStencil_->attachmentView(), VK_ATTACHMENT_LOAD_OP_CLEAR, 1.0f,
-            depthStencil_->attachmentView(), VK_RESOLVE_MODE_SAMPLE_ZERO_BIT);
+            imageBuffers_["msaaDepthStencil"]->attachmentView(), VK_ATTACHMENT_LOAD_OP_CLEAR, 1.0f,
+            imageBuffers_["depthStencil"]->attachmentView(), VK_RESOLVE_MODE_SAMPLE_ZERO_BIT);
         auto renderingInfo = createRenderingInfo(renderArea, &colorAttachment, &depthAttachment);
 
         vkCmdBeginRendering(cmd, &renderingInfo);
@@ -269,16 +271,16 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
     // SSAO
     {
         // Transition images for SSAO compute pass to proper storage layouts
-        // forwardToCompute_: Forward rendering result → readonly storage image for SSAO input
-        forwardToCompute_->transitionToGeneral(cmd, VK_ACCESS_2_SHADER_READ_BIT,
-                                               VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+        // floatColor1: Forward rendering result → readonly storage image for SSAO input
+        imageBuffers_["floatColor1"]->transitionToGeneral(cmd, VK_ACCESS_2_SHADER_READ_BIT,
+                                                          VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
 
-        // computeToPost_: Empty buffer → writeonly storage image for SSAO output
-        computeToPost_->transitionToGeneral(cmd, VK_ACCESS_2_SHADER_WRITE_BIT,
-                                            VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+        // floatColor2: Empty buffer → writeonly storage image for SSAO output
+        imageBuffers_["floatColor2"]->transitionToGeneral(cmd, VK_ACCESS_2_SHADER_WRITE_BIT,
+                                                          VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
 
-        // depthStencil_: Depth buffer → sampled texture for depth-based calculations
-        depthStencil_->transitionToShaderRead(cmd);
+        // depthStencil: Depth buffer → sampled texture for depth-based calculations
+        imageBuffers_["depthStencil"]->transitionToShaderRead(cmd);
 
         // Bind SSAO compute pipeline
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines_.at("ssao").pipeline());
@@ -311,7 +313,7 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
 
     // Post-processing pass
     {
-        computeToPost_->transitionToShaderRead(cmd);
+        imageBuffers_["floatColor2"]->transitionToShaderRead(cmd);
 
         auto colorAttachment = createColorAttachment(
             swapchainImageView, VK_ATTACHMENT_LOAD_OP_CLEAR, {0.0f, 0.0f, 1.0f, 0.0f});
@@ -340,24 +342,24 @@ void Renderer::makeShadowMap(VkCommandBuffer cmd, uint32_t currentFrame,
                              vector<unique_ptr<Model>>& models)
 {
     // Transition shadow map image to depth-stencil attachment layout
-    shadowMap_->transitionToDepthStencilAttachment(cmd);
+    imageBuffers_["shadowMap"]->transitionToDepthStencilAttachment(cmd);
 
     VkRenderingAttachmentInfo shadowDepthAttachment{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
-    shadowDepthAttachment.imageView = shadowMap_->view();
+    shadowDepthAttachment.imageView = imageBuffers_["shadowMap"]->view();
     shadowDepthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
     shadowDepthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     shadowDepthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     shadowDepthAttachment.clearValue.depthStencil = {1.0f, 0};
 
     VkRenderingInfo shadowRenderingInfo{VK_STRUCTURE_TYPE_RENDERING_INFO_KHR};
-    shadowRenderingInfo.renderArea = {0, 0, shadowMap_->width(), shadowMap_->height()};
+    shadowRenderingInfo.renderArea = {0, 0, imageBuffers_["shadowMap"]->width(), imageBuffers_["shadowMap"]->height()};
     shadowRenderingInfo.layerCount = 1;
     shadowRenderingInfo.colorAttachmentCount = 0;
     shadowRenderingInfo.pDepthAttachment = &shadowDepthAttachment;
 
-    VkViewport shadowViewport{0.0f, 0.0f, (float)shadowMap_->width(), (float)shadowMap_->height(),
+    VkViewport shadowViewport{0.0f, 0.0f, (float)imageBuffers_["shadowMap"]->width(), (float)imageBuffers_["shadowMap"]->height(),
                               0.0f, 1.0f};
-    VkRect2D shadowScissor{0, 0, shadowMap_->width(), shadowMap_->height()};
+    VkRect2D shadowScissor{0, 0, imageBuffers_["shadowMap"]->width(), imageBuffers_["shadowMap"]->height()};
 
     vkCmdBeginRendering(cmd, &shadowRenderingInfo);
     vkCmdSetViewport(cmd, 0, 1, &shadowViewport);
@@ -409,7 +411,7 @@ void Renderer::makeShadowMap(VkCommandBuffer cmd, uint32_t currentFrame,
     vkCmdEndRendering(cmd);
 
     // Transition shadow map to shader read-only for sampling in main render pass
-    shadowMap_->transitionToShaderRead(cmd);
+    imageBuffers_["shadowMap"]->transitionToShaderRead(cmd);
 }
 
 void Renderer::createPipelines(const VkFormat swapChainColorFormat, const VkFormat depthFormat,
@@ -444,23 +446,18 @@ void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight,
     samplerAnisoClamp_.createAnisoClamp();
     samplerShadow_.createShadow();
 
-    // Create Image2D objects here when dimensions are known
-    dummyTexture_ = make_unique<Image2D>(ctx_);
-    msaaColorBuffer_ = make_unique<Image2D>(ctx_);
-    depthStencil_ = make_unique<Image2D>(ctx_);
-    msaaDepthStencil_ = make_unique<Image2D>(ctx_);
-    forwardToCompute_ = make_unique<Image2D>(ctx_);
-    computeToPost_ = make_unique<Image2D>(ctx_);
-    shadowMap_ = make_unique<Image2D>(ctx_);
+    // Initialize all image buffers in the consolidated map
+    const vector<string> imageNames = {"msaaColor", "msaaDepthStencil", "depthStencil", 
+                                      "floatColor1", "floatColor2", "dummy", "shadowMap",
+                                      "prefiltered", "irradiance", "brdfLut"};
     
-    // Create IBL texture objects
-    prefiltered_ = make_unique<Image2D>(ctx_);
-    irradiance_ = make_unique<Image2D>(ctx_);
-    brdfLUT_ = make_unique<Image2D>(ctx_);
+    for (const auto& name : imageNames) {
+        imageBuffers_[name] = make_unique<Image2D>(ctx_);
+    }
 
     string dummyImagePath = kAssetsPathPrefix_ + "textures/blender_uv_grid_2k.png";
 
-    // Load texture from file using stb_image
+    // Load dummy texture from file using stb_image
     {
         int width, height, channels;
         unsigned char* pixels =
@@ -470,17 +467,17 @@ void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight,
             exitWithMessage("Failed to load texture image: {}", dummyImagePath);
         }
 
-        dummyTexture_->createFromPixelData(pixels, width, height, channels, true);
+        imageBuffers_["dummy"]->createFromPixelData(pixels, width, height, channels, true);
 
         // Free the loaded image data (only if we loaded from file)
         if (pixels != nullptr && dummyImagePath.find(".png") != string::npos) {
             stbi_image_free(pixels);
         }
 
-        dummyTexture_->setSampler(samplerLinearRepeat_.handle());
+        imageBuffers_["dummy"]->setSampler(samplerLinearRepeat_.handle());
     }
 
-    // Load IBL textures directly (replacing SkyTextures functionality)
+    // Load IBL textures for PBR rendering
     string path = kAssetsPathPrefix_ + "textures/golden_gate_hills_4k/";
     
     printLog("Loading IBL textures...");
@@ -489,39 +486,37 @@ void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight,
     printLog("  BRDF LUT: {}", path + "outputLUT.png");
     
     // Load prefiltered environment map (cubemap for specular reflections)
-    prefiltered_->createTextureFromKtx2(path + "specularGGX.ktx2", true);
-    prefiltered_->setSampler(samplerLinearRepeat_.handle());
+    imageBuffers_["prefiltered"]->createTextureFromKtx2(path + "specularGGX.ktx2", true);
+    imageBuffers_["prefiltered"]->setSampler(samplerLinearRepeat_.handle());
     
     // Load irradiance map (cubemap for diffuse lighting)
-    irradiance_->createTextureFromKtx2(path + "diffuseLambertian.ktx2", true);
-    irradiance_->setSampler(samplerLinearRepeat_.handle());
+    imageBuffers_["irradiance"]->createTextureFromKtx2(path + "diffuseLambertian.ktx2", true);
+    imageBuffers_["irradiance"]->setSampler(samplerLinearRepeat_.handle());
     
     // Load BRDF lookup table (2D texture)
-    brdfLUT_->createTextureFromImage(path + "outputLUT.png", false, false);
-    brdfLUT_->setSampler(samplerLinearClamp_.handle());
+    imageBuffers_["brdfLut"]->createTextureFromImage(path + "outputLUT.png", false, false);
+    imageBuffers_["brdfLut"]->setSampler(samplerLinearClamp_.handle());
 
-    // Create render targets
-    msaaColorBuffer_->createMsaaColorBuffer(swapchainWidth, swapchainHeight, msaaSamples);
-    msaaDepthStencil_->createDepthBuffer(swapchainWidth, swapchainHeight, msaaSamples);
-    depthStencil_->createDepthBuffer(swapchainWidth, swapchainHeight, VK_SAMPLE_COUNT_1_BIT);
-    forwardToCompute_->createGeneralStorage(swapchainWidth, swapchainHeight);
-    computeToPost_->createGeneralStorage(swapchainWidth, swapchainHeight);
+    // Create render targets with specified dimensions and formats
+    imageBuffers_["msaaColor"]->createMsaaColorBuffer(swapchainWidth, swapchainHeight, msaaSamples);
+    imageBuffers_["msaaDepthStencil"]->createDepthBuffer(swapchainWidth, swapchainHeight, msaaSamples);
+    imageBuffers_["depthStencil"]->createDepthBuffer(swapchainWidth, swapchainHeight, VK_SAMPLE_COUNT_1_BIT);
+    imageBuffers_["floatColor1"]->createGeneralStorage(swapchainWidth, swapchainHeight);
+    imageBuffers_["floatColor2"]->createGeneralStorage(swapchainWidth, swapchainHeight);
 
-    // Create shadow map using Image2D
+    // Create shadow map
     uint32_t shadowMapSize = 2048 * 2;
-    shadowMap_->createShadow(shadowMapSize, shadowMapSize);
-    shadowMap_->setSampler(samplerShadow_.handle());
+    imageBuffers_["shadowMap"]->createShadow(shadowMapSize, shadowMapSize);
+    imageBuffers_["shadowMap"]->setSampler(samplerShadow_.handle());
 
-    // Set samplers
-    forwardToCompute_->setSampler(samplerLinearRepeat_.handle());
-    computeToPost_->setSampler(samplerLinearRepeat_.handle());
-    depthStencil_->setSampler(samplerLinearClamp_.handle());
+    // Set samplers for storage and sampling images
+    imageBuffers_["floatColor1"]->setSampler(samplerLinearRepeat_.handle());
+    imageBuffers_["floatColor2"]->setSampler(samplerLinearRepeat_.handle());
+    imageBuffers_["depthStencil"]->setSampler(samplerLinearClamp_.handle());
 
-    // Create descriptor sets for sky textures using individual Image2D objects
-    skyDescriptorSet_.create(ctx_, {*prefiltered_, *irradiance_, *brdfLUT_});
-
-    // Create descriptor set for shadow mapping
-    shadowMapSet_.create(ctx_, {*shadowMap_});
+    // Create descriptor sets using consolidated image buffers
+    skyDescriptorSet_.create(ctx_, {*imageBuffers_["prefiltered"], *imageBuffers_["irradiance"], *imageBuffers_["brdfLut"]});
+    shadowMapSet_.create(ctx_, {*imageBuffers_["shadowMap"]});
 }
 
 void Renderer::updateViewFrustum(const glm::mat4& viewProjection)
