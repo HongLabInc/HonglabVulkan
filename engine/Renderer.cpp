@@ -203,23 +203,22 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                           pipelines_.at("pbrForward").pipeline());
 
+        // Bind descriptor sets once per model (no longer per material)
+        const auto descriptorSets = vector{
+            sceneOptionsBoneDataSets_[currentFrame].handle(), // Set 0: scene, options, bone data
+            materialDescriptorSet_.handle(), // Set 1: material storage buffer + textures
+            skyDescriptorSet_.handle(),      // Set 2: sky textures
+            shadowMapSet_.handle()           // Set 3: shadow map
+        };
+
+        vkCmdBindDescriptorSets(
+            cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines_.at("pbrForward").pipelineLayout(), 0,
+            static_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(), 0, nullptr);
+
         for (size_t j = 0; j < models.size(); j++) {
             if (!models[j]->visible()) {
                 continue;
             }
-
-            // Bind descriptor sets once per model (no longer per material)
-            const auto descriptorSets = vector{
-                sceneOptionsBoneDataSets_[currentFrame]
-                    .handle(),                   // Set 0: scene, options, bone data
-                materialDescriptorSet_.handle(), // Set 1: material storage buffer + textures
-                skyDescriptorSet_.handle(),      // Set 2: sky textures
-                shadowMapSet_.handle()           // Set 3: shadow map
-            };
-
-            vkCmdBindDescriptorSets(
-                cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines_.at("pbrForward").pipelineLayout(),
-                0, static_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(), 0, nullptr);
 
             for (size_t i = 0; i < models[j]->meshes().size(); i++) {
                 auto& mesh = models[j]->meshes()[i];
