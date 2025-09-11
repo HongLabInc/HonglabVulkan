@@ -204,12 +204,11 @@ class Renderer
 
     // Resources - Consolidated image buffers using map structure
     unordered_map<string, unique_ptr<Image2D>> imageBuffers_;
-    // Keys: "msaaColor", "msaaDepthStencil", "depthStencil", "floatColor1", "floatColor2", 
+    // Keys: "msaaColor", "msaaDepthStencil", "depthStencil", "floatColor1", "floatColor2",
     //       "dummy", "shadowMap", "prefiltered", "irradiance", "brdfLut"
 
     TextureManager textureManager_;
     StorageBuffer materialStorageBuffer_;
-    DescriptorSet materialDescriptorSet_;
 
     Sampler samplerLinearRepeat_;
     Sampler samplerLinearClamp_;
@@ -217,6 +216,7 @@ class Renderer
     Sampler samplerAnisoClamp_;
     Sampler samplerShadow_;
 
+    DescriptorSet materialDescriptorSet_;
     DescriptorSet skyDescriptorSet_;
     DescriptorSet postDescriptorSet_;
     DescriptorSet shadowMapSet_;
@@ -225,7 +225,7 @@ class Renderer
     vector<DescriptorSet> postProcessingDescriptorSets_;
     vector<DescriptorSet> ssaoDescriptorSets_;
 
-    unordered_map<string, Pipeline> pipelines_;
+    unordered_map<string, unique_ptr<Pipeline>> pipelines_;
 
     ViewFrustum viewFrustum_{};
     bool frustumCullingEnabled_{true};

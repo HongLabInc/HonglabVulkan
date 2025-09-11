@@ -32,30 +32,11 @@ class Pipeline
         createFromConfig(config, outColorFormat, depthFormat, msaaSamples);
     }
 
-    Pipeline(Pipeline&& other) noexcept
-        : ctx_(other.ctx_), name_(std::move(other.name_)), pipelineLayout_(other.pipelineLayout_),
-          pipeline_(other.pipeline_), shaderManager_(other.shaderManager_)
-    {
-        other.pipelineLayout_ = VK_NULL_HANDLE;
-        other.pipeline_ = VK_NULL_HANDLE;
-    }
-
-    Pipeline& operator=(Pipeline&& other) noexcept
-    {
-        if (this != &other) {
-            cleanup();
-            name_ = std::move(other.name_);
-            pipelineLayout_ = other.pipelineLayout_;
-            pipeline_ = other.pipeline_;
-            other.pipelineLayout_ = VK_NULL_HANDLE;
-            other.pipeline_ = VK_NULL_HANDLE;
-            other.name_.clear();
-        }
-        return *this;
-    }
-
+    // Delete copy and move constructors/operators since we'll use unique_ptr
     Pipeline(const Pipeline&) = delete;
     Pipeline& operator=(const Pipeline&) = delete;
+    Pipeline(Pipeline&&) = delete;
+    Pipeline& operator=(Pipeline&&) = delete;
 
     ~Pipeline()
     {

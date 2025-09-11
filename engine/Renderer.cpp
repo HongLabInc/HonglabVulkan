@@ -203,7 +203,7 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
 
         // Render models
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                          pipelines_.at("pbrForward").pipeline());
+                          pipelines_.at("pbrForward")->pipeline());
 
         // Bind descriptor sets once per model (no longer per material)
         const auto descriptorSets = vector{
@@ -214,7 +214,7 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
         };
 
         vkCmdBindDescriptorSets(
-            cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines_.at("pbrForward").pipelineLayout(), 0,
+            cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines_.at("pbrForward")->pipelineLayout(), 0,
             static_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(), 0, nullptr);
 
         for (size_t j = 0; j < models.size(); j++) {
@@ -243,7 +243,7 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
                 }
 
                 // Push constants with material index
-                vkCmdPushConstants(cmd, pipelines_.at("pbrForward").pipelineLayout(),
+                vkCmdPushConstants(cmd, pipelines_.at("pbrForward")->pipelineLayout(),
                                    VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                                    sizeof(PbrPushConstants), &pushConstants);
 
@@ -254,7 +254,7 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
         }
 
         // Sky rendering pass
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines_.at("sky").pipeline());
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines_.at("sky")->pipeline());
 
         const auto skyDescriptorSets = vector{
             sceneSkyOptionsSets_[currentFrame].handle(), // Set 0: scene + sky options
@@ -262,7 +262,7 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
         };
 
         vkCmdBindDescriptorSets(
-            cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines_.at("sky").pipelineLayout(), 0,
+            cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines_.at("sky")->pipelineLayout(), 0,
             static_cast<uint32_t>(skyDescriptorSets.size()), skyDescriptorSets.data(), 0, nullptr);
         vkCmdDraw(cmd, 36, 1, 0, 0);
         vkCmdEndRendering(cmd);
@@ -283,12 +283,12 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
         imageBuffers_["depthStencil"]->transitionToShaderRead(cmd);
 
         // Bind SSAO compute pipeline
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines_.at("ssao").pipeline());
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelines_.at("ssao")->pipeline());
 
         // Bind descriptor sets for SSAO
         const auto ssaoDescriptorSets = vector{ssaoDescriptorSets_[currentFrame].handle()};
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
-                                pipelines_.at("ssao").pipelineLayout(), 0,
+                                pipelines_.at("ssao")->pipelineLayout(), 0,
                                 static_cast<uint32_t>(ssaoDescriptorSets.size()),
                                 ssaoDescriptorSets.data(), 0, nullptr);
 
@@ -324,12 +324,12 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
         vkCmdBeginRendering(cmd, &renderingInfo);
         vkCmdSetViewport(cmd, 0, 1, &viewport);
         vkCmdSetScissor(cmd, 0, 1, &scissor);
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines_.at("post").pipeline());
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines_.at("post")->pipeline());
 
         const auto postDescriptorSets =
             vector{postProcessingDescriptorSets_[currentFrame].handle()};
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                pipelines_.at("post").pipelineLayout(), 0,
+                                pipelines_.at("post")->pipelineLayout(), 0,
                                 static_cast<uint32_t>(postDescriptorSets.size()),
                                 postDescriptorSets.data(), 0, nullptr);
 
@@ -365,12 +365,12 @@ void Renderer::makeShadowMap(VkCommandBuffer cmd, uint32_t currentFrame,
     vkCmdSetViewport(cmd, 0, 1, &shadowViewport);
     vkCmdSetScissor(cmd, 0, 1, &shadowScissor);
 
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines_.at("shadowMap").pipeline());
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines_.at("shadowMap")->pipeline());
 
     const auto descriptorSets = vector{sceneOptionsBoneDataSets_[currentFrame].handle()};
 
     vkCmdBindDescriptorSets(
-        cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines_.at("shadowMap").pipelineLayout(), 0,
+        cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines_.at("shadowMap")->pipelineLayout(), 0,
         static_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(), 0, nullptr);
 
     vkCmdSetDepthBias(cmd,
@@ -386,7 +386,7 @@ void Renderer::makeShadowMap(VkCommandBuffer cmd, uint32_t currentFrame,
             continue;
         }
 
-        vkCmdPushConstants(cmd, pipelines_.at("shadowMap").pipelineLayout(),
+        vkCmdPushConstants(cmd, pipelines_.at("shadowMap")->pipelineLayout(),
                            VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(models[j]->modelMatrix()),
                            &models[j]->modelMatrix());
 
@@ -417,24 +417,21 @@ void Renderer::makeShadowMap(VkCommandBuffer cmd, uint32_t currentFrame,
 void Renderer::createPipelines(const VkFormat swapChainColorFormat, const VkFormat depthFormat,
                                VkSampleCountFlagBits msaaSamples)
 {
-    // NEW: Using PipelineConfig-based creation
-    pipelines_.emplace("pbrForward",
-                       Pipeline(ctx_, shaderManager_, PipelineConfig::createPbrForward(),
-                                VK_FORMAT_R16G16B16A16_SFLOAT, depthFormat, msaaSamples));
+    // Create pipelines using unique_ptr and PipelineConfig-based creation
+    pipelines_["pbrForward"] = make_unique<Pipeline>(ctx_, shaderManager_, PipelineConfig::createPbrForward(),
+                                                     VK_FORMAT_R16G16B16A16_SFLOAT, depthFormat, msaaSamples);
 
-    pipelines_.emplace("sky", Pipeline(ctx_, shaderManager_, PipelineConfig::createSky(),
-                                       VK_FORMAT_R16G16B16A16_SFLOAT, depthFormat, msaaSamples));
+    pipelines_["sky"] = make_unique<Pipeline>(ctx_, shaderManager_, PipelineConfig::createSky(),
+                                              VK_FORMAT_R16G16B16A16_SFLOAT, depthFormat, msaaSamples);
 
-    pipelines_.emplace("post", Pipeline(ctx_, shaderManager_, PipelineConfig::createPost(),
-                                        swapChainColorFormat, depthFormat, VK_SAMPLE_COUNT_1_BIT));
+    pipelines_["post"] = make_unique<Pipeline>(ctx_, shaderManager_, PipelineConfig::createPost(),
+                                               swapChainColorFormat, depthFormat, VK_SAMPLE_COUNT_1_BIT);
 
-    pipelines_.emplace("shadowMap",
-                       Pipeline(ctx_, shaderManager_, PipelineConfig::createShadowMap(),
-                                VK_FORMAT_D16_UNORM, VK_FORMAT_D16_UNORM, VK_SAMPLE_COUNT_1_BIT));
+    pipelines_["shadowMap"] = make_unique<Pipeline>(ctx_, shaderManager_, PipelineConfig::createShadowMap(),
+                                                    VK_FORMAT_D16_UNORM, VK_FORMAT_D16_UNORM, VK_SAMPLE_COUNT_1_BIT);
 
-    pipelines_.emplace("ssao",
-                       Pipeline(ctx_, shaderManager_, PipelineConfig::createSsao(),
-                                VK_FORMAT_D16_UNORM, VK_FORMAT_D16_UNORM, VK_SAMPLE_COUNT_1_BIT));
+    pipelines_["ssao"] = make_unique<Pipeline>(ctx_, shaderManager_, PipelineConfig::createSsao(),
+                                               VK_FORMAT_D16_UNORM, VK_FORMAT_D16_UNORM, VK_SAMPLE_COUNT_1_BIT);
 }
 
 void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight,
