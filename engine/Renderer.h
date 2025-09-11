@@ -199,7 +199,7 @@ class Renderer
     SsaoOptionsUBO ssaoOptionsUBO_{};
 
     // Resources - Consolidated uniform buffers using map structure
-    unordered_map<string, vector<unique_ptr<MappedBuffer>>> uniformBuffers_;
+    unordered_map<string, vector<unique_ptr<MappedBuffer>>> perFlightUniformBuffers_;
     // Keys: "sceneData", "skyOptions", "options", "boneData", "postOptions", "ssaoOptions"
 
     // Resources - Consolidated image buffers using map structure
@@ -216,14 +216,11 @@ class Renderer
     Sampler samplerAnisoClamp_;
     Sampler samplerShadow_;
 
-    DescriptorSet materialDescriptorSet_;
-    DescriptorSet skyDescriptorSet_;
-    DescriptorSet postDescriptorSet_;
-    DescriptorSet shadowMapSet_;
-    vector<DescriptorSet> sceneOptionsBoneDataSets_{};
-    vector<DescriptorSet> sceneSkyOptionsSets_{};
-    vector<DescriptorSet> postProcessingDescriptorSets_;
-    vector<DescriptorSet> ssaoDescriptorSets_;
+    unordered_map<string, DescriptorSet> descriptorSets_;
+    // Keys: "material", "sky", "post", "shadowMap"
+
+    unordered_map<string, vector<DescriptorSet>> perFlightDescriptorSets_;
+    // Keys: "sceneOptions", "skyOptions", "postProcessing", "ssao"
 
     unordered_map<string, unique_ptr<Pipeline>> pipelines_;
 
