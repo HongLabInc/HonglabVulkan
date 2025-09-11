@@ -62,7 +62,7 @@ layout(set = 1, binding = 1) uniform sampler2D materialTextures[512];
 // IBL textures
 layout(set = 2, binding = 0) uniform samplerCube prefilteredMap;
 layout(set = 2, binding = 1) uniform samplerCube irradianceMap;
-layout(set = 2, binding = 2) uniform sampler2D brdfLUT;
+layout(set = 2, binding = 2) uniform sampler2D brdfLut;
 
 // Shadow map (주의: 각 셋의 바인딩은 0에서 시작해야 함)
 layout(set = 3, binding = 0) uniform sampler2DShadow shadowMap;
@@ -146,7 +146,7 @@ vec3 getIBLGGXFresnel(vec3 n, vec3 v, float roughness, vec3 F0, float specularWe
     // Roughness dependent fresnel, from Fdez-Aguera
     float NdotV = clamp(dot(n, v),0.0, 1.0);
     vec2 brdfSamplePoint = clamp(vec2(NdotV, roughness), vec2(0.0, 0.0), vec2(1.0, 1.0));
-    vec2 f_ab = texture(brdfLUT, brdfSamplePoint).rg;
+    vec2 f_ab = texture(brdfLut, brdfSamplePoint).rg;
     vec3 Fr = max(vec3(1.0 - roughness), F0) - F0;
     vec3 k_S = F0 + Fr * pow(1.0 - NdotV, 5.0);
     vec3 FssEss = specularWeight * (k_S * f_ab.x + f_ab.y);

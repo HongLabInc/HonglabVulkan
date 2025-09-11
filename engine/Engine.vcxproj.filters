@@ -36,6 +36,7 @@
     <ClInclude Include="PipelineConfig.h" />
     <ClInclude Include="TextureManager.h" />
     <ClInclude Include="Resource.h" />
+    <ClInclude Include="RenderGraph.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Logger.cpp" />
@@ -74,6 +75,7 @@
     <ClCompile Include="PipelineConfig.cpp" />
     <ClCompile Include="TextureManager.cpp" />
     <ClCompile Include="Resource.cpp" />
+    <ClCompile Include="RenderGraph.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\.clang-format" />

@@ -469,9 +469,9 @@ void Application::run()
         gpuTimer_.resetQueries(cmd.handle(), currentFrame);
         gpuTimer_.beginFrame(cmd.handle(), currentFrame);
 
-        // Make Shadow map
-        renderer_.makeShadowMap(cmd.handle(), currentFrame, models_);
         // Transition swapchain image from undefined to color attachment layout
+        // 안내: 스왑체인 이미지를 write로 바꿔주는 것은 renderer_.draw()의
+        //      post 파이프라인 시작할 때 해도 됩니다.
         swapchain_.barrierHelper(imageIndex)
             .transitionTo(cmd.handle(), VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
                           VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,

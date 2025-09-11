@@ -2,7 +2,7 @@
 
 layout (location = 0) in vec2 inTexCoord;
 
-layout (set = 0, binding = 0) uniform sampler2D hdrColorBuffer;
+layout (set = 0, binding = 0) uniform sampler2D floatColor2;
 
 // Post-processing options uniform buffer
 layout (set = 0, binding = 1) uniform PostProcessingOptions {
@@ -194,15 +194,15 @@ vec3 addFilmGrain(vec3 color, vec2 uv) {
 
 vec3 applyChromaticAberration(vec2 uv) {
     if (postOptions.chromaticAberration <= 0.0) {
-        return texture(hdrColorBuffer, uv).rgb;
+        return texture(floatColor2, uv).rgb;
     }
     
     vec2 center = vec2(0.5, 0.5);
     vec2 offset = (uv - center) * postOptions.chromaticAberration * 0.01;
     
-    float r = texture(hdrColorBuffer, uv + offset).r;
-    float g = texture(hdrColorBuffer, uv).g;
-    float b = texture(hdrColorBuffer, uv - offset).b;
+    float r = texture(floatColor2, uv + offset).r;
+    float g = texture(floatColor2, uv).g;
+    float b = texture(floatColor2, uv - offset).b;
     
     return vec3(r, g, b);
 }

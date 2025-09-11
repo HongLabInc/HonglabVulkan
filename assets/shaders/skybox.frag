@@ -15,7 +15,7 @@ layout(set = 0, binding = 1) uniform SkyOptionsUBO {
 
 layout(set = 1, binding = 0) uniform samplerCube prefilteredMap;
 layout(set = 1, binding = 1) uniform samplerCube irradianceMap;
-layout(set = 1, binding = 2) uniform sampler2D brdfLUT;
+layout(set = 1, binding = 2) uniform sampler2D brdfLut;
 
 layout(location = 0) out vec4 outColor;
 

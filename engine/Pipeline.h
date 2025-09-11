@@ -23,7 +23,7 @@ class Pipeline
     {
     }
 
-    // NEW: PipelineConfig-based constructor
+    // PipelineConfig-based constructor
     Pipeline(Context& ctx, ShaderManager& shaderManager, const PipelineConfig& config,
              optional<VkFormat> outColorFormat = nullopt, optional<VkFormat> depthFormat = nullopt,
              optional<VkSampleCountFlagBits> msaaSamples = nullopt)

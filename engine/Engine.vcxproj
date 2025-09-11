@@ -40,6 +40,7 @@
     <ClInclude Include="PipelineConfig.h" />
     <ClInclude Include="PushConstants.h" />
     <ClInclude Include="Renderer.h" />
+    <ClInclude Include="RenderGraph.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="ResourceBinding.h" />
     <ClInclude Include="Sampler.h" />
@@ -78,6 +79,7 @@
     <ClCompile Include="PipelineConfig.cpp" />
     <ClCompile Include="PushConstants.cpp" />
     <ClCompile Include="Renderer.cpp" />
+    <ClCompile Include="RenderGraph.cpp" />
     <ClCompile Include="Resource.cpp" />
     <ClCompile Include="ResourceBinding.cpp" />
     <ClCompile Include="Sampler.cpp" />

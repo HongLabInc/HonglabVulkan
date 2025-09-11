@@ -10,6 +10,7 @@
 #include "ViewFrustum.h"
 #include "Model.h"
 #include "MappedBuffer.h"
+#include "RenderGraph.h"
 #include "ShaderManager.h"
 #include "TextureManager.h"
 #include <glm/glm.hpp>
@@ -150,9 +151,6 @@ class Renderer
     void draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swapchainImageView,
               vector<unique_ptr<Model>>& models, VkViewport viewport, VkRect2D scissor);
 
-    void makeShadowMap(VkCommandBuffer cmd, uint32_t currentFrame,
-                       vector<unique_ptr<Model>>& models);
-
     // View frustum culling
     auto getCullingStats() const -> const CullingStats&;
     bool isFrustumCullingEnabled() const;
@@ -223,6 +221,8 @@ class Renderer
     // Keys: "sceneOptions", "skyOptions", "postProcessing", "ssao"
 
     unordered_map<string, unique_ptr<Pipeline>> pipelines_;
+
+    RenderGraph renderGraph_;
 
     ViewFrustum viewFrustum_{};
     bool frustumCullingEnabled_{true};
