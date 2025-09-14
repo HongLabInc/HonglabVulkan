@@ -47,7 +47,7 @@ int main()
                              VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
 
     DescriptorSet descriptorSet;
-    descriptorSet.create(ctx, {inputImage, outputImage});
+    descriptorSet.create(ctx, computePipeline.layouts()[0], {inputImage, outputImage});
 
     vkCmdBindPipeline(cmd.handle(), VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline.pipeline());
 

@@ -4,8 +4,10 @@
 
 namespace hlab {
 
-StorageBuffer::StorageBuffer(Context& ctx) : Resource(ctx, Type::Buffer)
+StorageBuffer::StorageBuffer(Context& ctx, const void* data, VkDeviceSize dataSize)
+    : Resource(ctx, Type::Buffer)
 {
+    create(data, dataSize);
 }
 
 StorageBuffer::~StorageBuffer()
@@ -44,7 +46,7 @@ void StorageBuffer::create(VkDeviceSize size, VkBufferUsageFlags additionalUsage
     allocInfo.memoryTypeIndex = memoryTypeIndex;
     check(vkAllocateMemory(device, &allocInfo, nullptr, &memory_));
     check(vkBindBufferMemory(device, buffer_, memory_, 0));
-    
+
     // Initialize the resource
     initializeBufferResource(buffer_, size_);
 }

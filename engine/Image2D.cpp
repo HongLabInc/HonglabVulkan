@@ -524,29 +524,39 @@ auto Image2D::format() const -> VkFormat
     return format_;
 }
 
-void Image2D::updateBinding(VkDescriptorSetLayoutBinding& binding)
-{
-    const ResourceBinding& rb = resourceBinding();
-    
-    // Set descriptor type based on current usage and state
-    binding.descriptorType = rb.descriptorType_;
-    binding.descriptorCount = rb.descriptorCount_;
-    binding.pImmutableSamplers = nullptr;
-    binding.stageFlags = 0; // Will be set by shader reflection
-}
+// void Image2D::updateBinding(VkDescriptorSetLayoutBinding& binding)
+//{
+//     const ResourceBinding& rb = resourceBinding();
+//
+//     // Set descriptor type based on current usage and state
+//     binding.descriptorType = rb.descriptorType_;
+//     binding.descriptorCount = rb.descriptorCount_;
+//     binding.pImmutableSamplers = nullptr;
+//     binding.stageFlags = 0; // Will be set by shader reflection
+// }
 
-void Image2D::updateWrite(VkWriteDescriptorSet& write)
+void Image2D::updateWrite(VkDescriptorSetLayoutBinding expectedBinding, VkWriteDescriptorSet& write)
 {
     const ResourceBinding& rb = resourceBinding();
-    
+
+    imageInfo_ = rb.imageInfo_;
+
+    if (expectedBinding.descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) {
+        if (!(this->usageFlags_ & VK_IMAGE_USAGE_STORAGE_BIT)) {
+            exitWithMessage("Image2D was not created with VK_IMAGE_USAGE_STORAGE_BIT flag for "
+                            "VK_DESCRIPTOR_TYPE_STORAGE_IMAGE descriptorType.");
+        }
+        imageInfo_.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+    }
+
     write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     write.pNext = nullptr;
     write.dstSet = VK_NULL_HANDLE; // Will be set by DescriptorSet::create()
     write.dstBinding = 0;          // Will be set by DescriptorSet::create()
     write.dstArrayElement = 0;
-    write.descriptorType = rb.descriptorType_;
-    write.descriptorCount = rb.descriptorCount_;
-    write.pImageInfo = &rb.imageInfo_;
+    write.descriptorType = expectedBinding.descriptorType;
+    write.descriptorCount = expectedBinding.descriptorCount;
+    write.pImageInfo = &imageInfo_;
     write.pBufferInfo = nullptr;
     write.pTexelBufferView = nullptr;
 }

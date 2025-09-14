@@ -121,16 +121,14 @@ class Renderer
 {
   public:
     Renderer(Context& ctx, ShaderManager& shaderManager, const uint32_t& kMaxFramesInFlight,
-             const string& kAssetsPathPrefix, const string& kShaderPathPrefix_);
+             const string& kAssetsPathPrefix, const string& kShaderPathPrefix_,
+             vector<unique_ptr<Model>>& models, VkFormat outColorFormat, VkFormat depthFormat,
+             VkSampleCountFlagBits msaaSamples, uint32_t swapChainWidth, uint32_t swapChainHeight);
 
     ~Renderer()
     {
         cleanup();
     }
-
-    void prepareForModels(vector<unique_ptr<Model>>& models, VkFormat outColorFormat,
-                          VkFormat depthFormat, VkSampleCountFlagBits msaaSamples,
-                          uint32_t swapChainWidth, uint32_t swapChainHeight);
 
     void createPipelines(const VkFormat colorFormat, const VkFormat depthFormat,
                          VkSampleCountFlagBits msaaSamples);
@@ -197,7 +195,7 @@ class Renderer
     SsaoOptionsUBO ssaoOptionsUBO_{};
 
     // Resources - Consolidated uniform buffers using map structure
-    unordered_map<string, vector<unique_ptr<MappedBuffer>>> perFlightUniformBuffers_;
+    unordered_map<string, vector<unique_ptr<MappedBuffer>>> perFrameUniformBuffers_;
     // Keys: "sceneData", "skyOptions", "options", "boneData", "postOptions", "ssaoOptions"
 
     // Resources - Consolidated image buffers using map structure
@@ -205,8 +203,8 @@ class Renderer
     // Keys: "msaaColor", "msaaDepthStencil", "depthStencil", "floatColor1", "floatColor2",
     //       "dummy", "shadowMap", "prefiltered", "irradiance", "brdfLut"
 
-    TextureManager textureManager_;
-    StorageBuffer materialStorageBuffer_;
+    unique_ptr<TextureManager> materialTextures_; // Material textures for bindless rendering
+    unique_ptr<StorageBuffer> materialBuffer_;    // Material data storage buffer
 
     Sampler samplerLinearRepeat_;
     Sampler samplerLinearClamp_;
@@ -217,10 +215,45 @@ class Renderer
     unordered_map<string, DescriptorSet> descriptorSets_;
     // Keys: "material", "sky", "post", "shadowMap"
 
-    unordered_map<string, vector<DescriptorSet>> perFlightDescriptorSets_;
+    unordered_map<string, vector<DescriptorSet>> perFrameDescriptorSets_;
     // Keys: "sceneOptions", "skyOptions", "postProcessing", "ssao"
 
     unordered_map<string, unique_ptr<Pipeline>> pipelines_;
+
+    bool perFrameResources(vector<string> resourceNames)
+    {
+        for (const auto& name : resourceNames) {
+            if (perFrameUniformBuffers_.find(name) != perFrameUniformBuffers_.end()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    void addResource(string resourceName, uint32_t frameNumber,
+                     vector<reference_wrapper<Resource>>& resources)
+    {
+        if (perFrameUniformBuffers_.find(resourceName) != perFrameUniformBuffers_.end()) {
+            resources.push_back(*perFrameUniformBuffers_[resourceName][frameNumber]);
+            return;
+        }
+
+        if (imageBuffers_.find(resourceName) != imageBuffers_.end()) {
+            resources.push_back(*imageBuffers_[resourceName]);
+            return;
+        }
+
+        if (resourceName == "materialBuffer") {
+            resources.push_back(*materialBuffer_);
+            return;
+        }
+
+        if (resourceName == "materialTextures") {
+            resources.push_back(*materialTextures_);
+            return;
+        }
+    }
 
     RenderGraph renderGraph_;
 

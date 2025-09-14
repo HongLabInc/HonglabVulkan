@@ -40,7 +40,7 @@ class Model
     void cleanup();
     void createVulkanResources();
 
-    void createDescriptorSets(Sampler& sampler, vector<MaterialUBO>& materials,
+    void prepareForBindlessRendering(Sampler& sampler, vector<MaterialUBO>& materials,
                               TextureManager& textureManager);
 
     // Animation methods - ADD THESE

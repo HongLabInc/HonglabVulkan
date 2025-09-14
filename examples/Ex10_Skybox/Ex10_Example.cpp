@@ -86,10 +86,8 @@ Ex10_Example::~Ex10_Example()
 void Ex10_Example::initializeSkybox()
 {
     // Create skybox pipeline using PipelineConfig
-    skyPipeline_.createFromConfig(PipelineConfig::createSky(), 
-                                 swapchain_.colorFormat(), 
-                                 ctx_.depthFormat(), 
-                                 VK_SAMPLE_COUNT_1_BIT);
+    skyPipeline_.createFromConfig(PipelineConfig::createSky(), swapchain_.colorFormat(),
+                                  ctx_.depthFormat(), VK_SAMPLE_COUNT_1_BIT);
 
     // Initialize samplers
     samplerLinearRepeat_.createLinearRepeat();
@@ -102,15 +100,15 @@ void Ex10_Example::initializeSkybox()
 
     // Load IBL textures directly (replacing SkyTextures functionality)
     string path = kAssetsPathPrefix + "textures/golden_gate_hills_4k/";
-    
+
     // Load prefiltered environment map (cubemap for specular reflections)
     prefiltered_->createTextureFromKtx2(path + "specularGGX.ktx2", true);
     prefiltered_->setSampler(samplerLinearRepeat_.handle());
-    
+
     // Load irradiance map (cubemap for diffuse lighting)
     irradiance_->createTextureFromKtx2(path + "diffuseLambertian.ktx2", true);
     irradiance_->setSampler(samplerLinearRepeat_.handle());
-    
+
     // Load BRDF lookup table (2D texture)
     brdfLUT_->createTextureFromImage(path + "outputLUT.png", false, false);
     brdfLUT_->setSampler(samplerLinearClamp_.handle());
@@ -136,7 +134,7 @@ void Ex10_Example::initializeSkybox()
     // Create descriptor sets for scene data and options (set 0)
     sceneDescriptorSets_.resize(kMaxFramesInFlight);
     for (size_t i = 0; i < kMaxFramesInFlight; i++) {
-        sceneDescriptorSets_[i].create(ctx_,
+        sceneDescriptorSets_[i].create(ctx_, skyPipeline_.layouts()[0],
                                        {
                                            *sceneDataUniforms_[i], // binding 0
                                            *skyOptionsUniforms_[i] // binding 1
@@ -144,7 +142,8 @@ void Ex10_Example::initializeSkybox()
     }
 
     // Create descriptor set for skybox textures using individual Image2D objects
-    skyDescriptorSet_.create(ctx_, {*prefiltered_, *irradiance_, *brdfLUT_});
+    skyDescriptorSet_.create(ctx_, skyPipeline_.layouts()[1],
+                             {*prefiltered_, *irradiance_, *brdfLUT_});
 }
 
 void Ex10_Example::mainLoop()

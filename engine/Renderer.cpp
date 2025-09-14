@@ -5,18 +5,15 @@
 namespace hlab {
 
 Renderer::Renderer(Context& ctx, ShaderManager& shaderManager, const uint32_t& kMaxFramesInFlight,
-                   const string& kAssetsPathPrefix, const string& kShaderPathPrefix_)
+                   const string& kAssetsPathPrefix, const string& kShaderPathPrefix_,
+                   vector<unique_ptr<Model>>& models, VkFormat outColorFormat, VkFormat depthFormat,
+                   VkSampleCountFlagBits msaaSamples, uint32_t swapChainWidth,
+                   uint32_t swapChainHeight)
     : ctx_(ctx), shaderManager_(shaderManager), kMaxFramesInFlight_(kMaxFramesInFlight),
       kAssetsPathPrefix_(kAssetsPathPrefix), kShaderPathPrefix_(kShaderPathPrefix_),
       samplerShadow_(ctx), samplerLinearRepeat_(ctx), samplerLinearClamp_(ctx),
-      samplerAnisoRepeat_(ctx), samplerAnisoClamp_(ctx), textureManager_(ctx),
-      materialStorageBuffer_(ctx)
-{
-}
-
-void Renderer::prepareForModels(vector<unique_ptr<Model>>& models, VkFormat outColorFormat,
-                                VkFormat depthFormat, VkSampleCountFlagBits msaaSamples,
-                                uint32_t swapChainWidth, uint32_t swapChainHeight)
+      samplerAnisoRepeat_(ctx), samplerAnisoClamp_(ctx),
+      materialTextures_(make_unique<TextureManager>(ctx))
 {
     createPipelines(outColorFormat, depthFormat, msaaSamples);
     createTextures(swapChainWidth, swapChainHeight, msaaSamples);
@@ -25,15 +22,119 @@ void Renderer::prepareForModels(vector<unique_ptr<Model>>& models, VkFormat outC
     vector<MaterialUBO> allMaterials;
 
     for (auto& m : models) {
-        m->createDescriptorSets(samplerLinearRepeat_, allMaterials, textureManager_);
+        m->prepareForBindlessRendering(samplerLinearRepeat_, allMaterials, *materialTextures_);
     }
 
-    VkDeviceSize size = sizeof(MaterialUBO) * allMaterials.size();
-    materialStorageBuffer_.create(size);
-    materialStorageBuffer_.copyData(allMaterials.data(), size);
+    materialBuffer_ = make_unique<StorageBuffer>(ctx_, allMaterials.data(),
+                                                 sizeof(MaterialUBO) * allMaterials.size());
 
-    // Create single descriptor set for all materials
-    descriptorSets_["material"].create(ctx_, {materialStorageBuffer_, textureManager_});
+    unordered_map<string, vector<vector<BindingInfo>>> bindingInfos = shaderManager_.bindingInfos();
+
+    for (auto& node : renderGraph_.renderNodes_) {
+
+        cout << node.pipeline << endl;
+
+        auto& bindings = bindingInfos.at(node.pipeline);
+
+        assert(bindings.size() == node.descriptorSets.size());
+
+        for (int s = 0; s < bindings.size(); s++) {
+
+            string setName = node.descriptorSets[s];
+
+            if (perFrameDescriptorSets_.find(setName) != perFrameDescriptorSets_.end())
+                continue;
+            if (descriptorSets_.find(setName) != descriptorSets_.end())
+                continue;
+
+            cout << "Set " << s << " " << node.descriptorSets[s] << endl;
+
+            vector<string> bindingNames;
+            for (int b = 0; b < bindings[s].size(); b++) {
+                bindingNames.push_back(bindings[s][b].resourceName);
+            }
+
+            bool perFramesSet = this->perFrameResources(bindingNames);
+
+            if (perFramesSet) {
+                perFrameDescriptorSets_[setName].resize(kMaxFramesInFlight_);
+                for (uint32_t i = 0; i < kMaxFramesInFlight_; i++) {
+                    // Collect resources for this descriptor set
+                    vector<reference_wrapper<Resource>> resources;
+
+                    for (const string& resourceName : bindingNames) {
+                        addResource(resourceName, i, resources);
+                    }
+
+                    // Create the descriptor set with collected resources
+                    perFrameDescriptorSets_[setName][i].create(
+                        ctx_, pipelines_[node.pipeline]->layouts()[s], resources);
+                }
+            } else {
+                // Collect resources for non-per-frame descriptor set
+                vector<reference_wrapper<Resource>> resources;
+
+                for (const string& resourceName : bindingNames) {
+                    addResource(resourceName, uint32_t(-1), resources);
+                }
+
+                // Create the descriptor set with collected resources
+                descriptorSets_[setName].create(ctx_, pipelines_[node.pipeline]->layouts()[s],
+                                                resources);
+            }
+        }
+    }
+
+    // Create descriptor sets using the consolidated map structures
+    // perFrameDescriptorSets_["sceneOptions"].resize(kMaxFramesInFlight_);
+    // for (size_t i = 0; i < kMaxFramesInFlight_; i++) {
+    //    perFrameDescriptorSets_["sceneOptions"][i].create(
+    //        ctx_, {*perFrameUniformBuffers_["sceneData"][i],
+    //        *perFrameUniformBuffers_["options"][i],
+    //               *perFrameUniformBuffers_["boneData"][i]});
+    //}
+
+    // perFrameDescriptorSets_["skyOptions"].resize(kMaxFramesInFlight_);
+    // for (size_t i = 0; i < kMaxFramesInFlight_; i++) {
+    //     perFrameDescriptorSets_["skyOptions"][i].create(
+    //         ctx_,
+    //         {*perFrameUniformBuffers_["sceneData"][i],
+    //         *perFrameUniformBuffers_["skyOptions"][i]});
+    // }
+
+    // perFrameDescriptorSets_["postProcessing"].resize(kMaxFramesInFlight_);
+    // for (size_t i = 0; i < kMaxFramesInFlight_; i++) {
+    //     perFrameDescriptorSets_["postProcessing"][i].create(
+    //         ctx_, {*imageBuffers_["floatColor2"], *perFrameUniformBuffers_["postOptions"][i]});
+    // }
+
+    // Create SSAO descriptor sets
+    // Ensure floatColor1 and floatColor2 are properly configured for storage binding
+    // floatColor1 will be used as readonly storage image (input)
+    // floatColor2 will be used as writeonly storage image (output)
+    // Create a command buffer for image layout transitions
+    // auto cmd = ctx_.createGraphicsCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+    // imageBuffers_["floatColor1"]->transitionToGeneral(cmd.handle(), VK_ACCESS_2_SHADER_READ_BIT,
+    //                                                  VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+    // imageBuffers_["floatColor2"]->transitionToGeneral(cmd.handle(), VK_ACCESS_2_SHADER_WRITE_BIT,
+    //                                                  VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+    // cmd.submitAndWait();
+    // perFrameDescriptorSets_["ssao"].resize(kMaxFramesInFlight_);
+    // for (size_t i = 0; i < kMaxFramesInFlight_; i++) {
+    //    perFrameDescriptorSets_["ssao"][i].create(
+    //        ctx_, {*perFrameUniformBuffers_["sceneData"][i],
+    //               *perFrameUniformBuffers_["ssaoOptions"][i], *imageBuffers_["floatColor1"],
+    //               *imageBuffers_["floatColor2"], *imageBuffers_["depthStencil"]});
+    //}
+
+    //// Create descriptor sets using consolidated image buffers and maps
+    // descriptorSets_["sky"].create(ctx_,
+    //                               {*imageBuffers_["prefilteredMap"],
+    //                                *imageBuffers_["irradianceMap"], *imageBuffers_["brdfLut"]});
+    // descriptorSets_["shadowMap"].create(ctx_, {*imageBuffers_["shadowMap"]});
+
+    //// Create single descriptor set for all materials
+    // descriptorSets_["material"].create(ctx_, {*materialBuffer_, *materialTextures_});
 }
 
 void Renderer::createUniformBuffers()
@@ -45,8 +146,8 @@ void Renderer::createUniformBuffers()
                                         "boneData",  "postOptions", "ssaoOptions"};
 
     for (const auto& name : bufferNames) {
-        perFlightUniformBuffers_[name].clear();
-        perFlightUniformBuffers_[name].reserve(kMaxFramesInFlight_);
+        perFrameUniformBuffers_[name].clear();
+        perFrameUniformBuffers_[name].reserve(kMaxFramesInFlight_);
     }
 
     // Create uniform buffers for each type and frame
@@ -54,73 +155,32 @@ void Renderer::createUniformBuffers()
         // Scene uniform buffers
         auto sceneBuffer = make_unique<MappedBuffer>(ctx_);
         sceneBuffer->createUniformBuffer(sceneUBO_);
-        perFlightUniformBuffers_["sceneData"].emplace_back(std::move(sceneBuffer));
+        perFrameUniformBuffers_["sceneData"].emplace_back(std::move(sceneBuffer));
 
         // Options uniform buffers
         auto optionsBuffer = make_unique<MappedBuffer>(ctx_);
         optionsBuffer->createUniformBuffer(optionsUBO_);
-        perFlightUniformBuffers_["options"].emplace_back(std::move(optionsBuffer));
+        perFrameUniformBuffers_["options"].emplace_back(std::move(optionsBuffer));
 
         // Sky options uniform buffers
         auto skyOptionsBuffer = make_unique<MappedBuffer>(ctx_);
         skyOptionsBuffer->createUniformBuffer(skyOptionsUBO_);
-        perFlightUniformBuffers_["skyOptions"].emplace_back(std::move(skyOptionsBuffer));
+        perFrameUniformBuffers_["skyOptions"].emplace_back(std::move(skyOptionsBuffer));
 
         // Post options uniform buffers
         auto postOptionsBuffer = make_unique<MappedBuffer>(ctx_);
         postOptionsBuffer->createUniformBuffer(postOptionsUBO_);
-        perFlightUniformBuffers_["postOptions"].emplace_back(std::move(postOptionsBuffer));
+        perFrameUniformBuffers_["postOptions"].emplace_back(std::move(postOptionsBuffer));
 
         // SSAO options uniform buffers
         auto ssaoOptionsBuffer = make_unique<MappedBuffer>(ctx_);
         ssaoOptionsBuffer->createUniformBuffer(ssaoOptionsUBO_);
-        perFlightUniformBuffers_["ssaoOptions"].emplace_back(std::move(ssaoOptionsBuffer));
+        perFrameUniformBuffers_["ssaoOptions"].emplace_back(std::move(ssaoOptionsBuffer));
 
         // Bone data uniform buffers
         auto boneDataBuffer = make_unique<MappedBuffer>(ctx_);
         boneDataBuffer->createUniformBuffer(boneDataUBO_);
-        perFlightUniformBuffers_["boneData"].emplace_back(std::move(boneDataBuffer));
-    }
-
-    // Create descriptor sets using the consolidated map structures
-    perFlightDescriptorSets_["sceneOptions"].resize(kMaxFramesInFlight_);
-    for (size_t i = 0; i < kMaxFramesInFlight_; i++) {
-        perFlightDescriptorSets_["sceneOptions"][i].create(
-            ctx_,
-            {*perFlightUniformBuffers_["sceneData"][i], *perFlightUniformBuffers_["options"][i],
-             *perFlightUniformBuffers_["boneData"][i]});
-    }
-
-    perFlightDescriptorSets_["skyOptions"].resize(kMaxFramesInFlight_);
-    for (size_t i = 0; i < kMaxFramesInFlight_; i++) {
-        perFlightDescriptorSets_["skyOptions"][i].create(
-            ctx_, {*perFlightUniformBuffers_["sceneData"][i],
-                   *perFlightUniformBuffers_["skyOptions"][i]});
-    }
-
-    perFlightDescriptorSets_["postProcessing"].resize(kMaxFramesInFlight_);
-    for (size_t i = 0; i < kMaxFramesInFlight_; i++) {
-        perFlightDescriptorSets_["postProcessing"][i].create(
-            ctx_, {*imageBuffers_["floatColor2"], *perFlightUniformBuffers_["postOptions"][i]});
-    }
-
-    // Create SSAO descriptor sets
-    // Ensure floatColor1 and floatColor2 are properly configured for storage binding
-    // floatColor1 will be used as readonly storage image (input)
-    // floatColor2 will be used as writeonly storage image (output)
-    // Create a command buffer for image layout transitions
-    auto cmd = ctx_.createGraphicsCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
-    imageBuffers_["floatColor1"]->transitionToGeneral(cmd.handle(), VK_ACCESS_2_SHADER_READ_BIT,
-                                                      VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
-    imageBuffers_["floatColor2"]->transitionToGeneral(cmd.handle(), VK_ACCESS_2_SHADER_WRITE_BIT,
-                                                      VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
-    cmd.submitAndWait();
-    perFlightDescriptorSets_["ssao"].resize(kMaxFramesInFlight_);
-    for (size_t i = 0; i < kMaxFramesInFlight_; i++) {
-        perFlightDescriptorSets_["ssao"][i].create(
-            ctx_, {*perFlightUniformBuffers_["sceneData"][i],
-                   *perFlightUniformBuffers_["ssaoOptions"][i], *imageBuffers_["floatColor1"],
-                   *imageBuffers_["floatColor2"], *imageBuffers_["depthStencil"]});
+        perFrameUniformBuffers_["boneData"].emplace_back(std::move(boneDataBuffer));
     }
 }
 
@@ -134,7 +194,7 @@ void Renderer::update(Camera& camera, vector<unique_ptr<Model>>& models, uint32_
     performFrustumCulling(models);
 
     // Update all uniform buffers using direct iteration over the map
-    for (const auto& [bufferName, bufferVector] : perFlightUniformBuffers_) {
+    for (const auto& [bufferName, bufferVector] : perFrameUniformBuffers_) {
         bufferVector[currentFrame]->updateFromCpuData();
     }
 }
@@ -177,7 +237,7 @@ void Renderer::updateBoneData(const vector<unique_ptr<Model>>& models, uint32_t 
     }
 
     // Update the GPU buffer using the consolidated map structure
-    perFlightUniformBuffers_["boneData"][currentFrame]->updateFromCpuData();
+    perFrameUniformBuffers_["boneData"][currentFrame]->updateFromCpuData();
 }
 
 void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swapchainImageView,
@@ -218,7 +278,7 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines_.at("shadowMap")->pipeline());
 
     const auto descriptorSets =
-        vector{perFlightDescriptorSets_["sceneOptions"][currentFrame].handle()};
+        vector{perFrameDescriptorSets_["sceneOptions"][currentFrame].handle()};
 
     vkCmdBindDescriptorSets(
         cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines_.at("shadowMap")->pipelineLayout(), 0,
@@ -305,7 +365,7 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
 
         // Bind descriptor sets once per model (no longer per material)
         const auto descriptorSets = vector{
-            perFlightDescriptorSets_["sceneOptions"][currentFrame]
+            perFrameDescriptorSets_["sceneOptions"][currentFrame]
                 .handle(),                        // Set 0: scene, options, bone data
             descriptorSets_["material"].handle(), // Set 1: material storage buffer + textures
             descriptorSets_["sky"].handle(),      // Set 2: sky textures
@@ -356,7 +416,7 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines_.at("sky")->pipeline());
 
         const auto skyDescriptorSets = vector{
-            perFlightDescriptorSets_["skyOptions"][currentFrame]
+            perFrameDescriptorSets_["skyOptions"][currentFrame]
                 .handle(),                  // Set 0: scene + sky options
             descriptorSets_["sky"].handle() // Set 1: sky textures
         };
@@ -406,7 +466,7 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
 
         // Bind descriptor sets for SSAO
         const auto ssaoDescriptorSets =
-            vector{perFlightDescriptorSets_["ssao"][currentFrame].handle()};
+            vector{perFrameDescriptorSets_["ssao"][currentFrame].handle()};
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE,
                                 pipelines_.at("ssao")->pipelineLayout(), 0,
                                 static_cast<uint32_t>(ssaoDescriptorSets.size()),
@@ -421,20 +481,12 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
 
     // Compute to Graphics transition for Post-processing
     {
-        VkMemoryBarrier2 memoryBarrier{VK_STRUCTURE_TYPE_MEMORY_BARRIER_2};
-        memoryBarrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-        memoryBarrier.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
-        memoryBarrier.dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
-        memoryBarrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
-
         VkImageMemoryBarrier2 imageBarrier =
             imageBuffers_["floatColor2"]->barrierHelper().prepareBarrier(
                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_2_SHADER_READ_BIT,
                 VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT);
 
         VkDependencyInfo depInfo{VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-        depInfo.memoryBarrierCount = 1;
-        depInfo.pMemoryBarriers = &memoryBarrier;
         depInfo.imageMemoryBarrierCount = 1;
         depInfo.pImageMemoryBarriers = &imageBarrier;
 
@@ -453,7 +505,7 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines_.at("post")->pipeline());
 
         const auto postDescriptorSets =
-            vector{perFlightDescriptorSets_["postProcessing"][currentFrame].handle()};
+            vector{perFrameDescriptorSets_["postProcessing"][currentFrame].handle()};
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                                 pipelines_.at("post")->pipelineLayout(), 0,
                                 static_cast<uint32_t>(postDescriptorSets.size()),
@@ -551,34 +603,12 @@ void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight,
     samplerShadow_.createShadow();
 
     // Initialize all image buffers in the consolidated map
-    const vector<string> imageNames = {
-        "msaaColor", "msaaDepthStencil", "depthStencil",   "floatColor1",   "floatColor2",
-        "dummy",     "shadowMap",        "prefilteredMap", "irradianceMap", "brdfLut"};
+    const vector<string> imageNames = {"msaaColor",      "msaaDepthStencil", "depthStencil",
+                                       "floatColor1",    "floatColor2",      "shadowMap",
+                                       "prefilteredMap", "irradianceMap",    "brdfLut"};
 
     for (const auto& name : imageNames) {
         imageBuffers_[name] = make_unique<Image2D>(ctx_);
-    }
-
-    string dummyImagePath = kAssetsPathPrefix_ + "textures/blender_uv_grid_2k.png";
-
-    // Load dummy texture from file using stb_image
-    {
-        int width, height, channels;
-        unsigned char* pixels =
-            stbi_load(dummyImagePath.c_str(), &width, &height, &channels, STBI_rgb_alpha);
-
-        if (!pixels) {
-            exitWithMessage("Failed to load texture image: {}", dummyImagePath);
-        }
-
-        imageBuffers_["dummy"]->createFromPixelData(pixels, width, height, channels, true);
-
-        // Free the loaded image data (only if we loaded from file)
-        if (pixels != nullptr && dummyImagePath.find(".png") != string::npos) {
-            stbi_image_free(pixels);
-        }
-
-        imageBuffers_["dummy"]->setSampler(samplerLinearRepeat_.handle());
     }
 
     // Load IBL textures for PBR rendering
@@ -619,12 +649,6 @@ void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight,
     imageBuffers_["floatColor1"]->setSampler(samplerLinearRepeat_.handle());
     imageBuffers_["floatColor2"]->setSampler(samplerLinearRepeat_.handle());
     imageBuffers_["depthStencil"]->setSampler(samplerLinearClamp_.handle());
-
-    // Create descriptor sets using consolidated image buffers and maps
-    descriptorSets_["sky"].create(ctx_,
-                                  {*imageBuffers_["prefilteredMap"],
-                                   *imageBuffers_["irradianceMap"], *imageBuffers_["brdfLut"]});
-    descriptorSets_["shadowMap"].create(ctx_, {*imageBuffers_["shadowMap"]});
 }
 
 void Renderer::updateViewFrustum(const glm::mat4& viewProjection)

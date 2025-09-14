@@ -22,6 +22,9 @@ ShaderManager::ShaderManager(Context& ctx, string shaderPathPrefix,
 
 void ShaderManager::collectLayoutInfos()
 {
+    // Clear and populate bindingInfos_
+    bindingInfos_.clear();
+
     // Use unordered_map with custom hash and equality functors
     unordered_map<vector<VkDescriptorSetLayoutBinding>, vector<tuple<string, uint32_t>>,
                   BindingHash, BindingEqual>
@@ -31,9 +34,93 @@ void ShaderManager::collectLayoutInfos()
         map<uint32_t, map<uint32_t, VkDescriptorSetLayoutBinding>> perPipelineBindings;
         collectPerPipelineBindings(pipelineName, perPipelineBindings);
 
+        // Collect BindingInfo for this pipeline
+        vector<vector<BindingInfo>> pipelineBindingInfos;
+
         for (const auto& [setIndex, bindingsMap] : perPipelineBindings) {
             if (bindingsMap.empty())
                 continue;
+
+            // Ensure we have enough sets in the pipeline binding infos
+            while (pipelineBindingInfos.size() <= setIndex) {
+                pipelineBindingInfos.emplace_back();
+            }
+
+            vector<BindingInfo>& setBindingInfos = pipelineBindingInfos[setIndex];
+
+            // Process each binding in the set
+            for (const auto& [bindingIndex, layoutBinding] : bindingsMap) {
+                // Ensure we have enough bindings in the set
+                while (setBindingInfos.size() <= bindingIndex) {
+                    setBindingInfos.emplace_back();
+                }
+
+                // Extract binding info from shader reflection
+                BindingInfo& bindingInfo = setBindingInfos[bindingIndex];
+
+                // Find the binding name and determine writability from shader reflection
+                for (const auto& shader : shaders) {
+                    const auto& reflectModule = shader.reflectModule_;
+
+                    for (uint32_t i = 0; i < reflectModule.descriptor_binding_count; ++i) {
+                        const SpvReflectDescriptorBinding* binding =
+                            &reflectModule.descriptor_bindings[i];
+
+                        if (binding->set == setIndex && binding->binding == bindingIndex) {
+                            if (binding->name) {
+                                bindingInfo.resourceName = string(binding->name);
+                            }
+
+                            if (string(binding->name) == "floatColor1" ||
+                                string(binding->name) == "floatColor2") {
+                                cout << binding->name << endl;
+                            }
+
+                            // Determine if write-only based on resource_type and decorations
+                            bool writeOnly = false;
+
+                            // Use resource_type as primary indicator
+                            if (binding->resource_type == SPV_REFLECT_RESOURCE_FLAG_UAV) {
+                                // UAV (Unordered Access View) can be read-write or write-only
+                                // Check decoration flags to determine exact access pattern
+                                bool hasNonWritableDecoration =
+                                    (binding->decoration_flags &
+                                     SPV_REFLECT_DECORATION_NON_WRITABLE) != 0;
+                                bool hasNonReadableDecoration =
+                                    (binding->decoration_flags &
+                                     SPV_REFLECT_DECORATION_NON_READABLE) != 0;
+
+                                // Debug: Log resource type and decoration flags
+                                // printLog("      Debug: '{}' resource_type={},
+                                // decoration_flags={}, "
+                                //         "nonWritable={}, nonReadable={}",
+                                //         binding->name ? binding->name : "unnamed",
+                                //         static_cast<uint32_t>(binding->resource_type),
+                                //         static_cast<uint32_t>(binding->decoration_flags),
+                                //         hasNonWritableDecoration, hasNonReadableDecoration);
+
+                                // Only mark as write-only if it has NON_READABLE decoration and
+                                // does NOT have NON_WRITABLE decoration
+                                if (hasNonReadableDecoration && !hasNonWritableDecoration) {
+                                    writeOnly = true;
+                                }
+                            } else {
+                                // SRV, CBV, and SAMPLER are read-only by nature
+                                writeOnly = false;
+
+                                // Debug: Log non-UAV resources
+                                // printLog(
+                                //    "      Debug: '{}' resource_type={} (read-only resource
+                                //    type)", binding->name ? binding->name : "unnamed",
+                                //    static_cast<uint32_t>(binding->resource_type));
+                            }
+
+                            bindingInfo.writeonly = writeOnly;
+                            break;
+                        }
+                    }
+                }
+            }
 
             vector<VkDescriptorSetLayoutBinding> bindingsVector;
             bindingsVector.reserve(bindingsMap.size());
@@ -73,6 +160,9 @@ void ShaderManager::collectLayoutInfos()
                 binding.stageFlags = accumulatedStageFlags;
             }
         }
+
+        // Store the collected binding infos for this pipeline
+        bindingInfos_[pipelineName] = move(pipelineBindingInfos);
     }
 
     // Convert bindingsCollector to layoutInfos_
@@ -82,6 +172,29 @@ void ShaderManager::collectLayoutInfos()
     for (auto& [bindings, pipelineInfo] : bindingsCollector) {
         layoutInfos_.emplace_back(LayoutInfo{bindings, move(pipelineInfo)});
     }
+
+    // Log bindingInfos_ for debugging
+    printLog("\n=== Shader Manager Binding Information ===");
+    for (const auto& [pipelineName, pipelineBindingInfos] : bindingInfos_) {
+        printLog("Pipeline '{}': {} sets", pipelineName, pipelineBindingInfos.size());
+
+        for (size_t setIdx = 0; setIdx < pipelineBindingInfos.size(); ++setIdx) {
+            const auto& setBindings = pipelineBindingInfos[setIdx];
+            if (!setBindings.empty()) {
+                printLog("  Set {}: {} bindings", setIdx, setBindings.size());
+
+                for (size_t bindingIdx = 0; bindingIdx < setBindings.size(); ++bindingIdx) {
+                    const auto& bindingInfo = setBindings[bindingIdx];
+                    if (!bindingInfo.resourceName.empty()) {
+                        printLog("    Binding {}: name='{}', writeonly={}", bindingIdx,
+                                 bindingInfo.resourceName,
+                                 bindingInfo.writeonly ? "true" : "false");
+                    }
+                }
+            }
+        }
+    }
+    printLog("==========================================\n");
 }
 
 VkDescriptorSetLayoutBinding
@@ -91,12 +204,6 @@ ShaderManager::createLayoutBindingFromReflect(const SpvReflectDescriptorBinding*
     VkDescriptorSetLayoutBinding layoutBinding = {};
     layoutBinding.binding = binding->binding;
     layoutBinding.descriptorType = static_cast<VkDescriptorType>(binding->descriptor_type);
-
-    // Note: SAMPLED_IMAGE -> COMBINED_IMAGE_SAMPLER conversion
-    if (layoutBinding.descriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE) {
-        layoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    }
-
     layoutBinding.descriptorCount = binding->count;
     layoutBinding.stageFlags = static_cast<VkShaderStageFlags>(shaderStage);
     layoutBinding.pImmutableSamplers = nullptr;
@@ -199,6 +306,58 @@ ShaderManager::createVertexInputAttrDesc(string pipelineName) const
 
     exitWithMessage("No vertex shader found in the shader manager.");
     return {};
+}
+
+VkPushConstantRange ShaderManager::pushConstantsRange(string pipelineName)
+{
+    const auto& shaders = pipelineShaders_.at(pipelineName);
+
+    // Search through all shaders in the pipeline for push constants
+    for (const auto& shader : shaders) {
+        const auto& reflectModule = shader.reflectModule_;
+
+        // Check if this shader has push constants
+        if (reflectModule.push_constant_block_count > 0) {
+            const SpvReflectBlockVariable* pushBlock = &reflectModule.push_constant_blocks[0];
+
+            VkPushConstantRange pushConstantRange{};
+            pushConstantRange.stageFlags = static_cast<VkShaderStageFlags>(shader.stage_);
+            pushConstantRange.offset = 0;
+            pushConstantRange.size = pushBlock->size;
+
+            // Accumulate stage flags from other shaders that also use push constants
+            for (const auto& otherShader : shaders) {
+                if (otherShader.reflectModule_.push_constant_block_count > 0) {
+                    pushConstantRange.stageFlags |=
+                        static_cast<VkShaderStageFlags>(otherShader.stage_);
+                }
+            }
+
+            return pushConstantRange;
+        }
+    }
+
+    // Return empty range if no push constants found
+    VkPushConstantRange emptyRange{};
+    emptyRange.stageFlags = 0;
+    emptyRange.offset = 0;
+    emptyRange.size = 0;
+    return emptyRange;
+}
+
+const unordered_map<string, vector<Shader>>& ShaderManager::pipelineShaders() const
+{
+    return pipelineShaders_;
+}
+
+const vector<LayoutInfo>& ShaderManager::layoutInfos() const
+{
+    return layoutInfos_;
+}
+
+const unordered_map<string, vector<vector<BindingInfo>>>& ShaderManager::bindingInfos() const
+{
+    return bindingInfos_;
 }
 
 // Add this helper function to extract member variables from SpvReflectBlockVariable

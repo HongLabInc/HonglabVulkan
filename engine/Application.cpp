@@ -30,12 +30,17 @@ Application::Application(const ApplicationConfig& config)
                       {"post", {"post.vert.spv", "post.frag.spv"}},
                       {"gui", {"imgui.vert", "imgui.frag"}}}),
       guiRenderer_(ctx_, shaderManager_, swapchain_.colorFormat()),
-      renderer_(ctx_, shaderManager_, kMaxFramesInFlight, kAssetsPathPrefix, kShaderPathPrefix),
       gpuTimer_(ctx_, kMaxFramesInFlight) // Initialize GPU timer
 {
     initializeVulkanResources();
     setupCallbacks();
-    initializeWithConfig(config);
+    setupCamera(config.camera);
+    loadModels(config.models);
+
+    renderer_ = std::make_unique<Renderer>(ctx_, shaderManager_, kMaxFramesInFlight,
+                                           kAssetsPathPrefix, kShaderPathPrefix, models_,
+                                           swapchain_.colorFormat(), ctx_.depthFormat(),
+                                           msaaSamples_, windowSize_.width, windowSize_.height);
 }
 
 // Future: Load from file constructor
@@ -69,15 +74,6 @@ void Application::initializeVulkanResources()
         check(
             vkCreateSemaphore(ctx_.device(), &semaphoreCI, nullptr, &renderCompleteSemaphores_[i]));
     }
-}
-
-void Application::initializeWithConfig(const ApplicationConfig& config)
-{
-    setupCamera(config.camera);
-    loadModels(config.models);
-
-    renderer_.prepareForModels(models_, swapchain_.colorFormat(), ctx_.depthFormat(), msaaSamples_,
-                               windowSize_.width, windowSize_.height);
 }
 
 void Application::setupCamera(const CameraConfig& cameraConfig)
@@ -162,8 +158,8 @@ void Application::setupCallbacks()
             case GLFW_KEY_F4:
                 // Toggle frustum culling
                 {
-                    bool cullingEnabled = app->renderer_.isFrustumCullingEnabled();
-                    app->renderer_.setFrustumCullingEnabled(!cullingEnabled);
+                    bool cullingEnabled = app->renderer_->isFrustumCullingEnabled();
+                    app->renderer_->setFrustumCullingEnabled(!cullingEnabled);
                     printLog("Frustum culling: {}", !cullingEnabled ? "Enabled" : "Disabled");
                 }
                 break;
@@ -368,9 +364,9 @@ void Application::run()
         updateGui();
 
         camera_.update(deltaTime);
-        renderer_.sceneUBO().projection = camera_.matrices.perspective;
-        renderer_.sceneUBO().view = camera_.matrices.view;
-        renderer_.sceneUBO().cameraPos = camera_.position;
+        renderer_->sceneUBO().projection = camera_.matrices.perspective;
+        renderer_->sceneUBO().view = camera_.matrices.view;
+        renderer_->sceneUBO().cameraPos = camera_.position;
 
         for (auto& model : models_) {
             if (model->hasAnimations()) {
@@ -383,7 +379,7 @@ void Application::run()
             if (models_.size() > 0) {
 
                 glm::mat4 lightView =
-                    glm::lookAt(vec3(0.0f), -renderer_.sceneUBO().directionalLightDir,
+                    glm::lookAt(vec3(0.0f), -renderer_->sceneUBO().directionalLightDir,
                                 glm::vec3(0.0f, 0.0f, 1.0f));
 
                 // Transform the first model's bounding box to world space
@@ -430,7 +426,7 @@ void Application::run()
                 max_ = vmax;
                 glm::mat4 lightProjection = glm::orthoLH_ZO(min_.x, max_.x, min_.y, max_.y, max_.z,
                                                             min_.z); // 마지막 Max, Min 순서 주의
-                renderer_.sceneUBO().lightSpaceMatrix = lightProjection * lightView;
+                renderer_->sceneUBO().lightSpaceMatrix = lightProjection * lightView;
 
                 // Modifed "Vulkan 3D Graphics Rendering Cookbook - 2nd Edition Build Status"
                 // https://github.com/PacktPublishing/3D-Graphics-Rendering-Cookbook-Second-Edition
@@ -441,7 +437,7 @@ void Application::run()
         check(vkWaitForFences(ctx_.device(), 1, &waitFences_[currentFrame], VK_TRUE, UINT64_MAX));
         check(vkResetFences(ctx_.device(), 1, &waitFences_[currentFrame]));
 
-        renderer_.update(camera_, models_, currentFrame, (float)glfwGetTime());
+        renderer_->update(camera_, models_, currentFrame, (float)glfwGetTime());
 
         guiRenderer_.update(currentFrame);
 
@@ -482,8 +478,8 @@ void Application::run()
         VkRect2D scissor{0, 0, windowSize_.width, windowSize_.height};
 
         // Draw models
-        renderer_.draw(cmd.handle(), currentFrame, swapchain_.imageView(imageIndex), models_,
-                       viewport, scissor);
+        renderer_->draw(cmd.handle(), currentFrame, swapchain_.imageView(imageIndex), models_,
+                        viewport, scissor);
 
         // Draw GUI (overwrite to swapchain image)
         guiRenderer_.draw(cmd.handle(), swapchain_.imageView(imageIndex), viewport, currentFrame);
@@ -603,7 +599,7 @@ void Application::updateGui()
     static vec3 lightColor = vec3(1.0f);
     static float lightIntensity = 28.454f;
     ImGui::SliderFloat("Light Intensity", &lightIntensity, 0.0f, 100.0f);
-    renderer_.sceneUBO().directionalLightColor = lightIntensity * lightColor;
+    renderer_->sceneUBO().directionalLightColor = lightIntensity * lightColor;
 
     // TODO: IS there a way to determine directionalLightColor from time of day? bright morning sun
     // to noon white light to golden sunset color.
@@ -625,44 +621,44 @@ void Application::updateGui()
     lightDir.z = cos(elev_rad) * cos(azim_rad);
 
     // Set the light direction (already normalized from spherical coordinates)
-    renderer_.sceneUBO().directionalLightDir = lightDir;
+    renderer_->sceneUBO().directionalLightDir = lightDir;
 
     // Display current light direction for debugging
-    ImGui::Text("Light Dir: (%.2f, %.2f, %.2f)", renderer_.sceneUBO().directionalLightDir.x,
-                renderer_.sceneUBO().directionalLightDir.y,
-                renderer_.sceneUBO().directionalLightDir.z);
+    ImGui::Text("Light Dir: (%.2f, %.2f, %.2f)", renderer_->sceneUBO().directionalLightDir.x,
+                renderer_->sceneUBO().directionalLightDir.y,
+                renderer_->sceneUBO().directionalLightDir.z);
 
     // Rendering Options Controls
     ImGui::Separator();
     ImGui::Text("Rendering Options");
 
-    bool textureOn = renderer_.optionsUBO().textureOn != 0;
-    bool shadowOn = renderer_.optionsUBO().shadowOn != 0;
-    bool discardOn = renderer_.optionsUBO().discardOn != 0;
-    // bool animationOn = renderer_.optionsUBO().animationOn != 0;
+    bool textureOn = renderer_->optionsUBO().textureOn != 0;
+    bool shadowOn = renderer_->optionsUBO().shadowOn != 0;
+    bool discardOn = renderer_->optionsUBO().discardOn != 0;
+    // bool animationOn = renderer_->optionsUBO().animationOn != 0;
 
     if (ImGui::Checkbox("Textures", &textureOn)) {
-        renderer_.optionsUBO().textureOn = textureOn ? 1 : 0;
+        renderer_->optionsUBO().textureOn = textureOn ? 1 : 0;
     }
     if (ImGui::Checkbox("Shadows", &shadowOn)) {
-        renderer_.optionsUBO().shadowOn = shadowOn ? 1 : 0;
+        renderer_->optionsUBO().shadowOn = shadowOn ? 1 : 0;
     }
     if (ImGui::Checkbox("Alpha Discard", &discardOn)) {
-        renderer_.optionsUBO().discardOn = discardOn ? 1 : 0;
+        renderer_->optionsUBO().discardOn = discardOn ? 1 : 0;
     }
     // if (ImGui::Checkbox("Animation", &animationOn)) {
     //     renderer_.optionsUBO().animationOn = animationOn ? 1 : 0;
     // }
 
     // Frustum Culling Controls
-    bool frustumCullingEnabled = renderer_.isFrustumCullingEnabled();
+    bool frustumCullingEnabled = renderer_->isFrustumCullingEnabled();
     if (ImGui::Checkbox("Frustum Culling", &frustumCullingEnabled)) {
-        renderer_.setFrustumCullingEnabled(frustumCullingEnabled);
+        renderer_->setFrustumCullingEnabled(frustumCullingEnabled);
     }
 
     // Display culling statistics
-    if (renderer_.isFrustumCullingEnabled()) {
-        const auto& stats = renderer_.getCullingStats();
+    if (renderer_->isFrustumCullingEnabled()) {
+        const auto& stats = renderer_->getCullingStats();
         ImGui::Text("Culling Stats:");
         ImGui::Text("  Total Meshes: %u", stats.totalMeshes);
         ImGui::Text("  Rendered: %u", stats.renderedMeshes);
@@ -750,18 +746,18 @@ void Application::renderHDRControlWindow()
 
     // HDR Environment Controls
     if (ImGui::CollapsingHeader("HDR Environment", ImGuiTreeNodeFlags_DefaultOpen)) {
-        ImGui::SliderFloat("Environment Intensity", &renderer_.skyOptionsUBO().environmentIntensity,
-                           0.0f, 10.0f, "%.2f");
+        ImGui::SliderFloat("Environment Intensity",
+                           &renderer_->skyOptionsUBO().environmentIntensity, 0.0f, 10.0f, "%.2f");
     }
 
     // Environment Map Controls
     if (ImGui::CollapsingHeader("Environment Map", ImGuiTreeNodeFlags_DefaultOpen)) {
-        ImGui::SliderFloat("Roughness Level", &renderer_.skyOptionsUBO().roughnessLevel, 0.0f, 8.0f,
-                           "%.1f");
+        ImGui::SliderFloat("Roughness Level", &renderer_->skyOptionsUBO().roughnessLevel, 0.0f,
+                           8.0f, "%.1f");
 
-        bool useIrradiance = renderer_.skyOptionsUBO().useIrradianceMap != 0;
+        bool useIrradiance = renderer_->skyOptionsUBO().useIrradianceMap != 0;
         if (ImGui::Checkbox("Use Irradiance Map", &useIrradiance)) {
-            renderer_.skyOptionsUBO().useIrradianceMap = useIrradiance ? 1 : 0;
+            renderer_->skyOptionsUBO().useIrradianceMap = useIrradiance ? 1 : 0;
         }
         ImGui::SameLine();
         if (ImGui::Button("?")) {
@@ -775,42 +771,42 @@ void Application::renderHDRControlWindow()
 
     // Debug Visualization
     if (ImGui::CollapsingHeader("Debug Visualization")) {
-        bool showMipLevels = renderer_.skyOptionsUBO().showMipLevels != 0;
+        bool showMipLevels = renderer_->skyOptionsUBO().showMipLevels != 0;
         if (ImGui::Checkbox("Show Mip Levels", &showMipLevels)) {
-            renderer_.skyOptionsUBO().showMipLevels = showMipLevels ? 1 : 0;
+            renderer_->skyOptionsUBO().showMipLevels = showMipLevels ? 1 : 0;
         }
 
-        bool showCubeFaces = renderer_.skyOptionsUBO().showCubeFaces != 0;
+        bool showCubeFaces = renderer_->skyOptionsUBO().showCubeFaces != 0;
         if (ImGui::Checkbox("Show Cube Faces", &showCubeFaces)) {
-            renderer_.skyOptionsUBO().showCubeFaces = showCubeFaces ? 1 : 0;
+            renderer_->skyOptionsUBO().showCubeFaces = showCubeFaces ? 1 : 0;
         }
     }
 
     // Simplified Presets
     if (ImGui::CollapsingHeader("Presets")) {
         if (ImGui::Button("Default")) {
-            renderer_.skyOptionsUBO().environmentIntensity = 1.0f;
-            renderer_.skyOptionsUBO().roughnessLevel = 0.5f;
-            renderer_.skyOptionsUBO().useIrradianceMap = 0;
-            renderer_.skyOptionsUBO().showMipLevels = 0;
-            renderer_.skyOptionsUBO().showCubeFaces = 0;
+            renderer_->skyOptionsUBO().environmentIntensity = 1.0f;
+            renderer_->skyOptionsUBO().roughnessLevel = 0.5f;
+            renderer_->skyOptionsUBO().useIrradianceMap = 0;
+            renderer_->skyOptionsUBO().showMipLevels = 0;
+            renderer_->skyOptionsUBO().showCubeFaces = 0;
         }
         ImGui::SameLine();
         if (ImGui::Button("High Exposure")) {
-            renderer_.skyOptionsUBO().environmentIntensity = 1.5f;
+            renderer_->skyOptionsUBO().environmentIntensity = 1.5f;
         }
         ImGui::SameLine();
         if (ImGui::Button("Low Exposure")) {
-            renderer_.skyOptionsUBO().environmentIntensity = 0.8f;
+            renderer_->skyOptionsUBO().environmentIntensity = 0.8f;
         }
 
         if (ImGui::Button("Sharp Reflections")) {
-            renderer_.skyOptionsUBO().roughnessLevel = 0.0f;
-            renderer_.skyOptionsUBO().useIrradianceMap = 0;
+            renderer_->skyOptionsUBO().roughnessLevel = 0.0f;
+            renderer_->skyOptionsUBO().useIrradianceMap = 0;
         }
         ImGui::SameLine();
         if (ImGui::Button("Diffuse Lighting")) {
-            renderer_.skyOptionsUBO().useIrradianceMap = 1;
+            renderer_->skyOptionsUBO().useIrradianceMap = 1;
         }
     }
 
@@ -834,40 +830,40 @@ void Application::renderPostProcessingControlWindow()
                                           "Uncharted 2", "GT (Gran Turismo)", "Lottes",
                                           "Exponential", "Reinhard Extended", "Luminance",
                                           "Hable"};
-        ImGui::Combo("Tone Mapping Type", &renderer_.postOptionsUBO().toneMappingType,
+        ImGui::Combo("Tone Mapping Type", &renderer_->postOptionsUBO().toneMappingType,
                      toneMappingNames, IM_ARRAYSIZE(toneMappingNames));
 
-        ImGui::SliderFloat("Exposure", &renderer_.postOptionsUBO().exposure, 0.1f, 5.0f, "%.2f");
-        ImGui::SliderFloat("Gamma", &renderer_.postOptionsUBO().gamma, 1.0f / 2.2f, 2.2f, "%.2f");
+        ImGui::SliderFloat("Exposure", &renderer_->postOptionsUBO().exposure, 0.1f, 5.0f, "%.2f");
+        ImGui::SliderFloat("Gamma", &renderer_->postOptionsUBO().gamma, 1.0f / 2.2f, 2.2f, "%.2f");
 
-        if (renderer_.postOptionsUBO().toneMappingType == 7) { // Reinhard Extended
-            ImGui::SliderFloat("Max White", &renderer_.postOptionsUBO().maxWhite, 1.0f, 20.0f,
+        if (renderer_->postOptionsUBO().toneMappingType == 7) { // Reinhard Extended
+            ImGui::SliderFloat("Max White", &renderer_->postOptionsUBO().maxWhite, 1.0f, 20.0f,
                                "%.1f");
         }
     }
 
     // Color Grading Controls
     if (ImGui::CollapsingHeader("Color Grading", ImGuiTreeNodeFlags_DefaultOpen)) {
-        ImGui::SliderFloat("Contrast", &renderer_.postOptionsUBO().contrast, 0.0f, 3.0f, "%.2f");
-        ImGui::SliderFloat("Brightness", &renderer_.postOptionsUBO().brightness, -1.0f, 1.0f,
+        ImGui::SliderFloat("Contrast", &renderer_->postOptionsUBO().contrast, 0.0f, 3.0f, "%.2f");
+        ImGui::SliderFloat("Brightness", &renderer_->postOptionsUBO().brightness, -1.0f, 1.0f,
                            "%.2f");
-        ImGui::SliderFloat("Saturation", &renderer_.postOptionsUBO().saturation, 0.0f, 2.0f,
+        ImGui::SliderFloat("Saturation", &renderer_->postOptionsUBO().saturation, 0.0f, 2.0f,
                            "%.2f");
-        ImGui::SliderFloat("Vibrance", &renderer_.postOptionsUBO().vibrance, -1.0f, 1.0f, "%.2f");
+        ImGui::SliderFloat("Vibrance", &renderer_->postOptionsUBO().vibrance, -1.0f, 1.0f, "%.2f");
     }
 
     // Effects Controls
     if (ImGui::CollapsingHeader("Effects")) {
-        ImGui::SliderFloat("Vignette Strength", &renderer_.postOptionsUBO().vignetteStrength, 0.0f,
+        ImGui::SliderFloat("Vignette Strength", &renderer_->postOptionsUBO().vignetteStrength, 0.0f,
                            1.0f, "%.2f");
-        if (renderer_.postOptionsUBO().vignetteStrength > 0.0f) {
-            ImGui::SliderFloat("Vignette Radius", &renderer_.postOptionsUBO().vignetteRadius, 0.1f,
+        if (renderer_->postOptionsUBO().vignetteStrength > 0.0f) {
+            ImGui::SliderFloat("Vignette Radius", &renderer_->postOptionsUBO().vignetteRadius, 0.1f,
                                1.5f, "%.2f");
         }
 
-        ImGui::SliderFloat("Film Grain", &renderer_.postOptionsUBO().filmGrainStrength, 0.0f, 0.2f,
+        ImGui::SliderFloat("Film Grain", &renderer_->postOptionsUBO().filmGrainStrength, 0.0f, 0.2f,
                            "%.3f");
-        ImGui::SliderFloat("Chromatic Aberration", &renderer_.postOptionsUBO().chromaticAberration,
+        ImGui::SliderFloat("Chromatic Aberration", &renderer_->postOptionsUBO().chromaticAberration,
                            0.0f, 5.0f, "%.1f");
     }
 
@@ -875,64 +871,64 @@ void Application::renderPostProcessingControlWindow()
     if (ImGui::CollapsingHeader("Debug Visualization")) {
         const char* debugModeNames[] = {"Off", "Tone Mapping Comparison", "Color Channels",
                                         "Split Comparison"};
-        ImGui::Combo("Debug Mode", &renderer_.postOptionsUBO().debugMode, debugModeNames,
+        ImGui::Combo("Debug Mode", &renderer_->postOptionsUBO().debugMode, debugModeNames,
                      IM_ARRAYSIZE(debugModeNames));
 
-        if (renderer_.postOptionsUBO().debugMode == 2) { // Color Channels
+        if (renderer_->postOptionsUBO().debugMode == 2) { // Color Channels
             const char* channelNames[] = {"All",       "Red Only", "Green Only",
                                           "Blue Only", "Alpha",    "Luminance"};
-            ImGui::Combo("Show Channel", &renderer_.postOptionsUBO().showOnlyChannel, channelNames,
+            ImGui::Combo("Show Channel", &renderer_->postOptionsUBO().showOnlyChannel, channelNames,
                          IM_ARRAYSIZE(channelNames));
         }
 
-        if (renderer_.postOptionsUBO().debugMode == 3) { // Split Comparison
-            ImGui::SliderFloat("Split Position", &renderer_.postOptionsUBO().debugSplit, 0.0f, 1.0f,
-                               "%.2f");
+        if (renderer_->postOptionsUBO().debugMode == 3) { // Split Comparison
+            ImGui::SliderFloat("Split Position", &renderer_->postOptionsUBO().debugSplit, 0.0f,
+                               1.0f, "%.2f");
         }
     }
 
     // Presets
     if (ImGui::CollapsingHeader("Presets")) {
         if (ImGui::Button("Default")) {
-            renderer_.postOptionsUBO().toneMappingType = 2; // ACES
-            renderer_.postOptionsUBO().exposure = 1.0f;
-            renderer_.postOptionsUBO().gamma = 2.2f;
-            renderer_.postOptionsUBO().contrast = 1.0f;
-            renderer_.postOptionsUBO().brightness = 0.0f;
-            renderer_.postOptionsUBO().saturation = 1.0f;
-            renderer_.postOptionsUBO().vibrance = 0.0f;
-            renderer_.postOptionsUBO().vignetteStrength = 0.0f;
-            renderer_.postOptionsUBO().filmGrainStrength = 0.0f;
-            renderer_.postOptionsUBO().chromaticAberration = 0.0f;
-            renderer_.postOptionsUBO().debugMode = 0;
+            renderer_->postOptionsUBO().toneMappingType = 2; // ACES
+            renderer_->postOptionsUBO().exposure = 1.0f;
+            renderer_->postOptionsUBO().gamma = 2.2f;
+            renderer_->postOptionsUBO().contrast = 1.0f;
+            renderer_->postOptionsUBO().brightness = 0.0f;
+            renderer_->postOptionsUBO().saturation = 1.0f;
+            renderer_->postOptionsUBO().vibrance = 0.0f;
+            renderer_->postOptionsUBO().vignetteStrength = 0.0f;
+            renderer_->postOptionsUBO().filmGrainStrength = 0.0f;
+            renderer_->postOptionsUBO().chromaticAberration = 0.0f;
+            renderer_->postOptionsUBO().debugMode = 0;
         }
         ImGui::SameLine();
         if (ImGui::Button("Cinematic")) {
-            renderer_.postOptionsUBO().toneMappingType = 3; // Uncharted 2
-            renderer_.postOptionsUBO().exposure = 1.2f;
-            renderer_.postOptionsUBO().contrast = 1.1f;
-            renderer_.postOptionsUBO().saturation = 0.9f;
-            renderer_.postOptionsUBO().vignetteStrength = 0.3f;
-            renderer_.postOptionsUBO().vignetteRadius = 0.8f;
-            renderer_.postOptionsUBO().filmGrainStrength = 0.02f;
+            renderer_->postOptionsUBO().toneMappingType = 3; // Uncharted 2
+            renderer_->postOptionsUBO().exposure = 1.2f;
+            renderer_->postOptionsUBO().contrast = 1.1f;
+            renderer_->postOptionsUBO().saturation = 0.9f;
+            renderer_->postOptionsUBO().vignetteStrength = 0.3f;
+            renderer_->postOptionsUBO().vignetteRadius = 0.8f;
+            renderer_->postOptionsUBO().filmGrainStrength = 0.02f;
         }
 
         if (ImGui::Button("High Contrast")) {
-            renderer_.postOptionsUBO().contrast = 1.5f;
-            renderer_.postOptionsUBO().brightness = 0.1f;
-            renderer_.postOptionsUBO().saturation = 1.3f;
-            renderer_.postOptionsUBO().vignetteStrength = 0.2f;
+            renderer_->postOptionsUBO().contrast = 1.5f;
+            renderer_->postOptionsUBO().brightness = 0.1f;
+            renderer_->postOptionsUBO().saturation = 1.3f;
+            renderer_->postOptionsUBO().vignetteStrength = 0.2f;
         }
         ImGui::SameLine();
         if (ImGui::Button("Low Contrast")) {
-            renderer_.postOptionsUBO().contrast = 0.7f;
-            renderer_.postOptionsUBO().brightness = 0.05f;
-            renderer_.postOptionsUBO().saturation = 0.8f;
+            renderer_->postOptionsUBO().contrast = 0.7f;
+            renderer_->postOptionsUBO().brightness = 0.05f;
+            renderer_->postOptionsUBO().saturation = 0.8f;
         }
 
         if (ImGui::Button("Show Tone Mapping")) {
-            renderer_.postOptionsUBO().debugMode = 1;
-            renderer_.postOptionsUBO().exposure = 2.0f;
+            renderer_->postOptionsUBO().debugMode = 1;
+            renderer_->postOptionsUBO().exposure = 2.0f;
         }
     }
 
@@ -1146,14 +1142,14 @@ void Application::renderSSAOControlWindow()
 
     // SSAO Parameters
     if (ImGui::CollapsingHeader("SSAO Parameters", ImGuiTreeNodeFlags_DefaultOpen)) {
-        ImGui::SliderFloat("Radius", &renderer_.ssaoOptionsUBO().ssaoRadius, 0.01f, 0.2f, "%.3f");
+        ImGui::SliderFloat("Radius", &renderer_->ssaoOptionsUBO().ssaoRadius, 0.01f, 0.2f, "%.3f");
         if (ImGui::IsItemHovered()) {
             ImGui::SetTooltip("Controls the sampling radius for ambient occlusion.\n"
                               "Larger values = wider occlusion, but may cause artifacts.\n"
                               "Recommended range: 0.05f - 0.5f");
         }
 
-        ImGui::SliderFloat("Bias", &renderer_.ssaoOptionsUBO().ssaoBias, 0.001f, 0.1f, "%.4f");
+        ImGui::SliderFloat("Bias", &renderer_->ssaoOptionsUBO().ssaoBias, 0.001f, 0.1f, "%.4f");
         if (ImGui::IsItemHovered()) {
             ImGui::SetTooltip("Prevents self-occlusion artifacts.\n"
                               "Too low = self-occlusion artifacts\n"
@@ -1161,14 +1157,14 @@ void Application::renderSSAOControlWindow()
                               "Recommended range: 0.01f - 0.05f");
         }
 
-        ImGui::SliderInt("Sample Count", &renderer_.ssaoOptionsUBO().ssaoSampleCount, 1, 64);
+        ImGui::SliderInt("Sample Count", &renderer_->ssaoOptionsUBO().ssaoSampleCount, 1, 64);
         if (ImGui::IsItemHovered()) {
             ImGui::SetTooltip("Number of samples per pixel for SSAO calculation.\n"
                               "More samples = better quality but lower performance.\n"
                               "Recommended values: 8, 16, 32");
         }
 
-        ImGui::SliderFloat("Power", &renderer_.ssaoOptionsUBO().ssaoPower, 0.1f, 10.0f, "%.2f");
+        ImGui::SliderFloat("Power", &renderer_->ssaoOptionsUBO().ssaoPower, 0.1f, 10.0f, "%.2f");
         if (ImGui::IsItemHovered()) {
             ImGui::SetTooltip("Controls the contrast/intensity of the SSAO effect.\n"
                               "Higher values = more dramatic darkening\n"
@@ -1179,59 +1175,59 @@ void Application::renderSSAOControlWindow()
     // Quality Presets
     if (ImGui::CollapsingHeader("Quality Presets")) {
         if (ImGui::Button("Off")) {
-            renderer_.ssaoOptionsUBO().ssaoRadius = 0.1f;
-            renderer_.ssaoOptionsUBO().ssaoBias = 0.025f;
-            renderer_.ssaoOptionsUBO().ssaoSampleCount = 0; // Disable SSAO
-            renderer_.ssaoOptionsUBO().ssaoPower = 2.0f;
+            renderer_->ssaoOptionsUBO().ssaoRadius = 0.1f;
+            renderer_->ssaoOptionsUBO().ssaoBias = 0.025f;
+            renderer_->ssaoOptionsUBO().ssaoSampleCount = 0; // Disable SSAO
+            renderer_->ssaoOptionsUBO().ssaoPower = 2.0f;
         }
         ImGui::SameLine();
         if (ImGui::Button("Low Quality")) {
-            renderer_.ssaoOptionsUBO().ssaoRadius = 0.05f;
-            renderer_.ssaoOptionsUBO().ssaoBias = 0.03f;
-            renderer_.ssaoOptionsUBO().ssaoSampleCount = 8;
-            renderer_.ssaoOptionsUBO().ssaoPower = 1.5f;
+            renderer_->ssaoOptionsUBO().ssaoRadius = 0.05f;
+            renderer_->ssaoOptionsUBO().ssaoBias = 0.03f;
+            renderer_->ssaoOptionsUBO().ssaoSampleCount = 8;
+            renderer_->ssaoOptionsUBO().ssaoPower = 1.5f;
         }
 
         if (ImGui::Button("Medium Quality")) {
-            renderer_.ssaoOptionsUBO().ssaoRadius = 0.1f;
-            renderer_.ssaoOptionsUBO().ssaoBias = 0.025f;
-            renderer_.ssaoOptionsUBO().ssaoSampleCount = 16;
-            renderer_.ssaoOptionsUBO().ssaoPower = 2.0f;
+            renderer_->ssaoOptionsUBO().ssaoRadius = 0.1f;
+            renderer_->ssaoOptionsUBO().ssaoBias = 0.025f;
+            renderer_->ssaoOptionsUBO().ssaoSampleCount = 16;
+            renderer_->ssaoOptionsUBO().ssaoPower = 2.0f;
         }
         ImGui::SameLine();
         if (ImGui::Button("High Quality")) {
-            renderer_.ssaoOptionsUBO().ssaoRadius = 0.15f;
-            renderer_.ssaoOptionsUBO().ssaoBias = 0.02f;
-            renderer_.ssaoOptionsUBO().ssaoSampleCount = 32;
-            renderer_.ssaoOptionsUBO().ssaoPower = 2.5f;
+            renderer_->ssaoOptionsUBO().ssaoRadius = 0.15f;
+            renderer_->ssaoOptionsUBO().ssaoBias = 0.02f;
+            renderer_->ssaoOptionsUBO().ssaoSampleCount = 32;
+            renderer_->ssaoOptionsUBO().ssaoPower = 2.5f;
         }
 
         if (ImGui::Button("Ultra Quality")) {
-            renderer_.ssaoOptionsUBO().ssaoRadius = 0.2f;
-            renderer_.ssaoOptionsUBO().ssaoBias = 0.015f;
-            renderer_.ssaoOptionsUBO().ssaoSampleCount = 64;
-            renderer_.ssaoOptionsUBO().ssaoPower = 3.0f;
+            renderer_->ssaoOptionsUBO().ssaoRadius = 0.2f;
+            renderer_->ssaoOptionsUBO().ssaoBias = 0.015f;
+            renderer_->ssaoOptionsUBO().ssaoSampleCount = 64;
+            renderer_->ssaoOptionsUBO().ssaoPower = 3.0f;
         }
         ImGui::SameLine();
         if (ImGui::Button("Subtle SSAO")) {
-            renderer_.ssaoOptionsUBO().ssaoRadius = 0.08f;
-            renderer_.ssaoOptionsUBO().ssaoBias = 0.025f;
-            renderer_.ssaoOptionsUBO().ssaoSampleCount = 16;
-            renderer_.ssaoOptionsUBO().ssaoPower = 1.2f;
+            renderer_->ssaoOptionsUBO().ssaoRadius = 0.08f;
+            renderer_->ssaoOptionsUBO().ssaoBias = 0.025f;
+            renderer_->ssaoOptionsUBO().ssaoSampleCount = 16;
+            renderer_->ssaoOptionsUBO().ssaoPower = 1.2f;
         }
 
         if (ImGui::Button("Strong SSAO")) {
-            renderer_.ssaoOptionsUBO().ssaoRadius = 0.25f;
-            renderer_.ssaoOptionsUBO().ssaoBias = 0.02f;
-            renderer_.ssaoOptionsUBO().ssaoSampleCount = 24;
-            renderer_.ssaoOptionsUBO().ssaoPower = 4.0f;
+            renderer_->ssaoOptionsUBO().ssaoRadius = 0.25f;
+            renderer_->ssaoOptionsUBO().ssaoBias = 0.02f;
+            renderer_->ssaoOptionsUBO().ssaoSampleCount = 24;
+            renderer_->ssaoOptionsUBO().ssaoPower = 4.0f;
         }
         ImGui::SameLine();
         if (ImGui::Button("Default")) {
-            renderer_.ssaoOptionsUBO().ssaoRadius = 0.1f;
-            renderer_.ssaoOptionsUBO().ssaoBias = 0.025f;
-            renderer_.ssaoOptionsUBO().ssaoSampleCount = 16;
-            renderer_.ssaoOptionsUBO().ssaoPower = 2.0f;
+            renderer_->ssaoOptionsUBO().ssaoRadius = 0.1f;
+            renderer_->ssaoOptionsUBO().ssaoBias = 0.025f;
+            renderer_->ssaoOptionsUBO().ssaoSampleCount = 16;
+            renderer_->ssaoOptionsUBO().ssaoPower = 2.0f;
         }
     }
 
@@ -1244,7 +1240,7 @@ void Application::renderSSAOControlWindow()
 
         ImGui::Separator();
         ImGui::Text("Current Configuration:");
-        float performanceScore = (float)renderer_.ssaoOptionsUBO().ssaoSampleCount / 64.0f;
+        float performanceScore = (float)renderer_->ssaoOptionsUBO().ssaoSampleCount / 64.0f;
         ImVec4 perfColor = performanceScore < 0.25f ? ImVec4(0.0f, 1.0f, 0.0f, 1.0f) : // Green
                                performanceScore < 0.5f ? ImVec4(1.0f, 1.0f, 0.0f, 1.0f)
                                                        :       // Yellow
@@ -1256,10 +1252,10 @@ void Application::renderSSAOControlWindow()
     // Debug Values Display
     if (ImGui::CollapsingHeader("Debug Values")) {
         ImGui::Text("Current SSAO Parameters:");
-        ImGui::Text("Radius: %.3f", renderer_.ssaoOptionsUBO().ssaoRadius);
-        ImGui::Text("Bias: %.4f", renderer_.ssaoOptionsUBO().ssaoBias);
-        ImGui::Text("Sample Count: %d", renderer_.ssaoOptionsUBO().ssaoSampleCount);
-        ImGui::Text("Power: %.2f", renderer_.ssaoOptionsUBO().ssaoPower);
+        ImGui::Text("Radius: %.3f", renderer_->ssaoOptionsUBO().ssaoRadius);
+        ImGui::Text("Bias: %.4f", renderer_->ssaoOptionsUBO().ssaoBias);
+        ImGui::Text("Sample Count: %d", renderer_->ssaoOptionsUBO().ssaoSampleCount);
+        ImGui::Text("Power: %.2f", renderer_->ssaoOptionsUBO().ssaoPower);
     }
 
     ImGui::End();

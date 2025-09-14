@@ -28,8 +28,9 @@ class MappedBuffer : public Resource
     void cleanup() override;
 
     // Implement required Resource methods
-    void updateBinding(VkDescriptorSetLayoutBinding& binding) override;
-    void updateWrite(VkWriteDescriptorSet& write) override;
+    // void updateBinding(VkDescriptorSetLayoutBinding& binding) override;
+    void updateWrite(VkDescriptorSetLayoutBinding expectedBinding,
+                     VkWriteDescriptorSet& write) override;
 
     void create(VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memPropFlags,
                 VkDeviceSize size, void* data);
@@ -41,29 +42,35 @@ class MappedBuffer : public Resource
     void flush() const;
 
     // Template methods to replace UniformBuffer functionality
-    template<typename T>
-    void createUniformBuffer(T& cpuData) {
+    template <typename T>
+    void createUniformBuffer(T& cpuData)
+    {
         static_assert(std::is_trivially_copyable_v<T>,
                       "Uniform buffer data type must be trivially copyable");
-        
+
         cpuData_ = &cpuData;
         cpuDataSize_ = sizeof(T);
         createUniformBuffer(sizeof(T), &cpuData);
     }
 
     // Update GPU buffer from CPU data
-    void updateFromCpuData() {
+    void updateFromCpuData()
+    {
         if (cpuData_ && cpuDataSize_ > 0) {
             updateData(cpuData_, cpuDataSize_, 0);
         }
     }
 
     // Get CPU data pointer (type-unsafe, for compatibility)
-    void* getCpuData() const { return cpuData_; }
+    void* getCpuData() const
+    {
+        return cpuData_;
+    }
 
     // Type-safe CPU data access
-    template<typename T>
-    T& getCpuData() {
+    template <typename T>
+    T& getCpuData()
+    {
         return *static_cast<T*>(cpuData_);
     }
 
@@ -81,8 +88,8 @@ class MappedBuffer : public Resource
 
     string name_{};
     void* mapped_{nullptr};
-    void* cpuData_{nullptr};      // Points to CPU-side data structure
-    size_t cpuDataSize_{0};       // Size of CPU data for validation
+    void* cpuData_{nullptr}; // Points to CPU-side data structure
+    size_t cpuDataSize_{0};  // Size of CPU data for validation
 };
 
 } // namespace hlab

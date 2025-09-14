@@ -92,6 +92,10 @@ class Pipeline
     auto pipeline() const -> VkPipeline;
     auto pipelineLayout() const -> VkPipelineLayout;
     auto shaderManager() -> ShaderManager&;
+    auto layouts() -> vector<VkDescriptorSetLayout>&
+    {
+        return layouts_;
+    }
 
   private:
     Context& ctx_;
@@ -101,6 +105,7 @@ class Pipeline
     VkPipeline pipeline_{VK_NULL_HANDLE};
 
     string name_{};
+    vector<VkDescriptorSetLayout> layouts_{};
 
     // NEW: Helper methods for config-based creation
     void validateRequiredFormats(const PipelineConfig& config, optional<VkFormat> outColorFormat,

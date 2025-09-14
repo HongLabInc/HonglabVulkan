@@ -303,12 +303,13 @@ void Pipeline::createCommon()
 {
     cleanup();
 
-    vector<VkDescriptorSetLayout> layouts = ctx_.descriptorPool().layoutsForPipeline(name_);
+    layouts_ = ctx_.descriptorPool().layoutsForPipeline(name_);
+
     VkPushConstantRange pushConstantRanges = shaderManager_.pushConstantsRange(name_);
 
     VkPipelineLayoutCreateInfo pipelineLayoutCI{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-    pipelineLayoutCI.setLayoutCount = uint32_t(layouts.size());
-    pipelineLayoutCI.pSetLayouts = layouts.data();
+    pipelineLayoutCI.setLayoutCount = uint32_t(layouts_.size());
+    pipelineLayoutCI.pSetLayouts = layouts_.data();
     pipelineLayoutCI.pushConstantRangeCount = (pushConstantRanges.size > 0) ? 1 : 0;
     pipelineLayoutCI.pPushConstantRanges =
         (pushConstantRanges.size > 0) ? &pushConstantRanges : nullptr;

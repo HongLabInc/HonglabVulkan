@@ -170,18 +170,24 @@ void MappedBuffer::updateData(const void* data, VkDeviceSize size, VkDeviceSize 
     }
 }
 
-void MappedBuffer::updateBinding(VkDescriptorSetLayoutBinding& binding)
-{
-    const ResourceBinding& rb = resourceBinding();
+// void MappedBuffer::updateBinding(VkDescriptorSetLayoutBinding expectedBinding,
+//                                  VkDescriptorSetLayoutBinding& binding)
+//{
+//
+//
+//     const ResourceBinding& rb = resourceBinding();
+//
+//     binding.descriptorType = rb.descriptorType_;
+//     binding.descriptorCount = rb.descriptorCount_;
+//     binding.pImmutableSamplers = nullptr;
+//     binding.stageFlags = 0; // Will be set by shader reflection
+// }
 
-    binding.descriptorType = rb.descriptorType_;
-    binding.descriptorCount = rb.descriptorCount_;
-    binding.pImmutableSamplers = nullptr;
-    binding.stageFlags = 0; // Will be set by shader reflection
-}
-
-void MappedBuffer::updateWrite(VkWriteDescriptorSet& write)
+void MappedBuffer::updateWrite(VkDescriptorSetLayoutBinding expectedBinding,
+                               VkWriteDescriptorSet& write)
 {
+    // TODO: check if expectedBinding is compatible with binding
+
     const ResourceBinding& rb = resourceBinding();
 
     write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;

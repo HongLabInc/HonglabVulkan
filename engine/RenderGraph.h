@@ -10,6 +10,8 @@ using namespace std;
 
 class RenderGraph
 {
+    friend class Renderer;
+
   public:
     struct RenderNode // RenderPass
     {

@@ -28,8 +28,9 @@ class Resource
     virtual void cleanup() = 0;
 
     // Pure virtual methods that must be implemented by derived classes
-    virtual void updateBinding(VkDescriptorSetLayoutBinding& binding) = 0;
-    virtual void updateWrite(VkWriteDescriptorSet& write) = 0;
+    // virtual void updateBinding(VkDescriptorSetLayoutBinding& binding) = 0;
+    virtual void updateWrite(VkDescriptorSetLayoutBinding expectedBinding,
+                             VkWriteDescriptorSet& write) = 0;
 
     // Resource identification
     Type getType() const

@@ -40,8 +40,9 @@ class Image2D : public Resource
     void cleanup() override;
 
     // Implement required Resource methods
-    void updateBinding(VkDescriptorSetLayoutBinding& binding) override;
-    void updateWrite(VkWriteDescriptorSet& write) override;
+    // void updateBinding(VkDescriptorSetLayoutBinding& binding) override;
+    void updateWrite(VkDescriptorSetLayoutBinding expectedBinding,
+                     VkWriteDescriptorSet& write) override;
 
     auto image() const -> VkImage;
     auto view() const -> VkImageView;
@@ -87,6 +88,8 @@ class Image2D : public Resource
     uint32_t height_{0};
 
     VkImageUsageFlags usageFlags_{0};
+
+    VkDescriptorImageInfo imageInfo_{};
 
     void updateResourceBindingAfterTransition();
     void createDepthStencilAttachmentView();
