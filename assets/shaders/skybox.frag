@@ -39,6 +39,11 @@ vec3 getCubeFaceColor(vec3 dir) {
     }
 }
 
+layout(push_constant) uniform ShadowPushConstants {
+    mat4 model;
+    mat4 dummy;
+} pushConstants; // TODO: dummy, remove
+
 void main() {
     vec3 envColor;
     

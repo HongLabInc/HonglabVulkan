@@ -37,9 +37,9 @@ layout(set = 0, binding = 2) uniform BoneDataUBO {
     vec4 animationData;      // x = hasAnimation (0.0/1.0), y,z,w = future use
 } boneData;
 
-// Push constants for light space matrix
 layout(push_constant) uniform ShadowPushConstants {
     mat4 model;
+    mat4 dummy;
 } pushConstants;
 
 void main() {

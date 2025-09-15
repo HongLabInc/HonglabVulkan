@@ -6,4 +6,7 @@
   <ItemGroup>
     <Text Include="log.txt" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="RenderGraph.json" />
+  </ItemGroup>
 </Project>

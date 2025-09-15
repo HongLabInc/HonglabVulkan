@@ -18,24 +18,10 @@ class DescriptorSet
     void create(Context& ctx, const VkDescriptorSetLayout& layout,
                 const vector<reference_wrapper<Resource>>& resources)
     {
+        resources_ = resources;
+
         const vector<VkDescriptorSetLayoutBinding> layoutBindings =
             ctx.descriptorPool().layoutToBindings(layout);
-
-        // vector<VkDescriptorSetLayoutBinding> layoutBindings(resources.size());
-        // for (size_t i = 0; i < resources.size(); i++) {
-        //     resources[i].get().updateBinding(layoutBindings[i]);
-        //     layoutBindings[i].binding = uint32_t(i);
-        // }
-
-        // 1. bindings로부터 layout을 찾는다.
-        // VkDescriptorSetLayout layout = ctx.descriptorPool().descriptorSetLayout(layoutBindings);
-
-        // Note: 여기서 stageFlags가 포함된 완전한 layoutBindings을 가져옵니다.
-
-        // Update stageFlags of resourceBindings (셰이더에서 결정한 것)
-        // for (size_t i = 0; i < resources.size(); i++) {
-        //    resources[i].get().resourceBinding().stageFlags = layoutBindings[i].stageFlags;
-        //}
 
         descriptorSet_ = ctx.descriptorPool().allocateDescriptorSet(layout);
 
@@ -43,10 +29,8 @@ class DescriptorSet
         for (size_t i = 0; i < layoutBindings.size(); ++i) {
             VkWriteDescriptorSet& write = descriptorWrites[i];
 
-            // Call the polymorphic updateWrite method
             resources[i].get().updateWrite(layoutBindings[i], write);
 
-            // Override fields that must be set by DescriptorSet
             write.dstSet = descriptorSet_;
             write.dstBinding = layoutBindings[i].binding;
         }
@@ -66,8 +50,14 @@ class DescriptorSet
         return descriptorSet_;
     }
 
+    auto resources() const -> const vector<reference_wrapper<Resource>>&
+    {
+        return resources_;
+    }
+
   private:
     VkDescriptorSet descriptorSet_{VK_NULL_HANDLE};
+    vector<reference_wrapper<Resource>> resources_;
 };
 
 } // namespace hlab

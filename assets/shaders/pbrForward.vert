@@ -37,10 +37,10 @@ layout(set = 0, binding = 2) uniform BoneDataUBO {
     vec4 animationData;      // x = hasAnimation (0.0/1.0), y,z,w = future use
 } boneData;
 
-// Push constants for various coefficients
 layout(push_constant) uniform PushConstants {
     mat4 model;
-    float coeffs[16];
+    uint materialIndex;
+    float coeffs[15];    
 } pushConstants;
 
 // Output to fragment shader

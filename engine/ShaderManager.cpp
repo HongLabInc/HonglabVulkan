@@ -71,6 +71,10 @@ void ShaderManager::collectLayoutInfos()
                                 bindingInfo.resourceName = string(binding->name);
                             }
 
+                            // Set the set and binding indices
+                            bindingInfo.setIndex = setIndex;
+                            bindingInfo.bindingIndex = bindingIndex;
+
                             if (string(binding->name) == "floatColor1" ||
                                 string(binding->name) == "floatColor2") {
                                 cout << binding->name << endl;
@@ -80,7 +84,7 @@ void ShaderManager::collectLayoutInfos()
                             bool writeOnly = false;
 
                             // Use resource_type as primary indicator
-                            if (binding->resource_type == SPV_REFLECT_RESOURCE_FLAG_UAV) {
+                            if (binding->resource_type & SPV_REFLECT_RESOURCE_FLAG_UAV) {
                                 // UAV (Unordered Access View) can be read-write or write-only
                                 // Check decoration flags to determine exact access pattern
                                 bool hasNonWritableDecoration =
@@ -116,6 +120,80 @@ void ShaderManager::collectLayoutInfos()
                             }
 
                             bindingInfo.writeonly = writeOnly;
+
+                            // Determine target layout, access, and stage based on descriptor type and usage
+                            VkDescriptorType descriptorType = static_cast<VkDescriptorType>(binding->descriptor_type);
+                            VkShaderStageFlags stageFlags = static_cast<VkShaderStageFlags>(shader.stage_);
+
+                            // Determine target layout
+                            switch (descriptorType) {
+                                case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+                                    bindingInfo.targetLayout = VK_IMAGE_LAYOUT_GENERAL;
+                                    break;
+                                case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
+                                case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+                                    bindingInfo.targetLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                                    break;
+                                case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+                                case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+                                    bindingInfo.targetLayout = VK_IMAGE_LAYOUT_UNDEFINED; // Not applicable for buffers
+                                    break;
+                                default:
+                                    bindingInfo.targetLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+                                    break;
+                            }
+
+                            // Determine target access flags
+                            switch (descriptorType) {
+                                case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+                                    if (writeOnly) {
+                                        bindingInfo.targetAccess = VK_ACCESS_2_SHADER_WRITE_BIT;
+                                    } else {
+                                        bindingInfo.targetAccess = VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT;
+                                    }
+                                    break;
+                                case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
+                                case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+                                case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+                                    bindingInfo.targetAccess = VK_ACCESS_2_SHADER_READ_BIT;
+                                    break;
+                                case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+                                    if (writeOnly) {
+                                        bindingInfo.targetAccess = VK_ACCESS_2_SHADER_WRITE_BIT;
+                                    } else {
+                                        bindingInfo.targetAccess = VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT;
+                                    }
+                                    break;
+                                default:
+                                    bindingInfo.targetAccess = VK_ACCESS_2_SHADER_READ_BIT;
+                                    break;
+                            }
+
+                            // Determine target pipeline stage
+                            switch (shader.stage_) {
+                                case VK_SHADER_STAGE_VERTEX_BIT:
+                                    bindingInfo.targetStage = VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
+                                    break;
+                                case VK_SHADER_STAGE_FRAGMENT_BIT:
+                                    bindingInfo.targetStage = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+                                    break;
+                                case VK_SHADER_STAGE_COMPUTE_BIT:
+                                    bindingInfo.targetStage = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+                                    break;
+                                case VK_SHADER_STAGE_GEOMETRY_BIT:
+                                    bindingInfo.targetStage = VK_PIPELINE_STAGE_2_GEOMETRY_SHADER_BIT;
+                                    break;
+                                case VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT:
+                                    bindingInfo.targetStage = VK_PIPELINE_STAGE_2_TESSELLATION_CONTROL_SHADER_BIT;
+                                    break;
+                                case VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT:
+                                    bindingInfo.targetStage = VK_PIPELINE_STAGE_2_TESSELLATION_EVALUATION_SHADER_BIT;
+                                    break;
+                                default:
+                                    bindingInfo.targetStage = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT;
+                                    break;
+                            }
+
                             break;
                         }
                     }
@@ -186,9 +264,15 @@ void ShaderManager::collectLayoutInfos()
                 for (size_t bindingIdx = 0; bindingIdx < setBindings.size(); ++bindingIdx) {
                     const auto& bindingInfo = setBindings[bindingIdx];
                     if (!bindingInfo.resourceName.empty()) {
-                        printLog("    Binding {}: name='{}', writeonly={}", bindingIdx,
+                        printLog("    Binding {}: name='{}', set={}, binding={}, writeonly={}, layout={}, access={}, stage={}", 
+                                 bindingIdx,
                                  bindingInfo.resourceName,
-                                 bindingInfo.writeonly ? "true" : "false");
+                                 bindingInfo.setIndex,
+                                 bindingInfo.bindingIndex,
+                                 bindingInfo.writeonly ? "true" : "false",
+                                 imageLayoutToString(bindingInfo.targetLayout),
+                                 accessFlags2ToString(bindingInfo.targetAccess),
+                                 pipelineStageFlags2ToString(bindingInfo.targetStage));
                     }
                 }
             }
@@ -343,6 +427,30 @@ VkPushConstantRange ShaderManager::pushConstantsRange(string pipelineName)
     emptyRange.offset = 0;
     emptyRange.size = 0;
     return emptyRange;
+}
+
+array<uint32_t, 3> ShaderManager::getComputeLocalWorkgroupSize(string pipelineName) const
+{
+    // Initialize with default values
+    array<uint32_t, 3> workgroupSize = {1, 1, 1};
+
+    auto it = pipelineShaders_.find(pipelineName);
+    if (it == pipelineShaders_.end()) {
+        printLog("[Warning] Pipeline '{}' not found in ShaderManager", pipelineName);
+        return workgroupSize;
+    }
+
+    const auto& shaders = it->second;
+
+    // Find the compute shader in this pipeline
+    for (const auto& shader : shaders) {
+        if (shader.stage_ == VK_SHADER_STAGE_COMPUTE_BIT) {
+            return shader.getLocalWorkgroupSize();
+        }
+    }
+
+    printLog("[Warning] No compute shader found in pipeline '{}'", pipelineName);
+    return workgroupSize;
 }
 
 const unordered_map<string, vector<Shader>>& ShaderManager::pipelineShaders() const

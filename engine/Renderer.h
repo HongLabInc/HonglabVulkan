@@ -103,9 +103,9 @@ static_assert(sizeof(BoneDataUniform) == 256 * 64 + 16, "Unexpected BoneDataUnif
 struct PbrPushConstants
 {
     alignas(16) glm::mat4 model = glm::mat4(1.0f); // 64 bytes
+    alignas(4) uint32_t materialIndex = 0;         // 4 bytes - Material index for bindless access
     alignas(4) float coeffs[15] = {
         0.0f}; // 60 bytes (reduced from 16 to make room for materialIndex)
-    alignas(4) uint32_t materialIndex = 0; // 4 bytes - Material index for bindless access
 };
 
 static_assert(sizeof(PbrPushConstants) == 128, "PbrPushConstants must be 128 bytes");
@@ -125,27 +125,16 @@ class Renderer
              vector<unique_ptr<Model>>& models, VkFormat outColorFormat, VkFormat depthFormat,
              VkSampleCountFlagBits msaaSamples, uint32_t swapChainWidth, uint32_t swapChainHeight);
 
-    ~Renderer()
-    {
-        cleanup();
-    }
+    ~Renderer() = default;
 
     void createPipelines(const VkFormat colorFormat, const VkFormat depthFormat,
                          VkSampleCountFlagBits msaaSamples);
     void createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight,
                         VkSampleCountFlagBits msaaSamples);
     void createUniformBuffers();
-
-    void cleanup()
-    {
-        // Manual cleanup is not necessary
-    }
-
     void update(Camera& camera, vector<unique_ptr<Model>>& models, uint32_t currentFrame,
                 double time);
-    void updateBoneData(const vector<unique_ptr<Model>>& models,
-                        uint32_t currentFrame); // NEW: Add this method
-
+    void updateBoneData(const vector<unique_ptr<Model>>& models, uint32_t currentFrame);
     void draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swapchainImageView,
               vector<unique_ptr<Model>>& models, VkViewport viewport, VkRect2D scissor);
 
@@ -201,7 +190,7 @@ class Renderer
     // Resources - Consolidated image buffers using map structure
     unordered_map<string, unique_ptr<Image2D>> imageBuffers_;
     // Keys: "msaaColor", "msaaDepthStencil", "depthStencil", "floatColor1", "floatColor2",
-    //       "dummy", "shadowMap", "prefiltered", "irradiance", "brdfLut"
+    //       "shadowMap", "prefiltered", "irradiance", "brdfLut"
 
     unique_ptr<TextureManager> materialTextures_; // Material textures for bindless rendering
     unique_ptr<StorageBuffer> materialBuffer_;    // Material data storage buffer
@@ -287,10 +276,10 @@ class Renderer
                           float clearDepth = 1.0f, VkImageView resolveImageView = VK_NULL_HANDLE,
                           VkResolveModeFlagBits resolveMode = VK_RESOLVE_MODE_NONE) const;
 
-    VkRenderingInfo
-    createRenderingInfo(const VkRect2D& renderArea,
-                        const VkRenderingAttachmentInfo* colorAttachment,
-                        const VkRenderingAttachmentInfo* depthAttachment = nullptr) const;
+    VkRenderingInfo createRenderingInfo(const VkRect2D& renderArea,
+                                        const VkRenderingAttachmentInfo* colorAttachment,
+                                        const VkRenderingAttachmentInfo* depthAttachment,
+                                        const VkRenderingAttachmentInfo* stencilAttachment) const;
 };
 
 } // namespace hlab

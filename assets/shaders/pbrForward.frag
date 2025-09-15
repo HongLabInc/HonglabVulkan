@@ -11,8 +11,8 @@ layout(location = 6) in vec4 fragPosLightSpace;
 
 layout(push_constant) uniform PushConstants {
     mat4 model;
-    float coeffs[15];
     uint materialIndex;
+    float coeffs[15];    
 } pushConstants;
 
 layout(set = 0, binding = 0) uniform SceneDataUBO {

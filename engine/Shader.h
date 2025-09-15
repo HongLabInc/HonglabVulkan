@@ -5,6 +5,7 @@
 #include <spirv-reflect/spirv_reflect.h>
 #include <unordered_map>
 #include <vulkan/vulkan.h>
+#include <array>
 
 namespace hlab {
 
@@ -26,6 +27,9 @@ class Shader
     ~Shader();
 
     void cleanup();
+
+    // Get compute shader local workgroup size (local_size_x, local_size_y, local_size_z)
+    auto getLocalWorkgroupSize() const -> array<uint32_t, 3>;
 
   private:
     Context& ctx_; // for creation and cleanup

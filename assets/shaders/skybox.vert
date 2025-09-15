@@ -35,6 +35,11 @@ const int indices[36] = int[36](
 	3, 2, 6, 6, 7, 3	// top
 );
 
+layout(push_constant) uniform ShadowPushConstants {
+    mat4 model;
+    mat4 dummy;
+} pushConstants; // TODO: dummy, remove
+
 void main() {
     vec3 localPos = pos[indices[gl_VertexIndex]];
     outLocalPos = localPos;

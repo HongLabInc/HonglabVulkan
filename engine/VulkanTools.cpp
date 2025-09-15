@@ -666,6 +666,128 @@ size_t BindingHash::operator()(const vector<VkDescriptorSetLayoutBinding>& bindi
     return hash;
 }
 
+string imageLayoutToString(VkImageLayout layout)
+{
+    switch (layout) {
+    case VK_IMAGE_LAYOUT_UNDEFINED:
+        return "UNDEFINED";
+    case VK_IMAGE_LAYOUT_GENERAL:
+        return "GENERAL";
+    case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+        return "COLOR_ATTACHMENT_OPTIMAL";
+    case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+        return "DEPTH_STENCIL_ATTACHMENT_OPTIMAL";
+    case VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL:
+        return "DEPTH_STENCIL_READ_ONLY_OPTIMAL";
+    case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+        return "SHADER_READ_ONLY_OPTIMAL";
+    case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+        return "TRANSFER_SRC_OPTIMAL";
+    case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+        return "TRANSFER_DST_OPTIMAL";
+    case VK_IMAGE_LAYOUT_PREINITIALIZED:
+        return "PREINITIALIZED";
+    case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
+        return "PRESENT_SRC_KHR";
+    default:
+        return "UNKNOWN_LAYOUT(" + std::to_string(static_cast<int>(layout)) + ")";
+    }
+}
+
+string pipelineStageFlags2ToString(VkPipelineStageFlags2 stages)
+{
+    if (stages == VK_PIPELINE_STAGE_2_NONE) {
+        return "NONE";
+    }
+    
+    std::string result;
+    if (stages & VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT)
+        result += "TOP_OF_PIPE|";
+    if (stages & VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT)
+        result += "DRAW_INDIRECT|";
+    if (stages & VK_PIPELINE_STAGE_2_VERTEX_INPUT_BIT)
+        result += "VERTEX_INPUT|";
+    if (stages & VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT)
+        result += "VERTEX_SHADER|";
+    if (stages & VK_PIPELINE_STAGE_2_TESSELLATION_CONTROL_SHADER_BIT)
+        result += "TESSELLATION_CONTROL_SHADER|";
+    if (stages & VK_PIPELINE_STAGE_2_TESSELLATION_EVALUATION_SHADER_BIT)
+        result += "TESSELLATION_EVALUATION_SHADER|";
+    if (stages & VK_PIPELINE_STAGE_2_GEOMETRY_SHADER_BIT)
+        result += "GEOMETRY_SHADER|";
+    if (stages & VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT)
+        result += "FRAGMENT_SHADER|";
+    if (stages & VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT)
+        result += "EARLY_FRAGMENT_TESTS|";
+    if (stages & VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT)
+        result += "LATE_FRAGMENT_TESTS|";
+    if (stages & VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT)
+        result += "COLOR_ATTACHMENT_OUTPUT|";
+    if (stages & VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT)
+        result += "COMPUTE_SHADER|";
+    if (stages & VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT)
+        result += "ALL_TRANSFER|";
+    if (stages & VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT)
+        result += "BOTTOM_OF_PIPE|";
+    if (stages & VK_PIPELINE_STAGE_2_HOST_BIT)
+        result += "HOST|";
+    if (stages & VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT)
+        result += "ALL_GRAPHICS|";
+    if (stages & VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT)
+        result += "ALL_COMMANDS|";
+    
+    if (!result.empty())
+        result.pop_back(); // Remove trailing '|'
+    return result.empty() ? "NONE" : result;
+}
+
+string accessFlags2ToString(VkAccessFlags2 access)
+{
+    if (access == VK_ACCESS_2_NONE) {
+        return "NONE";
+    }
+    
+    std::string result;
+    if (access & VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT)
+        result += "INDIRECT_COMMAND_READ|";
+    if (access & VK_ACCESS_2_INDEX_READ_BIT)
+        result += "INDEX_READ|";
+    if (access & VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT)
+        result += "VERTEX_ATTRIBUTE_READ|";
+    if (access & VK_ACCESS_2_UNIFORM_READ_BIT)
+        result += "UNIFORM_READ|";
+    if (access & VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT)
+        result += "INPUT_ATTACHMENT_READ|";
+    if (access & VK_ACCESS_2_SHADER_READ_BIT)
+        result += "SHADER_READ|";
+    if (access & VK_ACCESS_2_SHADER_WRITE_BIT)
+        result += "SHADER_WRITE|";
+    if (access & VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT)
+        result += "COLOR_ATTACHMENT_READ|";
+    if (access & VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT)
+        result += "COLOR_ATTACHMENT_WRITE|";
+    if (access & VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT)
+        result += "DEPTH_STENCIL_ATTACHMENT_READ|";
+    if (access & VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT)
+        result += "DEPTH_STENCIL_ATTACHMENT_WRITE|";
+    if (access & VK_ACCESS_2_TRANSFER_READ_BIT)
+        result += "TRANSFER_READ|";
+    if (access & VK_ACCESS_2_TRANSFER_WRITE_BIT)
+        result += "TRANSFER_WRITE|";
+    if (access & VK_ACCESS_2_HOST_READ_BIT)
+        result += "HOST_READ|";
+    if (access & VK_ACCESS_2_HOST_WRITE_BIT)
+        result += "HOST_WRITE|";
+    if (access & VK_ACCESS_2_MEMORY_READ_BIT)
+        result += "MEMORY_READ|";
+    if (access & VK_ACCESS_2_MEMORY_WRITE_BIT)
+        result += "MEMORY_WRITE|";
+    
+    if (!result.empty())
+        result.pop_back(); // Remove trailing '|'
+    return result.empty() ? "NONE" : result;
+}
+
 bool BindingEqual::operator()(const vector<VkDescriptorSetLayoutBinding>& lhs,
                               const vector<VkDescriptorSetLayoutBinding>& rhs) const
 {

@@ -13,8 +13,13 @@ using namespace std;
 
 struct BindingInfo
 {
-    string resourceName{};    // name of binding resource
-    bool writeonly{false};    // whether the resource is write-only (e.g., writeonly storage buffers/images)
+    string resourceName{};             // name of binding resource
+    uint32_t setIndex{0};              // descriptor set index (0, 1, 2, ...)
+    uint32_t bindingIndex{0};          // binding index within the set (0, 1, 2, ...)
+    VkImageLayout targetLayout;        // required image layout for this binding
+    VkAccessFlags2 targetAccess;       // required access flags for this binding
+    VkPipelineStageFlags2 targetStage; // pipeline stage where this binding is used
+    bool writeonly{false};
 };
 
 class ShaderManager
@@ -34,6 +39,9 @@ class ShaderManager
     auto createVertexInputAttrDesc(string pipelineName) const
         -> vector<VkVertexInputAttributeDescription>;
     auto pushConstantsRange(string pipelineName) -> VkPushConstantRange;
+
+    // Get local workgroup size for compute pipelines
+    auto getComputeLocalWorkgroupSize(string pipelineName) const -> array<uint32_t, 3>;
 
     // Accessors
     auto pipelineShaders() const -> const unordered_map<string, vector<Shader>>&;
