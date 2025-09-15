@@ -20,9 +20,6 @@ void RenderGraph::writeToFile(const string& filename) const
         
         file << "    {\n";
         file << "      \"pipelineNames\": " << vectorToJsonArray(node.pipelineNames) << ",\n";
-        file << "      \"msaaColorAttachments\": " << vectorToJsonArray(node.msaaColorAttachments) << ",\n";
-        file << "      \"msaaDepthAttachment\": \"" << escapeJsonString(node.msaaDepthAttachment) << "\",\n";
-        file << "      \"msaaStencilAttachment\": \"" << escapeJsonString(node.msaaStencilAttachment) << "\",\n";
         file << "      \"colorAttachments\": " << vectorToJsonArray(node.colorAttachments) << ",\n";
         file << "      \"depthAttachment\": \"" << escapeJsonString(node.depthAttachment) << "\",\n";
         file << "      \"stencilAttachment\": \"" << escapeJsonString(node.stencilAttachment) << "\"\n";
@@ -90,9 +87,6 @@ bool RenderGraph::readFromFile(const string& filename)
             
             // Parse each field
             node.pipelineNames = parseJsonField(nodeContent, "pipelineNames");
-            node.msaaColorAttachments = parseJsonField(nodeContent, "msaaColorAttachments");
-            node.msaaDepthAttachment = parseJsonStringField(nodeContent, "msaaDepthAttachment");
-            node.msaaStencilAttachment = parseJsonStringField(nodeContent, "msaaStencilAttachment");
             node.colorAttachments = parseJsonField(nodeContent, "colorAttachments");
             node.depthAttachment = parseJsonStringField(nodeContent, "depthAttachment");
             node.stencilAttachment = parseJsonStringField(nodeContent, "stencilAttachment");

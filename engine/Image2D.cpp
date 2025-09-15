@@ -305,14 +305,6 @@ void Image2D::createRGBA16F(uint16_t width, uint32_t height)
                 VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, 0, VK_IMAGE_VIEW_TYPE_2D);
 }
 
-void Image2D::createMsaaColorBuffer(uint16_t width, uint32_t height,
-                                    VkSampleCountFlagBits sampleCount)
-{
-    createImage(VK_FORMAT_R16G16B16A16_SFLOAT, static_cast<uint32_t>(width),
-                static_cast<uint32_t>(height), sampleCount, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, 0, VK_IMAGE_VIEW_TYPE_2D);
-}
-
 void Image2D::createGeneralStorage(uint16_t width, uint32_t height)
 {
     VkImageUsageFlags usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
@@ -434,14 +426,14 @@ void Image2D::cleanup()
     height_ = 0;
 }
 
-void Image2D::createDepthBuffer(uint32_t width, uint32_t height, VkSampleCountFlagBits sampleCount)
+void Image2D::createDepthBuffer(uint32_t width, uint32_t height)
 {
     // Create depth buffer with appropriate format and usage flags for depth-stencil operations
     createImage(
         ctx_.depthFormat(),                           // Use context's preferred depth format
         width,                                        // Width
         height,                                       // Height
-        sampleCount,                                  // Sample count (for MSAA support)
+        VK_SAMPLE_COUNT_1_BIT,                        // Always use 1x samples (no MSAA)
         VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | // Can be used as depth-stencil attachment
             VK_IMAGE_USAGE_SAMPLED_BIT, // Can be sampled in shaders (depth-only aspect)
         VK_IMAGE_ASPECT_DEPTH_BIT,      // Start with depth-only aspect for the primary view

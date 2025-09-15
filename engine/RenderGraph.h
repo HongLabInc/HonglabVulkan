@@ -15,12 +15,9 @@ class RenderGraph
     friend class Renderer;
 
   public:
-    struct RenderNode // RenderPass
+    struct RenderNode // RenderPass (simplified - no MSAA support)
     {
         vector<string> pipelineNames;
-        vector<string> msaaColorAttachments;
-        string msaaDepthAttachment;
-        string msaaStencilAttachment;
         vector<string> colorAttachments;
         string depthAttachment;
         string stencilAttachment;

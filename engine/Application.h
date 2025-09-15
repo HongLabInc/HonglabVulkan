@@ -218,7 +218,6 @@ class Application
     Swapchain swapchain_;
 
     VkExtent2D windowSize_{};
-    VkSampleCountFlagBits msaaSamples_ = VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM;
 
     MouseState mouseState_;
     Camera camera_;

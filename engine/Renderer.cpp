@@ -7,16 +7,15 @@ namespace hlab {
 Renderer::Renderer(Context& ctx, ShaderManager& shaderManager, const uint32_t& kMaxFramesInFlight,
                    const string& kAssetsPathPrefix, const string& kShaderPathPrefix_,
                    vector<unique_ptr<Model>>& models, VkFormat outColorFormat, VkFormat depthFormat,
-                   VkSampleCountFlagBits msaaSamples, uint32_t swapChainWidth,
-                   uint32_t swapChainHeight)
+                   uint32_t swapChainWidth, uint32_t swapChainHeight)
     : ctx_(ctx), shaderManager_(shaderManager), kMaxFramesInFlight_(kMaxFramesInFlight),
       kAssetsPathPrefix_(kAssetsPathPrefix), kShaderPathPrefix_(kShaderPathPrefix_),
       samplerShadow_(ctx), samplerLinearRepeat_(ctx), samplerLinearClamp_(ctx),
       samplerAnisoRepeat_(ctx), samplerAnisoClamp_(ctx),
       materialTextures_(make_unique<TextureManager>(ctx))
 {
-    createPipelines(outColorFormat, depthFormat, msaaSamples);
-    createTextures(swapChainWidth, swapChainHeight, msaaSamples);
+    createPipelines(outColorFormat, depthFormat);
+    createTextures(swapChainWidth, swapChainHeight);
     createUniformBuffers();
 
     vector<MaterialUBO> allMaterials;
@@ -240,48 +239,33 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
         VkRenderingInfo renderingInfo{};
         renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
 
-        if (renderNode.msaaColorAttachments.size() > 0) {
-            for (uint32_t i = 0; i < renderNode.msaaColorAttachments.size(); i++) {
+        // Direct rendering (no MSAA) - simplified path
+
+        // Handle color attachments
+        for (const auto& colorTarget : renderNode.colorAttachments) {
+            if (colorTarget == "swapchain") {
+                colorAttachments.push_back(createColorAttachment(
+                    swapchainImageView, VK_ATTACHMENT_LOAD_OP_CLEAR, {0.0f, 0.0f, 1.0f, 0.0f}));
+            } else {
                 if (mainTarget.empty()) {
-                    mainTarget = renderNode.msaaColorAttachments[i];
+                    mainTarget = colorTarget;
                 }
-                colorAttachments.push_back(
-                    createColorAttachment(imageBuffers_[renderNode.msaaColorAttachments[i]]->view(),
-                                          VK_ATTACHMENT_LOAD_OP_CLEAR, {0.0f, 0.0f, 0.5f, 0.0f},
-                                          imageBuffers_[renderNode.colorAttachments[i]]->view(),
-                                          VK_RESOLVE_MODE_AVERAGE_BIT));
+                colorAttachments.push_back(createColorAttachment(imageBuffers_[colorTarget]->view(),
+                                                                 VK_ATTACHMENT_LOAD_OP_CLEAR,
+                                                                 {0.0f, 0.0f, 0.5f, 0.0f}));
             }
+        }
 
-            depthAttachment = createDepthAttachment(
-                imageBuffers_[renderNode.msaaDepthAttachment]->attachmentView(),
-                VK_ATTACHMENT_LOAD_OP_CLEAR, 1.0f,
-                imageBuffers_[renderNode.depthAttachment]->attachmentView(),
-                VK_RESOLVE_MODE_SAMPLE_ZERO_BIT);
-
+        // Handle depth attachment
+        if (!renderNode.depthAttachment.empty()) {
+            if (mainTarget.empty()) {
+                mainTarget = renderNode.depthAttachment;
+            }
+            imageBuffers_[renderNode.depthAttachment]->transitionToDepthStencilAttachment(cmd);
+            depthAttachment =
+                createDepthAttachment(imageBuffers_[renderNode.depthAttachment]->attachmentView(),
+                                      VK_ATTACHMENT_LOAD_OP_CLEAR, 1.0f);
             renderingInfo.pDepthAttachment = &depthAttachment;
-
-            if (!renderNode.msaaStencilAttachment.empty()) {
-                renderingInfo.pStencilAttachment = &depthAttachment;
-            }
-        } else {
-
-            for (const auto c : renderNode.colorAttachments) {
-                if (c == "swapchain") {
-                    colorAttachments.push_back(createColorAttachment(
-                        swapchainImageView, VK_ATTACHMENT_LOAD_OP_CLEAR, {0.0f, 0.0f, 1.0f, 0.0f}));
-                }
-            }
-
-            if (!renderNode.depthAttachment.empty()) {
-                if (mainTarget.empty()) {
-                    mainTarget = renderNode.depthAttachment;
-                }
-                imageBuffers_[renderNode.depthAttachment]->transitionToDepthStencilAttachment(cmd);
-                depthAttachment =
-                    createDepthAttachment(imageBuffers_[renderNode.depthAttachment]->view(),
-                                          VK_ATTACHMENT_LOAD_OP_CLEAR, 1.0f);
-                renderingInfo.pDepthAttachment = &depthAttachment;
-            }
         }
 
         for (auto& pipelineName : renderNode.pipelineNames) {
@@ -327,14 +311,14 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
                 continue;
             }
 
-            if (pipelineName == "shadowMap") { // 파이프라인 옵션 추가
+            if (pipelineName == "shadowMap") {
                 vkCmdSetDepthBias(cmd,
                                   1.1f,  // Constant factor
                                   0.0f,  // Clamp value
                                   2.0f); // Slope factor
             }
 
-            // Render all visible models to shadow map
+            // Render all visible models
             VkDeviceSize offsets[1]{0};
 
             for (size_t j = 0; j < models.size(); j++) {
@@ -346,7 +330,7 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
                 for (size_t i = 0; i < models[j]->meshes().size(); i++) {
                     auto& mesh = models[j]->meshes()[i];
 
-                    // Skip culled meshes for shadow mapping too
+                    // Skip culled meshes
                     if (mesh.isCulled) {
                         continue;
                     }
@@ -372,8 +356,7 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
     }
 }
 
-void Renderer::createPipelines(const VkFormat swapChainColorFormat, const VkFormat depthFormat,
-                               VkSampleCountFlagBits msaaSamples)
+void Renderer::createPipelines(const VkFormat swapChainColorFormat, const VkFormat depthFormat)
 {
     renderGraph_.readFromFile("RenderGraph.json");
 
@@ -385,12 +368,14 @@ void Renderer::createPipelines(const VkFormat swapChainColorFormat, const VkForm
     printLog("  Selected format: {} ({} bytes/pixel)", vkFormatToString(selectedHDRFormat),
              getFormatSize(selectedHDRFormat));
 
+    // All pipelines use 1x samples (no MSAA) for educational simplicity
     pipelines_["pbrForward"] =
         make_unique<Pipeline>(ctx_, shaderManager_, PipelineConfig::createPbrForward(),
-                              selectedHDRFormat, depthFormat, msaaSamples);
+                              selectedHDRFormat, depthFormat, VK_SAMPLE_COUNT_1_BIT);
 
-    pipelines_["sky"] = make_unique<Pipeline>(ctx_, shaderManager_, PipelineConfig::createSky(),
-                                              selectedHDRFormat, depthFormat, msaaSamples);
+    pipelines_["sky"] =
+        make_unique<Pipeline>(ctx_, shaderManager_, PipelineConfig::createSky(), selectedHDRFormat,
+                              depthFormat, VK_SAMPLE_COUNT_1_BIT);
 
     pipelines_["post"] =
         make_unique<Pipeline>(ctx_, shaderManager_, PipelineConfig::createPost(),
@@ -408,8 +393,7 @@ void Renderer::createPipelines(const VkFormat swapChainColorFormat, const VkForm
     selectedHDRFormat_ = selectedHDRFormat;
 }
 
-void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight,
-                              VkSampleCountFlagBits msaaSamples)
+void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight)
 {
     samplerLinearRepeat_.createLinearRepeat();
     samplerLinearClamp_.createLinearClamp();
@@ -417,10 +401,10 @@ void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight,
     samplerAnisoClamp_.createAnisoClamp();
     samplerShadow_.createShadow();
 
-    // Initialize all image buffers in the consolidated map
-    const vector<string> imageNames = {"msaaColor",      "msaaDepthStencil", "depthStencil",
-                                       "floatColor1",    "floatColor2",      "shadowMap",
-                                       "prefilteredMap", "irradianceMap",    "brdfLut"};
+    // Initialize image buffers (simplified - no MSAA)
+    const vector<string> imageNames = {"depthStencil", "floatColor1",    "floatColor2",
+                                       "shadowMap",    "prefilteredMap", "irradianceMap",
+                                       "brdfLut"};
 
     for (const auto& name : imageNames) {
         imageBuffers_[name] = make_unique<Image2D>(ctx_);
@@ -451,15 +435,8 @@ void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight,
     printLog("  Format: {} ({} bytes/pixel)", vkFormatToString(selectedHDRFormat_),
              getFormatSize(selectedHDRFormat_));
 
-    // Log memory usage and format quality assessment
-    logHDRMemoryUsage(swapchainWidth, swapchainHeight, msaaSamples);
-
-    // Create HDR render targets using the selected format directly
-    // MSAA color buffer
-    imageBuffers_["msaaColor"]->createImage(selectedHDRFormat_, swapchainWidth, swapchainHeight,
-                                            msaaSamples, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                                            VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, 0,
-                                            VK_IMAGE_VIEW_TYPE_2D);
+    // Log memory usage analysis
+    logHDRMemoryUsage(swapchainWidth, swapchainHeight);
 
     // Storage color buffers for compute shaders and post-processing
     VkImageUsageFlags storageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
@@ -475,11 +452,8 @@ void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight,
         selectedHDRFormat_, swapchainWidth, swapchainHeight, VK_SAMPLE_COUNT_1_BIT, storageUsage,
         VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, 0, VK_IMAGE_VIEW_TYPE_2D);
 
-    // Create depth buffers
-    imageBuffers_["msaaDepthStencil"]->createDepthBuffer(swapchainWidth, swapchainHeight,
-                                                         msaaSamples);
-    imageBuffers_["depthStencil"]->createDepthBuffer(swapchainWidth, swapchainHeight,
-                                                     VK_SAMPLE_COUNT_1_BIT);
+    // Create depth buffer (no MSAA)
+    imageBuffers_["depthStencil"]->createDepthBuffer(swapchainWidth, swapchainHeight);
 
     // Create shadow map
     uint32_t shadowMapSize = 2048 * 2;
@@ -586,24 +560,23 @@ bool Renderer::isFormatSuitableForHDR(VkFormat format)
     return hasRequired;
 }
 
-void Renderer::logHDRMemoryUsage(uint32_t width, uint32_t height, VkSampleCountFlagBits msaaSamples)
+void Renderer::logHDRMemoryUsage(uint32_t width, uint32_t height)
 {
     uint64_t totalPixels = static_cast<uint64_t>(width) * height;
-    uint64_t msaaPixels = totalPixels * static_cast<uint32_t>(msaaSamples);
 
     uint32_t hdrBytes = getFormatSize(selectedHDRFormat_);
     uint32_t standardBytes = getFormatSize(VK_FORMAT_R16G16B16A16_SFLOAT);
 
-    uint64_t hdrMemoryMB = (msaaPixels * hdrBytes + totalPixels * hdrBytes * 2) / (1024 * 1024);
+    // Calculate memory usage for current format (no MSAA, so 1x samples)
+    uint64_t hdrMemoryMB = (totalPixels * hdrBytes + totalPixels * hdrBytes * 2) / (1024 * 1024);
     uint64_t standardMemoryMB =
-        (msaaPixels * standardBytes + totalPixels * standardBytes * 2) / (1024 * 1024);
+        (totalPixels * standardBytes + totalPixels * standardBytes * 2) / (1024 * 1024);
 
     float savings =
         (1.0f - static_cast<float>(hdrMemoryMB) / static_cast<float>(standardMemoryMB)) * 100.0f;
 
     printLog("HDR Memory Analysis:");
-    printLog("  Resolution: {}x{} with {}x MSAA", width, height,
-             static_cast<uint32_t>(msaaSamples));
+    printLog("  Resolution: {}x{} (no MSAA)", width, height);
     printLog("  Current format memory: {} MB", hdrMemoryMB);
     printLog("  Standard RGBA16F memory: {} MB", standardMemoryMB);
     if (savings > 0) {

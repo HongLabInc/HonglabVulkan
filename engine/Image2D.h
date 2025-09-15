@@ -29,10 +29,9 @@ class Image2D : public Resource
     void createTextureFromImage(string filename, bool isCubemap, bool sRGB);
     void createRGBA32F(uint32_t width, uint32_t height);
     void createRGBA16F(uint16_t width, uint32_t height);
-    void createMsaaColorBuffer(uint16_t width, uint32_t height, VkSampleCountFlagBits sampleCount);
     void createGeneralStorage(uint16_t width, uint32_t height);
     void createShadow(uint32_t width, uint32_t height); // Create shadow map depth texture
-    void createDepthBuffer(uint32_t width, uint32_t height, VkSampleCountFlagBits sampleCount);
+    void createDepthBuffer(uint32_t width, uint32_t height);
     void createImage(VkFormat format, uint32_t width, uint32_t height,
                      VkSampleCountFlagBits sampleCount, VkImageUsageFlags usage,
                      VkImageAspectFlags aspectMask, uint32_t mipLevels, uint32_t arrayLayers,

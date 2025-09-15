@@ -93,7 +93,7 @@ struct SsaoOptionsUBO
 struct BoneDataUniform
 {
     alignas(16) glm::mat4 boneMatrices[65]; // 4,160 bytes (already 16-byte aligned)
-    alignas(16) glm::vec4 animationData;     // x = hasAnimation (0.0/1.0), y,z,w = future use
+    alignas(16) glm::vec4 animationData;    // x = hasAnimation (0.0/1.0), y,z,w = future use
 };
 
 static_assert(sizeof(BoneDataUniform) % 16 == 0, "BoneDataUniform must be 16-byte aligned");
@@ -123,14 +123,12 @@ class Renderer
     Renderer(Context& ctx, ShaderManager& shaderManager, const uint32_t& kMaxFramesInFlight,
              const string& kAssetsPathPrefix, const string& kShaderPathPrefix_,
              vector<unique_ptr<Model>>& models, VkFormat outColorFormat, VkFormat depthFormat,
-             VkSampleCountFlagBits msaaSamples, uint32_t swapChainWidth, uint32_t swapChainHeight);
+             uint32_t swapChainWidth, uint32_t swapChainHeight);
 
     ~Renderer() = default;
 
-    void createPipelines(const VkFormat colorFormat, const VkFormat depthFormat,
-                         VkSampleCountFlagBits msaaSamples);
-    void createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight,
-                        VkSampleCountFlagBits msaaSamples);
+    void createPipelines(const VkFormat colorFormat, const VkFormat depthFormat);
+    void createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight);
     void createUniformBuffers();
     void update(Camera& camera, vector<unique_ptr<Model>>& models, uint32_t currentFrame,
                 double time);
@@ -189,8 +187,8 @@ class Renderer
 
     // Resources - Consolidated image buffers using map structure
     unordered_map<string, unique_ptr<Image2D>> imageBuffers_;
-    // Keys: "msaaColor", "msaaDepthStencil", "depthStencil", "floatColor1", "floatColor2",
-    //       "shadowMap", "prefiltered", "irradiance", "brdfLut"
+    // Keys: "depthStencil", "floatColor1", "floatColor2", "shadowMap", "prefiltered", "irradiance",
+    // "brdfLut"
 
     unique_ptr<TextureManager> materialTextures_; // Material textures for bindless rendering
     unique_ptr<StorageBuffer> materialBuffer_;    // Material data storage buffer
@@ -254,25 +252,15 @@ class Renderer
 
     // HDR format optimization
     VkFormat selectedHDRFormat_{VK_FORMAT_R16G16B16A16_SFLOAT}; // Store selected HDR format
-    
-    // Control parameters
-    float directionalLightAngle1 = 27.0f;
-    float directionalLightAngle2 = 3.0f;
-    float directionalLightIntensity = 27.66f;
-
-    // Shadow mapping bias parameters for real-time adjustment
-    float shadowBiasConstant = 0.5f; // Constant bias factor
-    float shadowBiasSlope = 1.0f;    // Slope-scaled bias factor
-    float shadowBiasClamp = 0.0f;    // Bias clamp value
 
     // Format selection functions with proper priority
     VkFormat selectOptimalHDRFormat(bool needsAlpha, bool fullPrecision);
-    
+
     // Format validation and creation
     bool isFormatSuitableForHDR(VkFormat format);
-    
+
     // Utility functions
-    void logHDRMemoryUsage(uint32_t width, uint32_t height, VkSampleCountFlagBits msaaSamples);
+    void logHDRMemoryUsage(uint32_t width, uint32_t height);
 
     // Helper functions for creating rendering structures
     VkRenderingAttachmentInfo
@@ -287,11 +275,6 @@ class Renderer
                           VkAttachmentLoadOp loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
                           float clearDepth = 1.0f, VkImageView resolveImageView = VK_NULL_HANDLE,
                           VkResolveModeFlagBits resolveMode = VK_RESOLVE_MODE_NONE) const;
-
-    VkRenderingInfo createRenderingInfo(const VkRect2D& renderArea,
-                                        const VkRenderingAttachmentInfo* colorAttachment,
-                                        const VkRenderingAttachmentInfo* depthAttachment,
-                                        const VkRenderingAttachmentInfo* stencilAttachment) const;
 };
 
 } // namespace hlab

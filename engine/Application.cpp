@@ -37,10 +37,9 @@ Application::Application(const ApplicationConfig& config)
     setupCamera(config.camera);
     loadModels(config.models);
 
-    renderer_ = std::make_unique<Renderer>(ctx_, shaderManager_, kMaxFramesInFlight,
-                                           kAssetsPathPrefix, kShaderPathPrefix, models_,
-                                           swapchain_.colorFormat(), ctx_.depthFormat(),
-                                           msaaSamples_, windowSize_.width, windowSize_.height);
+    renderer_ = std::make_unique<Renderer>(
+        ctx_, shaderManager_, kMaxFramesInFlight, kAssetsPathPrefix, kShaderPathPrefix, models_,
+        swapchain_.colorFormat(), ctx_.depthFormat(), windowSize_.width, windowSize_.height);
 }
 
 // Future: Load from file constructor
@@ -52,7 +51,6 @@ Application::Application(const string& configFile)
 
 void Application::initializeVulkanResources()
 {
-    msaaSamples_ = ctx_.getMaxUsableSampleCount();
     commandBuffers_ = ctx_.createGraphicsCommandBuffers(kMaxFramesInFlight);
 
     // Initialize fences
