@@ -7,6 +7,7 @@ namespace hlab {
 
 using namespace std;
 
+// Vertex implementation (f16 optimized format)
 void Vertex::addBoneData(uint32_t boneIndex, float weight)
 {
     // Find an empty slot (boneIndex == -1) to add the bone data
@@ -63,41 +64,40 @@ vector<VkVertexInputAttributeDescription> Vertex::getAttributeDescriptionsBasic(
     /*
      * BASIC VERTEX INPUT ATTRIBUTE DESCRIPTIONS (WITHOUT BONE DATA):
      *
-     * For models that don't use skeletal animation, we can use
-     * a smaller vertex format that excludes bone weights and indices.
-     * This provides better performance for static models.
+     * Uses half-precision formats for geometric attributes to reduce memory bandwidth.
+     * This is ideal for static models that don't use skeletal animation.
      */
 
     vector<VkVertexInputAttributeDescription> attributeDescriptions(5);
 
-    // Position attribute (location = 0)
+    // Position attribute (location = 0) - half-precision
     attributeDescriptions[0].binding = 0;
     attributeDescriptions[0].location = 0;
-    attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attributeDescriptions[0].format = VK_FORMAT_R16G16B16_SFLOAT;
     attributeDescriptions[0].offset = offsetof(Vertex, position);
 
-    // Normal attribute (location = 1)
+    // Normal attribute (location = 1) - half-precision
     attributeDescriptions[1].binding = 0;
     attributeDescriptions[1].location = 1;
-    attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attributeDescriptions[1].format = VK_FORMAT_R16G16B16_SFLOAT;
     attributeDescriptions[1].offset = offsetof(Vertex, normal);
 
-    // Texture coordinate attribute (location = 2)
+    // Texture coordinate attribute (location = 2) - half-precision
     attributeDescriptions[2].binding = 0;
     attributeDescriptions[2].location = 2;
-    attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
+    attributeDescriptions[2].format = VK_FORMAT_R16G16_SFLOAT;
     attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
 
-    // Tangent attribute (location = 3)
+    // Tangent attribute (location = 3) - half-precision
     attributeDescriptions[3].binding = 0;
     attributeDescriptions[3].location = 3;
-    attributeDescriptions[3].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attributeDescriptions[3].format = VK_FORMAT_R16G16B16_SFLOAT;
     attributeDescriptions[3].offset = offsetof(Vertex, tangent);
 
-    // Bitangent attribute (location = 4)
+    // Bitangent attribute (location = 4) - half-precision
     attributeDescriptions[4].binding = 0;
     attributeDescriptions[4].location = 4;
-    attributeDescriptions[4].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attributeDescriptions[4].format = VK_FORMAT_R16G16B16_SFLOAT;
     attributeDescriptions[4].offset = offsetof(Vertex, bitangent);
 
     return attributeDescriptions;
@@ -108,49 +108,49 @@ vector<VkVertexInputAttributeDescription> Vertex::getAttributeDescriptionsAnimat
     /*
      * ANIMATED VERTEX INPUT ATTRIBUTE DESCRIPTIONS (WITH BONE DATA):
      *
-     * For models that use skeletal animation, we include all vertex
-     * attributes including bone weights and indices for GPU skinning.
+     * Uses half-precision formats for geometric attributes while keeping
+     * full precision for bone weights and indices for animation accuracy.
      */
 
     vector<VkVertexInputAttributeDescription> attributeDescriptions(7);
 
-    // Position attribute (location = 0)
+    // Position attribute (location = 0) - half-precision
     attributeDescriptions[0].binding = 0;
     attributeDescriptions[0].location = 0;
-    attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attributeDescriptions[0].format = VK_FORMAT_R16G16B16_SFLOAT;
     attributeDescriptions[0].offset = offsetof(Vertex, position);
 
-    // Normal attribute (location = 1)
+    // Normal attribute (location = 1) - half-precision
     attributeDescriptions[1].binding = 0;
     attributeDescriptions[1].location = 1;
-    attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attributeDescriptions[1].format = VK_FORMAT_R16G16B16_SFLOAT;
     attributeDescriptions[1].offset = offsetof(Vertex, normal);
 
-    // Texture coordinate attribute (location = 2)
+    // Texture coordinate attribute (location = 2) - half-precision
     attributeDescriptions[2].binding = 0;
     attributeDescriptions[2].location = 2;
-    attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
+    attributeDescriptions[2].format = VK_FORMAT_R16G16_SFLOAT;
     attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
 
-    // Tangent attribute (location = 3)
+    // Tangent attribute (location = 3) - half-precision
     attributeDescriptions[3].binding = 0;
     attributeDescriptions[3].location = 3;
-    attributeDescriptions[3].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attributeDescriptions[3].format = VK_FORMAT_R16G16B16_SFLOAT;
     attributeDescriptions[3].offset = offsetof(Vertex, tangent);
 
-    // Bitangent attribute (location = 4)
+    // Bitangent attribute (location = 4) - half-precision
     attributeDescriptions[4].binding = 0;
     attributeDescriptions[4].location = 4;
-    attributeDescriptions[4].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attributeDescriptions[4].format = VK_FORMAT_R16G16B16_SFLOAT;
     attributeDescriptions[4].offset = offsetof(Vertex, bitangent);
 
-    // Bone weights attribute (location = 5)
+    // Bone weights attribute (location = 5) - full precision for accuracy
     attributeDescriptions[5].binding = 0;
     attributeDescriptions[5].location = 5;
     attributeDescriptions[5].format = VK_FORMAT_R32G32B32A32_SFLOAT;
     attributeDescriptions[5].offset = offsetof(Vertex, boneWeights);
 
-    // Bone indices attribute (location = 6)
+    // Bone indices attribute (location = 6) - full precision for compatibility
     attributeDescriptions[6].binding = 0;
     attributeDescriptions[6].location = 6;
     attributeDescriptions[6].format = VK_FORMAT_R32G32B32A32_SINT;
@@ -164,13 +164,12 @@ VkVertexInputBindingDescription Vertex::getBindingDescription()
     /*
      * VULKAN VERTEX INPUT BINDING DESCRIPTION:
      *
-     * This describes how vertex data is bound to the graphics pipeline:
+     * This describes how the f16-optimized vertex data is bound to the graphics pipeline:
      * - binding: binding point index (0 for single vertex buffer)
-     * - stride: size of each vertex in bytes (now 88 bytes with bone data)
+     * - stride: size of each vertex in bytes (~60 bytes - significant reduction from legacy)
      * - inputRate: VK_VERTEX_INPUT_RATE_VERTEX for per-vertex data
-     *              VK_VERTEX_INPUT_RATE_INSTANCE for per-instance data
      *
-     * The stride now includes the additional bone weight and index data.
+     * The optimized stride provides significant memory bandwidth savings.
      */
 
     VkVertexInputBindingDescription bindingDescription{};

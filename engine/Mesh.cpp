@@ -96,8 +96,10 @@ void Mesh::calculateBounds()
     maxBounds = vec3(-FLT_MAX);
 
     for (const auto& vertex : vertices_) {
-        minBounds = min(minBounds, vertex.position);
-        maxBounds = max(maxBounds, vertex.position);
+        // Use accessor method for VertexOptimized to get unpacked position
+        vec3 position = vertex.getPosition();
+        minBounds = min(minBounds, position);
+        maxBounds = max(maxBounds, position);
     }
 }
 

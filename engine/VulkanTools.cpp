@@ -45,7 +45,18 @@ VkDescriptorType stringToDescriptorType(const string& typeStr)
 
 VkFormat getVkFormatFromTypeName(const string& typeName)
 {
-    if (typeName == "float") {
+    // Half-precision (16-bit) formats
+    if (typeName == "half") {
+        return VK_FORMAT_R16_SFLOAT;
+    } else if (typeName == "hvec2") {
+        return VK_FORMAT_R16G16_SFLOAT;
+    } else if (typeName == "hvec3") {
+        return VK_FORMAT_R16G16B16_SFLOAT;
+    } else if (typeName == "hvec4") {
+        return VK_FORMAT_R16G16B16A16_SFLOAT;
+    }
+    // Full-precision (32-bit) formats
+    else if (typeName == "float") {
         return VK_FORMAT_R32_SFLOAT;
     } else if (typeName == "vec2") {
         return VK_FORMAT_R32G32_SFLOAT;
@@ -78,6 +89,16 @@ VkFormat getVkFormatFromTypeName(const string& typeName)
 uint32_t getVkFormatSize(VkFormat format)
 {
     switch (format) {
+    // 16-bit half-precision formats
+    case VK_FORMAT_R16_SFLOAT:
+        return 2;
+    case VK_FORMAT_R16G16_SFLOAT:
+        return 4;
+    case VK_FORMAT_R16G16B16_SFLOAT:
+        return 6;
+    case VK_FORMAT_R16G16B16A16_SFLOAT:
+        return 8;
+    // 32-bit formats
     case VK_FORMAT_R32_SFLOAT:
     case VK_FORMAT_R32_SINT:
     case VK_FORMAT_R32_UINT:
@@ -377,6 +398,7 @@ string descriptorTypeToString(uint32_t type)
 uint32_t getFormatSize(VkFormat format)
 {
     switch (format) {
+    // 8-bit formats
     case VK_FORMAT_R8_UNORM:
     case VK_FORMAT_R8_UINT:
     case VK_FORMAT_R8_SINT:
@@ -392,6 +414,17 @@ uint32_t getFormatSize(VkFormat format)
     case VK_FORMAT_R8G8B8A8_UNORM:
     case VK_FORMAT_R8G8B8A8_UINT:
     case VK_FORMAT_R8G8B8A8_SINT:
+        return 4;
+    // 16-bit half-precision formats
+    case VK_FORMAT_R16_SFLOAT:
+        return 2;
+    case VK_FORMAT_R16G16_SFLOAT:
+        return 4;
+    case VK_FORMAT_R16G16B16_SFLOAT:
+        return 6;
+    case VK_FORMAT_R16G16B16A16_SFLOAT:
+        return 8;
+    // 32-bit formats
     case VK_FORMAT_R32_SFLOAT:
         return 4;
     case VK_FORMAT_R32G32_SFLOAT:

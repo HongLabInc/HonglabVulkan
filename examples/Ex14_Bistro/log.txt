@@ -142,38 +142,38 @@ Pipeline 'gui': 1 sets
 
     Binding 1 is variable-length array (count=512)
 ShaderManager: Created 7 unique layout(s)
-  Layout 0 (0x2131c9b53f0): 3 binding(s), used by:
+  Layout 0 (0x2794f26adf0): 3 binding(s), used by:
     - Pipeline 'shadowMap', Set 0
     - Pipeline 'pbrForward', Set 0
     Binding 0: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
     Binding 2: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
-  Layout 1 (0x2131c9b4df0): 2 binding(s), used by:
+  Layout 1 (0x2794f26b870): 2 binding(s), used by:
     - Pipeline 'pbrForward', Set 1
     Binding 0: type=STORAGE_BUFFER, count=1, stages=FRAGMENT
     Binding 1: type=COMBINED_IMAGE_SAMPLER, count=512, stages=FRAGMENT
-  Layout 2 (0x2131c9b4f70): 2 binding(s), used by:
+  Layout 2 (0x2794f26b9f0): 2 binding(s), used by:
     - Pipeline 'sky', Set 0
     Binding 0: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
-  Layout 3 (0x2131c9b50f0): 1 binding(s), used by:
+  Layout 3 (0x2794f26bb70): 1 binding(s), used by:
     - Pipeline 'pbrForward', Set 3
     - Pipeline 'gui', Set 0
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
-  Layout 4 (0x2131c9b5270): 3 binding(s), used by:
+  Layout 4 (0x2794f26c170): 3 binding(s), used by:
     - Pipeline 'pbrForward', Set 2
     - Pipeline 'sky', Set 1
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 1: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 2: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
-  Layout 5 (0x2131c9b5570): 5 binding(s), used by:
+  Layout 5 (0x2794f26b270): 5 binding(s), used by:
     - Pipeline 'ssao', Set 0
     Binding 0: type=UNIFORM_BUFFER, count=1, stages=COMPUTE
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=COMPUTE
     Binding 2: type=STORAGE_IMAGE, count=1, stages=COMPUTE
     Binding 3: type=STORAGE_IMAGE, count=1, stages=COMPUTE
     Binding 4: type=COMBINED_IMAGE_SAMPLER, count=1, stages=COMPUTE
-  Layout 6 (0x2131c9b56f0): 2 binding(s), used by:
+  Layout 6 (0x2794f26c770): 2 binding(s), used by:
     - Pipeline 'post', Set 0
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=FRAGMENT
@@ -214,14 +214,14 @@ Texture filename: ../../assets/characters/Leonard/Ch31_1002_Diffuse.png
 Successfully loaded model: ../../assets/characters/Leonard/Bboy Hip Hop Move.fbx
   Meshes: 7
   Materials: 2
-  Loading time: 768 ms
+  Loading time: 782 ms
 Found 1 animations in model 'Dancer'
 Started animation: 'mixamo.com'
 Animation duration: 2.20 seconds
 Successfully loaded model from cache: ../../assets/models/AmazonLumberyardBistroMorganMcGuire\exterior_cache.bin
   Meshes: 3184
   Materials: 128
-  Loading time: 749 ms
+  Loading time: 759 ms
 No animations found in model 'Bistro'
 Creating graphics pipeline from config: pbrForward
 Successfully created graphics pipeline: pbrForward
@@ -248,14 +248,3 @@ Pipeline 'sky': No write-only image binding found for dimension determination
 Pipeline 'ssao' dimensions determined from first write-only binding 'floatColor2': 3072x1728
 Pipeline 'post': No write-only image binding found for dimension determination
 hasAnimation changed to: true
-Saved descriptor pool statistics to DescriptorPoolSize.txt
-
-=== DescriptorPool Allocated Statistics ===
-Total Pools Created: 1
-Total Allocated Sets: 12
-  COMBINED_IMAGE_SAMPLER: 521
-  UNIFORM_BUFFER: 16
-  STORAGE_BUFFER: 1
-  STORAGE_IMAGE: 4
-============================================
-

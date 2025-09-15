@@ -578,32 +578,34 @@ void ModelLoader::processMesh(aiMesh* mesh, const aiScene* scene, uint32_t meshI
     for (uint32_t i = 0; i < mesh->mNumVertices; i++) {
         Vertex vertex;
 
-        vertex.position = vec3(mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z);
+        vertex.setPosition(vec3(mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z));
 
         // Normal
         if (mesh->HasNormals()) {
-            vertex.normal = vec3(mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z);
+            vertex.setNormal(vec3(mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z));
         } else {
-            vertex.normal = vec3(0.0f, 1.0f, 0.0f);
+            vertex.setNormal(vec3(0.0f, 1.0f, 0.0f));
         }
 
         // Texture coordinates with validation
         if (mesh->mTextureCoords[0]) {
-            vertex.texCoord = vec2(mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y);
-            vertex.texCoord.y = 1.0f - vertex.texCoord.y; // y fliped
+            vertex.setTexCoord(vec2(mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y));
+            // Flip Y coordinate
+            vec2 tex = vertex.getTexCoord();
+            tex.y = 1.0f - tex.y;
+            vertex.setTexCoord(tex);
         } else {
-            vertex.texCoord = vec2(0.0f, 0.0f);
+            vertex.setTexCoord(vec2(0.0f, 0.0f));
             currentMesh.noTextureCoords = true;
         }
 
         // Tangent
         if (mesh->HasTangentsAndBitangents()) {
-            vertex.tangent = vec3(mesh->mTangents[i].x, mesh->mTangents[i].y, mesh->mTangents[i].z);
-            vertex.bitangent =
-                vec3(mesh->mBitangents[i].x, mesh->mBitangents[i].y, mesh->mBitangents[i].z);
+            vertex.setTangent(vec3(mesh->mTangents[i].x, mesh->mTangents[i].y, mesh->mTangents[i].z));
+            vertex.setBitangent(vec3(mesh->mBitangents[i].x, mesh->mBitangents[i].y, mesh->mBitangents[i].z));
         } else {
-            vertex.tangent = vec3(1.0f, 0.0f, 0.0f);
-            vertex.bitangent = vec3(0.0f, 0.0f, 1.0f);
+            vertex.setTangent(vec3(1.0f, 0.0f, 0.0f));
+            vertex.setBitangent(vec3(0.0f, 0.0f, 1.0f));
         }
 
         currentMesh.vertices_.push_back(vertex);
