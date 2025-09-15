@@ -142,38 +142,38 @@ Pipeline 'gui': 1 sets
 
     Binding 1 is variable-length array (count=512)
 ShaderManager: Created 7 unique layout(s)
-  Layout 0 (0x2794f26adf0): 3 binding(s), used by:
+  Layout 0 (0x18e9809b640): 3 binding(s), used by:
     - Pipeline 'shadowMap', Set 0
     - Pipeline 'pbrForward', Set 0
     Binding 0: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
     Binding 2: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
-  Layout 1 (0x2794f26b870): 2 binding(s), used by:
+  Layout 1 (0x18e980b1d80): 2 binding(s), used by:
     - Pipeline 'pbrForward', Set 1
     Binding 0: type=STORAGE_BUFFER, count=1, stages=FRAGMENT
     Binding 1: type=COMBINED_IMAGE_SAMPLER, count=512, stages=FRAGMENT
-  Layout 2 (0x2794f26b9f0): 2 binding(s), used by:
+  Layout 2 (0x18e980b2800): 2 binding(s), used by:
     - Pipeline 'sky', Set 0
     Binding 0: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
-  Layout 3 (0x2794f26bb70): 1 binding(s), used by:
+  Layout 3 (0x18e980b2980): 1 binding(s), used by:
     - Pipeline 'pbrForward', Set 3
     - Pipeline 'gui', Set 0
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
-  Layout 4 (0x2794f26c170): 3 binding(s), used by:
+  Layout 4 (0x18e980b2b00): 3 binding(s), used by:
     - Pipeline 'pbrForward', Set 2
     - Pipeline 'sky', Set 1
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 1: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 2: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
-  Layout 5 (0x2794f26b270): 5 binding(s), used by:
+  Layout 5 (0x18e980b2080): 5 binding(s), used by:
     - Pipeline 'ssao', Set 0
     Binding 0: type=UNIFORM_BUFFER, count=1, stages=COMPUTE
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=COMPUTE
     Binding 2: type=STORAGE_IMAGE, count=1, stages=COMPUTE
     Binding 3: type=STORAGE_IMAGE, count=1, stages=COMPUTE
     Binding 4: type=COMBINED_IMAGE_SAMPLER, count=1, stages=COMPUTE
-  Layout 6 (0x2794f26c770): 2 binding(s), used by:
+  Layout 6 (0x18e980b1f00): 2 binding(s), used by:
     - Pipeline 'post', Set 0
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=FRAGMENT
@@ -214,15 +214,18 @@ Texture filename: ../../assets/characters/Leonard/Ch31_1002_Diffuse.png
 Successfully loaded model: ../../assets/characters/Leonard/Bboy Hip Hop Move.fbx
   Meshes: 7
   Materials: 2
-  Loading time: 782 ms
+  Loading time: 899 ms
 Found 1 animations in model 'Dancer'
 Started animation: 'mixamo.com'
 Animation duration: 2.20 seconds
 Successfully loaded model from cache: ../../assets/models/AmazonLumberyardBistroMorganMcGuire\exterior_cache.bin
   Meshes: 3184
   Materials: 128
-  Loading time: 759 ms
+  Loading time: 753 ms
 No animations found in model 'Bistro'
+✓ Selected HDR format: B10G11R11_UFLOAT_PACK32 (4 bytes/pixel, FLOAT, 50% memory vs RGBA16F)
+HDR Format Selection:
+  Selected format: B10G11R11_UFLOAT_PACK32 (4 bytes/pixel)
 Creating graphics pipeline from config: pbrForward
 Successfully created graphics pipeline: pbrForward
 Creating graphics pipeline from config: sky
@@ -241,6 +244,14 @@ Loading IBL textures...
   Prefiltered: ../../assets/textures/golden_gate_hills_4k/specularGGX.ktx2
   Irradiance: ../../assets/textures/golden_gate_hills_4k/diffuseLambertian.ktx2
   BRDF LUT: ../../assets/textures/golden_gate_hills_4k/outputLUT.png
+Creating HDR render targets:
+  Format: B10G11R11_UFLOAT_PACK32 (4 bytes/pixel)
+HDR Memory Analysis:
+  Resolution: 3072x1728 with 8x MSAA
+  Current format memory: 202 MB
+  Standard RGBA16F memory: 405 MB
+  Memory savings: 50.1%
+  Quality: ✓ GOOD - B10G11R11 excellent for HDR with memory savings
 Pipeline 'shadowMap': No write-only image binding found for dimension determination
 Allocating descriptor set with variable count: 512
 Pipeline 'pbrForward': No write-only image binding found for dimension determination
@@ -248,3 +259,14 @@ Pipeline 'sky': No write-only image binding found for dimension determination
 Pipeline 'ssao' dimensions determined from first write-only binding 'floatColor2': 3072x1728
 Pipeline 'post': No write-only image binding found for dimension determination
 hasAnimation changed to: true
+Saved descriptor pool statistics to DescriptorPoolSize.txt
+
+=== DescriptorPool Allocated Statistics ===
+Total Pools Created: 1
+Total Allocated Sets: 12
+  COMBINED_IMAGE_SAMPLER: 521
+  UNIFORM_BUFFER: 16
+  STORAGE_BUFFER: 1
+  STORAGE_IMAGE: 4
+============================================
+

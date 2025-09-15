@@ -415,6 +415,9 @@ uint32_t getFormatSize(VkFormat format)
     case VK_FORMAT_R8G8B8A8_UINT:
     case VK_FORMAT_R8G8B8A8_SINT:
         return 4;
+    // Packed formats
+    case VK_FORMAT_B10G11R11_UFLOAT_PACK32:
+        return 4; // 10+11+11 bits packed into 32 bits
     // 16-bit half-precision formats
     case VK_FORMAT_R16_SFLOAT:
         return 2;
@@ -546,6 +549,8 @@ std::string vkFormatToString(VkFormat format)
         return "A8B8G8R8_SINT_PACK32";
     case VK_FORMAT_A8B8G8R8_SRGB_PACK32:
         return "A8B8G8R8_SRGB_PACK32";
+    case VK_FORMAT_B10G11R11_UFLOAT_PACK32:
+        return "B10G11R11_UFLOAT_PACK32";
     case VK_FORMAT_D16_UNORM:
         return "D16_UNORM";
     case VK_FORMAT_X8_D24_UNORM_PACK32:

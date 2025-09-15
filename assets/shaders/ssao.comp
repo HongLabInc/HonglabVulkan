@@ -22,8 +22,9 @@ layout(set = 0, binding = 1) uniform SsaoOptionsUBO {
     float ssaoPower;
 } ssaoOptions;
 
-layout (set = 0, binding = 2, rgba16f) uniform readonly image2D floatColor1;
-layout (set = 0, binding = 3, rgba16f) uniform writeonly image2D floatColor2;
+// Note: Format r11f_g11f_b10f is chosen at runtime by the C++ HDR format selection logic
+layout (set = 0, binding = 2, r11f_g11f_b10f) uniform readonly image2D floatColor1;
+layout (set = 0, binding = 3, r11f_g11f_b10f) uniform writeonly image2D floatColor2;
 layout (set = 0, binding = 4) uniform sampler2D depthStencil; // depth only
 
 // Generate sampling kernel for SSAO

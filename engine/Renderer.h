@@ -252,6 +252,9 @@ class Renderer
     // Statistics
     CullingStats cullingStats_;
 
+    // HDR format optimization
+    VkFormat selectedHDRFormat_{VK_FORMAT_R16G16B16A16_SFLOAT}; // Store selected HDR format
+    
     // Control parameters
     float directionalLightAngle1 = 27.0f;
     float directionalLightAngle2 = 3.0f;
@@ -261,6 +264,15 @@ class Renderer
     float shadowBiasConstant = 0.5f; // Constant bias factor
     float shadowBiasSlope = 1.0f;    // Slope-scaled bias factor
     float shadowBiasClamp = 0.0f;    // Bias clamp value
+
+    // Format selection functions with proper priority
+    VkFormat selectOptimalHDRFormat(bool needsAlpha, bool fullPrecision);
+    
+    // Format validation and creation
+    bool isFormatSuitableForHDR(VkFormat format);
+    
+    // Utility functions
+    void logHDRMemoryUsage(uint32_t width, uint32_t height, VkSampleCountFlagBits msaaSamples);
 
     // Helper functions for creating rendering structures
     VkRenderingAttachmentInfo

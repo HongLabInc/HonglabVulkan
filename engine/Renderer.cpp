@@ -375,55 +375,22 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
 void Renderer::createPipelines(const VkFormat swapChainColorFormat, const VkFormat depthFormat,
                                VkSampleCountFlagBits msaaSamples)
 {
-    // Add render nodes in the order of execution
-
-    // TEST render graph, don't delete the following comments
-    // renderGraph_.addRenderNode({
-    //     {"shadowMap"},
-    //     {},          // no MSAA color attachments
-    //     "",          // no MSAA depth attachments
-    //     "",          // no MSAA stencil attachments
-    //     {},          // no color attachments (depth only)
-    //     "shadowMap", // depth attachment
-    //     ""           // no stencil attachments
-    // });
-    // renderGraph_.addRenderNode({
-    //     {"pbrForward", "sky"},
-    //     {"msaaColor"},      // MSAA color attachment
-    //     "msaaDepthStencil", // MSAA depth attachment
-    //     "msaaDepthStencil", // MSAA stencil attachment
-    //     {"floatColor1"},    // resolved color attachment
-    //     "depthStencil",     // resolved depth attachment
-    //     "depthStencil"      // resolved stencil attachment
-    // });
-    // renderGraph_.addRenderNode({
-    //     {"ssao"},
-    //     {}, // no MSAA color attachments (compute)
-    //     "", // no MSAA depth attachments (compute)
-    //     "", // no MSAA stencil attachments (compute)
-    //     {}, // no color attachments (compute)
-    //     "", // no depth attachments (compute)
-    //     ""  // no stencil attachments (compute)
-    // });
-    // renderGraph_.addRenderNode({
-    //     {"post"},
-    //     {},            // no MSAA color attachments
-    //     "",            // no MSAA depth attachments
-    //     "",            // no MSAA stencil attachments
-    //     {"swapchain"}, // color attachment (swapchain)
-    //     "",            // no depth attachments
-    //     ""             // no stencil attachments
-    // });
-    // renderGraph_.writeToFile("RenderGraph.json");
     renderGraph_.readFromFile("RenderGraph.json");
+
+    // Select optimal HDR format with proper priority (float formats first)
+    VkFormat selectedHDRFormat =
+        selectOptimalHDRFormat(false, false); // No alpha, moderate precision
+
+    printLog("HDR Format Selection:");
+    printLog("  Selected format: {} ({} bytes/pixel)", vkFormatToString(selectedHDRFormat),
+             getFormatSize(selectedHDRFormat));
 
     pipelines_["pbrForward"] =
         make_unique<Pipeline>(ctx_, shaderManager_, PipelineConfig::createPbrForward(),
-                              VK_FORMAT_R16G16B16A16_SFLOAT, depthFormat, msaaSamples);
+                              selectedHDRFormat, depthFormat, msaaSamples);
 
-    pipelines_["sky"] =
-        make_unique<Pipeline>(ctx_, shaderManager_, PipelineConfig::createSky(),
-                              VK_FORMAT_R16G16B16A16_SFLOAT, depthFormat, msaaSamples);
+    pipelines_["sky"] = make_unique<Pipeline>(ctx_, shaderManager_, PipelineConfig::createSky(),
+                                              selectedHDRFormat, depthFormat, msaaSamples);
 
     pipelines_["post"] =
         make_unique<Pipeline>(ctx_, shaderManager_, PipelineConfig::createPost(),
@@ -436,6 +403,9 @@ void Renderer::createPipelines(const VkFormat swapChainColorFormat, const VkForm
     pipelines_["ssao"] =
         make_unique<Pipeline>(ctx_, shaderManager_, PipelineConfig::createSsao(),
                               VK_FORMAT_D16_UNORM, VK_FORMAT_D16_UNORM, VK_SAMPLE_COUNT_1_BIT);
+
+    // Store the selected format for texture creation
+    selectedHDRFormat_ = selectedHDRFormat;
 }
 
 void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight,
@@ -476,14 +446,40 @@ void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight,
     imageBuffers_["brdfLut"]->createTextureFromImage(path + "outputLUT.png", false, false);
     imageBuffers_["brdfLut"]->setSampler(samplerLinearClamp_.handle());
 
-    // Create render targets with specified dimensions and formats
-    imageBuffers_["msaaColor"]->createMsaaColorBuffer(swapchainWidth, swapchainHeight, msaaSamples);
+    // Create HDR render targets with selected format
+    printLog("Creating HDR render targets:");
+    printLog("  Format: {} ({} bytes/pixel)", vkFormatToString(selectedHDRFormat_),
+             getFormatSize(selectedHDRFormat_));
+
+    // Log memory usage and format quality assessment
+    logHDRMemoryUsage(swapchainWidth, swapchainHeight, msaaSamples);
+
+    // Create HDR render targets using the selected format directly
+    // MSAA color buffer
+    imageBuffers_["msaaColor"]->createImage(selectedHDRFormat_, swapchainWidth, swapchainHeight,
+                                            msaaSamples, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+                                            VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, 0,
+                                            VK_IMAGE_VIEW_TYPE_2D);
+
+    // Storage color buffers for compute shaders and post-processing
+    VkImageUsageFlags storageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+                                     VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT |
+                                     VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                                     VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
+    imageBuffers_["floatColor1"]->createImage(
+        selectedHDRFormat_, swapchainWidth, swapchainHeight, VK_SAMPLE_COUNT_1_BIT, storageUsage,
+        VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, 0, VK_IMAGE_VIEW_TYPE_2D);
+
+    imageBuffers_["floatColor2"]->createImage(
+        selectedHDRFormat_, swapchainWidth, swapchainHeight, VK_SAMPLE_COUNT_1_BIT, storageUsage,
+        VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, 0, VK_IMAGE_VIEW_TYPE_2D);
+
+    // Create depth buffers
     imageBuffers_["msaaDepthStencil"]->createDepthBuffer(swapchainWidth, swapchainHeight,
                                                          msaaSamples);
     imageBuffers_["depthStencil"]->createDepthBuffer(swapchainWidth, swapchainHeight,
                                                      VK_SAMPLE_COUNT_1_BIT);
-    imageBuffers_["floatColor1"]->createGeneralStorage(swapchainWidth, swapchainHeight);
-    imageBuffers_["floatColor2"]->createGeneralStorage(swapchainWidth, swapchainHeight);
 
     // Create shadow map
     uint32_t shadowMapSize = 2048 * 2;
@@ -496,6 +492,138 @@ void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight,
     imageBuffers_["depthStencil"]->setSampler(samplerLinearClamp_.handle());
 }
 
+// Format selection function with proper priority: float formats first, R8G8B8A8 last
+VkFormat Renderer::selectOptimalHDRFormat(bool needsAlpha, bool fullPrecision)
+{
+    vector<VkFormat> candidateFormats;
+
+    if (!needsAlpha && !fullPrecision) {
+        // Memory-efficient HDR formats (no alpha, moderate precision)
+        candidateFormats = {
+            VK_FORMAT_B10G11R11_UFLOAT_PACK32, // 4 bytes - 50% savings, packed float (correct
+                                               // format)
+            VK_FORMAT_R16G16B16_SFLOAT,        // 6 bytes - 25% savings, half precision
+            VK_FORMAT_R16G16B16A16_SFLOAT,     // 8 bytes - standard HDR with alpha
+            VK_FORMAT_R32G32B32_SFLOAT,        // 12 bytes - full precision RGB
+            // R8G8B8A8_UNORM is LAST - not a float format, poor for HDR
+            VK_FORMAT_R8G8B8A8_UNORM // 4 bytes - NOT FLOAT, last resort
+        };
+    } else if (!fullPrecision) {
+        // Standard HDR with alpha channel
+        candidateFormats = {
+            VK_FORMAT_R16G16B16A16_SFLOAT, // 8 bytes - standard HDR
+            VK_FORMAT_R32G32B32A32_SFLOAT, // 16 bytes - full precision
+            // R8G8B8A8_UNORM is LAST - not suitable for HDR
+            VK_FORMAT_R8G8B8A8_UNORM // 4 bytes - NOT FLOAT, last resort
+        };
+    } else {
+        // Full precision required
+        candidateFormats = {
+            VK_FORMAT_R32G32B32A32_SFLOAT, // 16 bytes - full precision
+            VK_FORMAT_R32G32B32_SFLOAT,    // 12 bytes - full precision RGB
+            VK_FORMAT_R16G16B16A16_SFLOAT, // 8 bytes - half precision fallback
+            // R8G8B8A8_UNORM is LAST - inadequate for full precision HDR
+            VK_FORMAT_R8G8B8A8_UNORM // 4 bytes - NOT FLOAT, emergency fallback
+        };
+    }
+
+    // Test each format for compatibility (float formats first, R8G8B8A8 last)
+    for (size_t i = 0; i < candidateFormats.size(); ++i) {
+        VkFormat format = candidateFormats[i];
+
+        if (isFormatSuitableForHDR(format)) {
+            string formatType = (format == VK_FORMAT_R8G8B8A8_UNORM) ? "NON-FLOAT" : "FLOAT";
+            float memoryRatio = static_cast<float>(getFormatSize(format)) / 8.0f; // vs RGBA16F
+
+            printLog("✓ Selected HDR format: {} ({} bytes/pixel, {}, {:.0f}% memory vs RGBA16F)",
+                     vkFormatToString(format), getFormatSize(format), formatType,
+                     memoryRatio * 100.0f);
+
+            // Warn if we fell back to non-float format
+            if (format == VK_FORMAT_R8G8B8A8_UNORM) {
+                printLog("⚠ WARNING: Using R8G8B8A8_UNORM for HDR - limited dynamic range!");
+                printLog("  Consider using float formats for better HDR quality");
+            }
+
+            return format;
+        } else {
+            string formatType = (format == VK_FORMAT_R8G8B8A8_UNORM) ? "NON-FLOAT" : "FLOAT";
+            printLog("✗ Format {} ({}) not supported, trying next...", vkFormatToString(format),
+                     formatType);
+        }
+    }
+
+    // Emergency fallback - this should rarely happen
+    printLog(
+        "⚠ All candidate formats failed, using emergency fallback: VK_FORMAT_R16G16B16A16_SFLOAT");
+    return VK_FORMAT_R16G16B16A16_SFLOAT;
+}
+
+// Enhanced format validation function
+bool Renderer::isFormatSuitableForHDR(VkFormat format)
+{
+    // Check if format supports required features for HDR rendering
+    VkFormatProperties props;
+    vkGetPhysicalDeviceFormatProperties(ctx_.physicalDevice(), format, &props);
+
+    // Required features for HDR color attachments
+    VkFormatFeatureFlags requiredFeatures =
+        VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT | // Can render to it
+        VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT;     // Can sample from it
+
+    // Optional but preferred for HDR
+    VkFormatFeatureFlags preferredFeatures =
+        VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT; // Can blend (for transparency)
+
+    bool hasRequired = (props.optimalTilingFeatures & requiredFeatures) == requiredFeatures;
+    bool hasPreferred = (props.optimalTilingFeatures & preferredFeatures) == preferredFeatures;
+
+    if (hasRequired && !hasPreferred && format != VK_FORMAT_R8G8B8A8_UNORM) {
+        printLog("  Note: {} missing blend support but acceptable for HDR",
+                 vkFormatToString(format));
+    }
+
+    return hasRequired;
+}
+
+void Renderer::logHDRMemoryUsage(uint32_t width, uint32_t height, VkSampleCountFlagBits msaaSamples)
+{
+    uint64_t totalPixels = static_cast<uint64_t>(width) * height;
+    uint64_t msaaPixels = totalPixels * static_cast<uint32_t>(msaaSamples);
+
+    uint32_t hdrBytes = getFormatSize(selectedHDRFormat_);
+    uint32_t standardBytes = getFormatSize(VK_FORMAT_R16G16B16A16_SFLOAT);
+
+    uint64_t hdrMemoryMB = (msaaPixels * hdrBytes + totalPixels * hdrBytes * 2) / (1024 * 1024);
+    uint64_t standardMemoryMB =
+        (msaaPixels * standardBytes + totalPixels * standardBytes * 2) / (1024 * 1024);
+
+    float savings =
+        (1.0f - static_cast<float>(hdrMemoryMB) / static_cast<float>(standardMemoryMB)) * 100.0f;
+
+    printLog("HDR Memory Analysis:");
+    printLog("  Resolution: {}x{} with {}x MSAA", width, height,
+             static_cast<uint32_t>(msaaSamples));
+    printLog("  Current format memory: {} MB", hdrMemoryMB);
+    printLog("  Standard RGBA16F memory: {} MB", standardMemoryMB);
+    if (savings > 0) {
+        printLog("  Memory savings: {:.1f}%", savings);
+    } else {
+        printLog("  Memory overhead: {:.1f}%", -savings);
+    }
+
+    // Quality assessment
+    if (selectedHDRFormat_ == VK_FORMAT_R8G8B8A8_UNORM) {
+        printLog("  Quality: ⚠ LIMITED - R8G8B8A8 has restricted HDR range");
+    } else if (selectedHDRFormat_ == VK_FORMAT_B10G11R11_UFLOAT_PACK32) {
+        printLog("  Quality: ✓ GOOD - B10G11R11 excellent for HDR with memory savings");
+    } else if (selectedHDRFormat_ == VK_FORMAT_R16G16B16A16_SFLOAT) {
+        printLog("  Quality: ✓ EXCELLENT - Standard HDR format");
+    } else {
+        printLog("  Quality: ✓ HIGH - Float format suitable for HDR");
+    }
+}
+
 void Renderer::updateViewFrustum(const glm::mat4& viewProjection)
 {
     if (frustumCullingEnabled_) {
@@ -503,7 +631,6 @@ void Renderer::updateViewFrustum(const glm::mat4& viewProjection)
     }
 }
 
-// Add overload for all models
 void Renderer::performFrustumCulling(vector<unique_ptr<Model>>& models)
 {
     cullingStats_.totalMeshes = 0;
@@ -596,23 +723,6 @@ VkRenderingAttachmentInfo Renderer::createDepthAttachment(VkImageView imageView,
     attachment.resolveImageView = resolveImageView;
     attachment.resolveImageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
     return attachment;
-}
-
-VkRenderingInfo
-Renderer::createRenderingInfo(const VkRect2D& renderArea,
-                              const VkRenderingAttachmentInfo* colorAttachment,
-                              const VkRenderingAttachmentInfo* depthAttachment,
-                              const VkRenderingAttachmentInfo* stencilAttachment) const
-{
-    VkRenderingInfo renderingInfo{VK_STRUCTURE_TYPE_RENDERING_INFO_KHR};
-    renderingInfo.renderArea = renderArea;
-    renderingInfo.layerCount = 1;
-    renderingInfo.colorAttachmentCount = colorAttachment ? 1 : 0;
-    renderingInfo.pColorAttachments = colorAttachment;
-    renderingInfo.pDepthAttachment = depthAttachment;
-    renderingInfo.pStencilAttachment = stencilAttachment;
-
-    return renderingInfo;
 }
 
 } // namespace hlab
