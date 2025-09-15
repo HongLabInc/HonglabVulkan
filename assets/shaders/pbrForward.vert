@@ -33,7 +33,7 @@ layout(set = 0, binding = 1) uniform OptionsUBO {
 } options;
 
 layout(set = 0, binding = 2) uniform BoneDataUBO {
-    mat4 boneMatrices[256];  // Support up to 256 bones (16,384 bytes)
+    mat4 boneMatrices[65];  // Support up to 65 bones (4,160 bytes)
     vec4 animationData;      // x = hasAnimation (0.0/1.0), y,z,w = future use
 } boneData;
 
@@ -78,7 +78,7 @@ void main() {
             int boneIndex = inBoneIndices[i];
             float weight = inBoneWeights[i];
             
-            if (boneIndex >= 0 && boneIndex < 256 && weight > 0.0) {
+            if (boneIndex >= 0 && boneIndex < 65 && weight > 0.0) {
                 
                 mat4 boneMatrix = boneData.boneMatrices[boneIndex];
                 

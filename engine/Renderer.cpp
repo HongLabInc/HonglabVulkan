@@ -187,7 +187,7 @@ void Renderer::updateBoneData(const vector<unique_ptr<Model>>& models, uint32_t 
 {
     // Reset bone data
     boneDataUBO_.animationData.x = 0.0f;
-    for (int i = 0; i < 256; ++i) {
+    for (int i = 0; i < 65; ++i) {
         boneDataUBO_.boneMatrices[i] = glm::mat4(1.0f);
     }
 
@@ -200,8 +200,8 @@ void Renderer::updateBoneData(const vector<unique_ptr<Model>>& models, uint32_t 
             // Get bone matrices from the first animated model
             const auto& boneMatrices = model->getBoneMatrices();
 
-            // Copy bone matrices (up to 256 bones)
-            const size_t maxBones = 256;
+            // Copy bone matrices (up to 65 bones)
+            const size_t maxBones = 65;
             size_t bonesToCopy = (boneMatrices.size() < maxBones) ? boneMatrices.size() : maxBones;
             for (size_t i = 0; i < bonesToCopy; ++i) {
                 boneDataUBO_.boneMatrices[i] = boneMatrices[i];

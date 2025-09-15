@@ -92,12 +92,12 @@ struct SsaoOptionsUBO
 
 struct BoneDataUniform
 {
-    alignas(16) glm::mat4 boneMatrices[256]; // 16,384 bytes (already 16-byte aligned)
+    alignas(16) glm::mat4 boneMatrices[65]; // 4,160 bytes (already 16-byte aligned)
     alignas(16) glm::vec4 animationData;     // x = hasAnimation (0.0/1.0), y,z,w = future use
 };
 
 static_assert(sizeof(BoneDataUniform) % 16 == 0, "BoneDataUniform must be 16-byte aligned");
-static_assert(sizeof(BoneDataUniform) == 256 * 64 + 16, "Unexpected BoneDataUniform size");
+static_assert(sizeof(BoneDataUniform) == 65 * 64 + 16, "Unexpected BoneDataUniform size");
 
 // Push constants structure for PBR forward rendering
 struct PbrPushConstants
