@@ -7,13 +7,13 @@
       "stencilAttachment": ""
     },
     {
-      "pipelineNames": ["pbrForward", "sky"],
+      "pipelineNames": ["pbrDeferred", "sky"],
       "colorAttachments": ["floatColor1"],
       "depthAttachment": "depthStencil",
       "stencilAttachment": "depthStencil"
     },
     {
-      "pipelineNames": ["ssao"],
+      "pipelineNames": ["deferredLighting"],
       "colorAttachments": [],
       "depthAttachment": "",
       "stencilAttachment": ""

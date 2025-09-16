@@ -29,9 +29,9 @@ Renderer::Renderer(Context& ctx, ShaderManager& shaderManager, const uint32_t& k
 
     unordered_map<string, vector<string>> descriptorSetNames; // TODO: move to script
     descriptorSetNames["shadowMap"] = {"sceneOptions"};
-    descriptorSetNames["pbrForward"] = {"sceneOptions", "material", "sky", "shadowMap"};
+    descriptorSetNames["pbrDeferred"] = {"sceneOptions", "material", "sky", "shadowMap"};
     descriptorSetNames["sky"] = {"skyOptions", "sky"};
-    descriptorSetNames["ssao"] = {"ssao"};
+    descriptorSetNames["deferredLighting"] = {"ssao"};
     descriptorSetNames["post"] = {"postProcessing"};
 
     unordered_map<string, vector<vector<BindingInfo>>> bindingInfos = shaderManager_.bindingInfos();
@@ -227,8 +227,8 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
                     vector<unique_ptr<Model>>& models, VkViewport viewport, VkRect2D scissor)
 {
     for (auto& renderNode : renderGraph_.renderNodes_) {
-        if (renderNode.pipelineNames[0] == "ssao") {
-            pipelines_.at("ssao")->dispatch(cmd, currentFrame); // Compute
+        if (renderNode.pipelineNames[0] == "deferredLighting") {
+            pipelines_.at("deferredLighting")->dispatch(cmd, currentFrame); // Compute
             continue;
         }
 
@@ -369,8 +369,8 @@ void Renderer::createPipelines(const VkFormat swapChainColorFormat, const VkForm
              getFormatSize(selectedHDRFormat));
 
     // All pipelines use 1x samples (no MSAA) for educational simplicity
-    pipelines_["pbrForward"] =
-        make_unique<Pipeline>(ctx_, shaderManager_, PipelineConfig::createPbrForward(),
+    pipelines_["pbrDeferred"] =
+        make_unique<Pipeline>(ctx_, shaderManager_, PipelineConfig::createPbrDeferred(),
                               selectedHDRFormat, depthFormat, VK_SAMPLE_COUNT_1_BIT);
 
     pipelines_["sky"] =
@@ -385,8 +385,8 @@ void Renderer::createPipelines(const VkFormat swapChainColorFormat, const VkForm
         make_unique<Pipeline>(ctx_, shaderManager_, PipelineConfig::createShadowMap(),
                               VK_FORMAT_D16_UNORM, VK_FORMAT_D16_UNORM, VK_SAMPLE_COUNT_1_BIT);
 
-    pipelines_["ssao"] =
-        make_unique<Pipeline>(ctx_, shaderManager_, PipelineConfig::createSsao(),
+    pipelines_["deferredLighting"] =
+        make_unique<Pipeline>(ctx_, shaderManager_, PipelineConfig::createDeferredLighting(),
                               VK_FORMAT_D16_UNORM, VK_FORMAT_D16_UNORM, VK_SAMPLE_COUNT_1_BIT);
 
     // Store the selected format for texture creation

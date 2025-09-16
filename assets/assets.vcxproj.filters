@@ -48,6 +48,12 @@
     <None Include="shaders\ssao.comp">
       <Filter>shaders</Filter>
     </None>
+    <None Include="shaders\deferredLighting.comp">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\pbrDeferred.frag">
+      <Filter>shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Image Include="image.jpg" />

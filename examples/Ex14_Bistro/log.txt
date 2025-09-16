@@ -103,7 +103,7 @@ Pipeline 'shadowMap': 1 sets
     Binding 0: name='sceneData', set=0, binding=0, writeonly=false, layout=UNDEFINED, access=SHADER_READ, stage=VERTEX_SHADER
     Binding 1: name='options', set=0, binding=1, writeonly=false, layout=UNDEFINED, access=SHADER_READ, stage=VERTEX_SHADER
     Binding 2: name='boneData', set=0, binding=2, writeonly=false, layout=UNDEFINED, access=SHADER_READ, stage=VERTEX_SHADER
-Pipeline 'pbrForward': 4 sets
+Pipeline 'pbrDeferred': 4 sets
   Set 0: 3 bindings
     Binding 0: name='sceneData', set=0, binding=0, writeonly=false, layout=UNDEFINED, access=SHADER_READ, stage=FRAGMENT_SHADER
     Binding 1: name='options', set=0, binding=1, writeonly=false, layout=UNDEFINED, access=SHADER_READ, stage=FRAGMENT_SHADER
@@ -117,6 +117,9 @@ Pipeline 'pbrForward': 4 sets
     Binding 2: name='brdfLut', set=2, binding=2, writeonly=false, layout=SHADER_READ_ONLY_OPTIMAL, access=SHADER_READ, stage=FRAGMENT_SHADER
   Set 3: 1 bindings
     Binding 0: name='shadowMap', set=3, binding=0, writeonly=false, layout=SHADER_READ_ONLY_OPTIMAL, access=SHADER_READ, stage=FRAGMENT_SHADER
+Pipeline 'gui': 1 sets
+  Set 0: 1 bindings
+    Binding 0: name='fontSampler', set=0, binding=0, writeonly=false, layout=SHADER_READ_ONLY_OPTIMAL, access=SHADER_READ, stage=FRAGMENT_SHADER
 Pipeline 'sky': 2 sets
   Set 0: 2 bindings
     Binding 0: name='sceneData', set=0, binding=0, writeonly=false, layout=UNDEFINED, access=SHADER_READ, stage=VERTEX_SHADER
@@ -125,7 +128,7 @@ Pipeline 'sky': 2 sets
     Binding 0: name='prefilteredMap', set=1, binding=0, writeonly=false, layout=SHADER_READ_ONLY_OPTIMAL, access=SHADER_READ, stage=FRAGMENT_SHADER
     Binding 1: name='irradianceMap', set=1, binding=1, writeonly=false, layout=SHADER_READ_ONLY_OPTIMAL, access=SHADER_READ, stage=FRAGMENT_SHADER
     Binding 2: name='brdfLut', set=1, binding=2, writeonly=false, layout=SHADER_READ_ONLY_OPTIMAL, access=SHADER_READ, stage=FRAGMENT_SHADER
-Pipeline 'ssao': 1 sets
+Pipeline 'deferredLighting': 1 sets
   Set 0: 5 bindings
     Binding 0: name='sceneData', set=0, binding=0, writeonly=false, layout=UNDEFINED, access=SHADER_READ, stage=COMPUTE_SHADER
     Binding 1: name='ssaoOptions', set=0, binding=1, writeonly=false, layout=UNDEFINED, access=SHADER_READ, stage=COMPUTE_SHADER
@@ -136,39 +139,36 @@ Pipeline 'post': 1 sets
   Set 0: 2 bindings
     Binding 0: name='floatColor2', set=0, binding=0, writeonly=false, layout=SHADER_READ_ONLY_OPTIMAL, access=SHADER_READ, stage=FRAGMENT_SHADER
     Binding 1: name='postOptions', set=0, binding=1, writeonly=false, layout=UNDEFINED, access=SHADER_READ, stage=FRAGMENT_SHADER
-Pipeline 'gui': 1 sets
-  Set 0: 1 bindings
-    Binding 0: name='fontSampler', set=0, binding=0, writeonly=false, layout=SHADER_READ_ONLY_OPTIMAL, access=SHADER_READ, stage=FRAGMENT_SHADER
 ==========================================
 
     Binding 1 is variable-length array (count=512)
 ShaderManager: Created 7 unique layout(s)
   Layout 0 (0x190000000019): 3 binding(s), used by:
     - Pipeline 'shadowMap', Set 0
-    - Pipeline 'pbrForward', Set 0
+    - Pipeline 'pbrDeferred', Set 0
     Binding 0: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
     Binding 2: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
   Layout 1 (0x1a000000001a): 2 binding(s), used by:
-    - Pipeline 'pbrForward', Set 1
-    Binding 0: type=STORAGE_BUFFER, count=1, stages=FRAGMENT
-    Binding 1: type=COMBINED_IMAGE_SAMPLER, count=512, stages=FRAGMENT
-  Layout 2 (0x1b000000001b): 2 binding(s), used by:
     - Pipeline 'sky', Set 0
     Binding 0: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
-  Layout 3 (0x1c000000001c): 1 binding(s), used by:
-    - Pipeline 'pbrForward', Set 3
-    - Pipeline 'gui', Set 0
-    Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
-  Layout 4 (0x1d000000001d): 3 binding(s), used by:
-    - Pipeline 'pbrForward', Set 2
+  Layout 2 (0x1b000000001b): 3 binding(s), used by:
+    - Pipeline 'pbrDeferred', Set 2
     - Pipeline 'sky', Set 1
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 1: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 2: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
+  Layout 3 (0x1c000000001c): 1 binding(s), used by:
+    - Pipeline 'gui', Set 0
+    - Pipeline 'pbrDeferred', Set 3
+    Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
+  Layout 4 (0x1d000000001d): 2 binding(s), used by:
+    - Pipeline 'pbrDeferred', Set 1
+    Binding 0: type=STORAGE_BUFFER, count=1, stages=FRAGMENT
+    Binding 1: type=COMBINED_IMAGE_SAMPLER, count=512, stages=FRAGMENT
   Layout 5 (0x1e000000001e): 5 binding(s), used by:
-    - Pipeline 'ssao', Set 0
+    - Pipeline 'deferredLighting', Set 0
     Binding 0: type=UNIFORM_BUFFER, count=1, stages=COMPUTE
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=COMPUTE
     Binding 2: type=STORAGE_IMAGE, count=1, stages=COMPUTE
@@ -215,32 +215,32 @@ Texture filename: ../../assets/characters/Leonard/Ch31_1002_Diffuse.png
 Successfully loaded model: ../../assets/characters/Leonard/Bboy Hip Hop Move.fbx
   Meshes: 7
   Materials: 2
-  Loading time: 2951 ms
+  Loading time: 2836 ms
 Found 1 animations in model 'Dancer'
 Started animation: 'mixamo.com'
 Animation duration: 2.20 seconds
 Successfully loaded model from cache: ../../assets/models/AmazonLumberyardBistroMorganMcGuire\exterior_cache.bin
   Meshes: 3184
   Materials: 128
-  Loading time: 3394 ms
+  Loading time: 3334 ms
 No animations found in model 'Bistro'
 ✓ Selected HDR format: B10G11R11_UFLOAT_PACK32 (4 bytes/pixel, FLOAT, 50% memory vs RGBA16F)
 HDR Format Selection:
   Selected format: B10G11R11_UFLOAT_PACK32 (4 bytes/pixel)
-Creating graphics pipeline from config: pbrForward
-Successfully created graphics pipeline: pbrForward
+Creating graphics pipeline from config: pbrDeferred
+Successfully created graphics pipeline: pbrDeferred
 Creating graphics pipeline from config: sky
 Successfully created graphics pipeline: sky
 Creating graphics pipeline from config: post
 Successfully created graphics pipeline: post
 Creating graphics pipeline from config: shadowMap
 Successfully created graphics pipeline: shadowMap
-Creating compute pipeline: ssao
+Creating compute pipeline: deferredLighting
 
 Successfully created compute pipeline
 
-Compute shader 'ssao.comp' local workgroup size: 16x16x1
-Pipeline 'ssao' initialized with local workgroup size: 16x16x1
+Compute shader 'deferredLighting.comp' local workgroup size: 16x16x1
+Pipeline 'deferredLighting' initialized with local workgroup size: 16x16x1
 Loading IBL textures...
   Prefiltered: ../../assets/textures/golden_gate_hills_4k/specularGGX.ktx2
   Irradiance: ../../assets/textures/golden_gate_hills_4k/diffuseLambertian.ktx2
@@ -255,9 +255,9 @@ HDR Memory Analysis:
   Quality: ✓ GOOD - B10G11R11 excellent for HDR with memory savings
 Pipeline 'shadowMap': No write-only image binding found for dimension determination
 Allocating descriptor set with variable count: 512
-Pipeline 'pbrForward': No write-only image binding found for dimension determination
+Pipeline 'pbrDeferred': No write-only image binding found for dimension determination
 Pipeline 'sky': No write-only image binding found for dimension determination
-Pipeline 'ssao' dimensions determined from first write-only binding 'floatColor2': 3072x1728
+Pipeline 'deferredLighting' dimensions determined from first write-only binding 'floatColor2': 3072x1728
 Pipeline 'post': No write-only image binding found for dimension determination
 hasAnimation changed to: true
 Saved descriptor pool statistics to DescriptorPoolSize.txt

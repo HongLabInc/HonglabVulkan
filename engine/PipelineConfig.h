@@ -92,11 +92,13 @@ struct PipelineConfig
     // Factory methods for common configurations
     static PipelineConfig createGui();
     static PipelineConfig createPbrForward();
+    static PipelineConfig createPbrDeferred();
     static PipelineConfig createPost();
     static PipelineConfig createShadowMap();
     static PipelineConfig createSky();
     static PipelineConfig createCompute();
     static PipelineConfig createSsao();
+    static PipelineConfig createDeferredLighting();
     static PipelineConfig createTriangle();
 };
 
@@ -116,6 +118,18 @@ inline PipelineConfig PipelineConfig::createPbrForward()
 {
     PipelineConfig config;
     config.name = "pbrForward";
+    config.requiredFormats = {true, true, true}; // color, depth, msaa
+    config.vertexInput.type = VertexInput::Type::Standard;
+    config.depthStencil = {true, true, VK_COMPARE_OP_LESS_OR_EQUAL};
+    config.multisample.type = Multisample::Type::Variable;
+    config.rasterization.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    return config;
+}
+
+inline PipelineConfig PipelineConfig::createPbrDeferred()
+{
+    PipelineConfig config;
+    config.name = "pbrDeferred";
     config.requiredFormats = {true, true, true}; // color, depth, msaa
     config.vertexInput.type = VertexInput::Type::Standard;
     config.depthStencil = {true, true, VK_COMPARE_OP_LESS_OR_EQUAL};
@@ -173,6 +187,14 @@ inline PipelineConfig PipelineConfig::createSsao()
 {
     PipelineConfig config;
     config.name = "ssao";
+    config.type = Type::Compute;
+    return config;
+}
+
+inline PipelineConfig PipelineConfig::createDeferredLighting()
+{
+    PipelineConfig config;
+    config.name = "deferredLighting";
     config.type = Type::Compute;
     return config;
 }

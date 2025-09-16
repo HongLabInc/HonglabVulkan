@@ -123,8 +123,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <None Include="shaders\deferredLighting.comp" />
     <None Include="shaders\imgui.frag" />
     <None Include="shaders\imgui.vert" />
+    <None Include="shaders\pbrDeferred.frag" />
     <None Include="shaders\pbrForward.frag" />
     <None Include="shaders\pbrForward.vert" />
     <None Include="shaders\post.frag" />
