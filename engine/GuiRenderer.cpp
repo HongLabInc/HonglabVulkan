@@ -7,7 +7,7 @@ GuiRenderer::GuiRenderer(Context& ctx, ShaderManager& shaderManager, VkFormat co
     : ctx_(ctx), shaderManager_(shaderManager),
       frameData_{FrameData(ctx), FrameData(ctx)}, // Initialize frame data array
       fontImage_(make_unique<Image2D>(ctx)), fontSampler_(ctx), pushConsts_(ctx),
-      guiPipeline_(ctx, shaderManager_, PipelineConfig::createGui(), colorFormat)
+      guiPipeline_(ctx, shaderManager_, PipelineConfig::createGui(), {colorFormat})
 {
     pushConsts_.setStageFlags(VK_SHADER_STAGE_VERTEX_BIT);
 

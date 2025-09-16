@@ -15,24 +15,172 @@ layout(set = 0, binding = 0) uniform SceneDataUBO {
     mat4 lightSpaceMatrix;
 } sceneData;
 
-layout(set = 0, binding = 1) uniform SsaoOptionsUBO {
+layout(set = 0, binding = 2) uniform SsaoOptionsUBO {
     float ssaoRadius;
     float ssaoBias;
     int ssaoSampleCount;
     float ssaoPower;
 } ssaoOptions;
 
+layout(set = 0, binding = 1) uniform OptionsUBO {
+    int textureOn;
+    int shadowOn; 
+    int discardOn;
+    int animationOn;
+    float specularWeight;
+    float diffuseWeight;
+    float emissiveWeight;
+    float shadowOffset;
+} options;
+
 // Note: Format r11f_g11f_b10f is chosen at runtime by the C++ HDR format selection logic
-layout (set = 0, binding = 2, r11f_g11f_b10f) uniform readonly image2D floatColor1;
-layout (set = 0, binding = 3, r11f_g11f_b10f) uniform writeonly image2D floatColor2;
-layout (set = 0, binding = 4) uniform sampler2D depthStencil; // depth only
+layout (set = 0, binding = 3, r11f_g11f_b10f) uniform readonly image2D floatColor1;
+layout (set = 0, binding = 4, r11f_g11f_b10f) uniform writeonly image2D floatColor2;
+layout (set = 0, binding = 5) uniform sampler2D depthStencil; // depth only
+
+// G-buffer textures
+layout(set = 0, binding = 6) uniform sampler2D gAlbedo;    // Albedo RGB + Metallic A
+layout(set = 0, binding = 7) uniform sampler2D gNormal;   // World Normal RGB + Roughness A  
+layout(set = 0, binding = 8) uniform sampler2D gPosition; // World Position RGB + Depth A
+layout(set = 0, binding = 9) uniform sampler2D gMaterial; // AO R + Emissive G + Material ID B
+layout(set = 0, binding = 10) uniform sampler2DShadow shadowMap;
+
+// IBL textures for PBR lighting
+layout(set = 0, binding = 11) uniform samplerCube prefilteredMap;
+layout(set = 0, binding = 12) uniform samplerCube irradianceMap;
+layout(set = 0, binding = 13) uniform sampler2D brdfLut;
+
+const float PI = 3.14159265359;
+const float MAX_REFLECTION_LOD = 4.0;
+
+// Note: PBR lighting constants now come from OptionsUBO instead of being hardcoded
+
+// Decode normal from G-buffer
+vec3 decodeNormal(vec3 encoded) {
+    return encoded * 2.0 - 1.0;
+}
+
+float clampedDot(vec3 x, vec3 y) {
+    return clamp(dot(x, y), 0.0, 1.0);
+}
+
+// PBR BRDF functions (identical to pbrForward.frag)
+vec3 getIBLGGXFresnel(vec3 n, vec3 v, float roughness, vec3 F0, float specularWeight) {
+    float NdotV = clamp(dot(n, v), 0.0, 1.0);
+    vec2 brdfSamplePoint = clamp(vec2(NdotV, roughness), vec2(0.0, 0.0), vec2(1.0, 1.0));
+    vec2 f_ab = texture(brdfLut, brdfSamplePoint).rg;
+    vec3 Fr = max(vec3(1.0 - roughness), F0) - F0;
+    vec3 k_S = F0 + Fr * pow(1.0 - NdotV, 5.0);
+    vec3 FssEss = specularWeight * (k_S * f_ab.x + f_ab.y);
+
+    // Multiple scattering
+    float Ems = (1.0 - (f_ab.x + f_ab.y));
+    vec3 F_avg = specularWeight * (F0 + (1.0 - F0) / 21.0);
+    vec3 FmsEms = Ems * FssEss * F_avg / (1.0 - F_avg * Ems);
+
+    return FssEss + FmsEms;
+}
+
+vec3 getIBLRadianceGGX(vec3 n, vec3 v, float roughness) {
+    float NdotV = clamp(dot(n, v), 0.0, 1.0);
+    float lod = roughness * float(MAX_REFLECTION_LOD - 1) + 0.5;
+    vec3 reflection = normalize(reflect(v, n));
+    return textureLod(prefilteredMap, reflection, lod).rgb;
+}
+
+vec3 BRDF_lambertian(vec3 diffuseColor) {
+    return (diffuseColor / PI);
+}
+
+vec3 F_Schlick(vec3 f0, vec3 f90, float VdotH) {
+    return f0 + (f90 - f0) * pow(clamp(1.0 - VdotH, 0.0, 1.0), 5.0);
+}
+
+vec3 F_Schlick(vec3 f0, float VdotH) {
+    float f90 = 1.0;
+    return F_Schlick(f0, vec3(f90), VdotH);
+}
+
+float V_GGX(float NdotL, float NdotV, float alphaRoughness) {
+    float alphaRoughnessSq = alphaRoughness * alphaRoughness;
+    float GGXV = NdotL * sqrt(NdotV * NdotV * (1.0 - alphaRoughnessSq) + alphaRoughnessSq);
+    float GGXL = NdotV * sqrt(NdotL * NdotL * (1.0 - alphaRoughnessSq) + alphaRoughnessSq);
+    float GGX = GGXV + GGXL;
+    if (GGX > 0.0) {
+        return 0.5 / GGX;
+    }
+    return 0.0;
+}
+
+float D_GGX(float NdotH, float alphaRoughness) {
+    float alphaRoughnessSq = alphaRoughness * alphaRoughness;
+    float f = (NdotH * NdotH) * (alphaRoughnessSq - 1.0) + 1.0;
+    return alphaRoughnessSq / (PI * f * f);
+}
+
+vec3 BRDF_specularGGX(float alphaRoughness, float NdotL, float NdotV, float NdotH) {
+    float Vis = V_GGX(NdotL, NdotV, alphaRoughness);
+    float D = D_GGX(NdotH, alphaRoughness);
+    return vec3(Vis * D);
+}
+
+// Shadow calculation - Updated to match pbrForward.frag implementation
+float calculateShadow(vec3 worldPos) {
+    // Apply the same scaleBias transformation as in pbrForward.vert
+    const mat4 scaleBias = mat4(
+        0.5, 0.0, 0.0, 0.0, 
+        0.0, 0.5, 0.0, 0.0, 
+        0.0, 0.0, 1.0, 0.0, 
+        0.5, 0.5, 0.0, 1.0
+    );
+    
+    vec4 lightSpacePos = scaleBias * sceneData.lightSpaceMatrix * vec4(worldPos, 1.0);
+    vec3 projCoords = lightSpacePos.xyz / lightSpacePos.w;
+    
+    // Check bounds - same as forward renderer
+    if(projCoords.z <= -1.0 || projCoords.z >= 1.0)
+        return 1.0;
+    
+    // PCF with Poisson disk sampling (matching forward renderer)
+    const vec2 poissonDisk[16] = vec2[](
+        vec2(-0.94201624, -0.39906216),
+        vec2(0.94558609, -0.76890725),
+        vec2(-0.09418410, -0.92938870),
+        vec2(0.34495938, 0.29387760),
+        vec2(-0.91588581, 0.45771432),
+        vec2(-0.81544232, -0.87912464),
+        vec2(-0.38277543, 0.27676845),
+        vec2(0.97484398, 0.75648379),
+        vec2(0.44323325, -0.97511554),
+        vec2(0.53742981, -0.47373420),
+        vec2(-0.26496911, -0.41893023),
+        vec2(0.79197514, 0.19090188),
+        vec2(-0.24188840, 0.99706507),
+        vec2(-0.81409955, 0.91437590),
+        vec2(0.19984126, 0.78641367),
+        vec2(0.14383161, -0.14100790)
+    );
+    
+    // PCF with Poisson disk sampling
+    float shadow = 0.0;
+    vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
+    float filterRadius = 2.0; // Adjust for shadow softness
+    
+    for(int i = 0; i < 16; ++i)
+    {
+        vec2 offset = poissonDisk[i] * texelSize * filterRadius;
+        shadow += texture(shadowMap, vec3(projCoords.xy + offset, projCoords.z));
+    }
+    shadow /= 16.0;
+    
+    return shadow;
+}
 
 // Generate sampling kernel for SSAO
 vec3 generateSampleKernel(int index) {
-    // Use a deterministic method to generate sample points
-    float angle = float(index) * 2.39996323; // Golden angle approximation
+    float angle = float(index) * 2.39996323;
     float z = float(index) / float(ssaoOptions.ssaoSampleCount);
-    z = mix(0.1, 1.0, z * z); // Bias towards closer samples
+    z = mix(0.1, 1.0, z * z);
     
     float r = sqrt(1.0 - z * z);
     float x = cos(angle) * r;
@@ -41,63 +189,48 @@ vec3 generateSampleKernel(int index) {
     return vec3(x, y, z);
 }
 
-
-// Generate pseudo-random rotation
 vec3 generateNoise(vec2 coord) {
-    // Simple noise function
     float x = fract(sin(dot(coord, vec2(12.9898, 78.233))) * 43758.5453);
     float y = fract(sin(dot(coord, vec2(4.898, 7.23))) * 23421.631);
     float z = fract(sin(dot(coord, vec2(19.34, 7.632))) * 34168.522);
     
-    // Create random rotation vector
     return normalize(vec3(x * 2.0 - 1.0, y * 2.0 - 1.0, 0.0));
 }
 
-// Convert screen space to view space
 vec3 screenToView(vec2 texCoord, float depth) {
-    // Convert to NDC - account for flipped Y in projection matrix
     vec2 ndc = texCoord * 2.0 - 1.0;
-    ndc.y = -ndc.y;  // Flip Y to match the camera's Y-flip
+    ndc.y = -ndc.y;
     
-    // Convert depth from [0,1] to [-1,1] (reverse Z)
     float ndcZ = depth * 2.0 - 1.0;
     
-    // Apply inverse projection
     vec4 clipPos = vec4(ndc, ndcZ, 1.0);
     vec4 viewPos = inverse(sceneData.projection) * clipPos;
         
     return viewPos.xyz / viewPos.w;
 }
 
-// Get view-space normal from depth buffer
-// 지연 셰이딩에서는 G버퍼에 저장된  normal 사용 가능
 vec3 reconstructNormal(vec2 texCoord, vec2 texelSize) {
-    // Sample depth at current position and neighbors
     float depth = texture(depthStencil, texCoord).r;
     float depthL = texture(depthStencil, texCoord - vec2(texelSize.x, 0.0)).r;
     float depthR = texture(depthStencil, texCoord + vec2(texelSize.x, 0.0)).r;
     float depthU = texture(depthStencil, texCoord - vec2(0.0, texelSize.y)).r;
     float depthD = texture(depthStencil, texCoord + vec2(0.0, texelSize.y)).r;
     
-    // Convert to view space positions
     vec3 posC = screenToView(texCoord, depth);
     vec3 posL = screenToView(texCoord - vec2(texelSize.x, 0.0), depthL);
     vec3 posR = screenToView(texCoord + vec2(texelSize.x, 0.0), depthR);
     vec3 posU = screenToView(texCoord - vec2(0.0, texelSize.y), depthU);
     vec3 posD = screenToView(texCoord + vec2(0.0, texelSize.y), depthD);
     
-    // Calculate gradients
     vec3 dx = (abs(posR.z - posC.z) < abs(posL.z - posC.z)) ? posR - posC : posC - posL;
     vec3 dy = (abs(posD.z - posC.z) < abs(posU.z - posC.z)) ? posD - posC : posC - posU;
     
     return normalize(cross(dx, dy));
 }
 
-// Calculate SSAO
 float calculateSSAO(vec2 texCoord, vec2 texelSize) {
     float depth = texture(depthStencil, texCoord).r;
     
-    // Skip background pixels
     if (depth >= 0.9999) {
         return 1.0;
     }
@@ -106,7 +239,6 @@ float calculateSSAO(vec2 texCoord, vec2 texelSize) {
     vec3 normal = reconstructNormal(texCoord, texelSize);
     vec3 randomVec = generateNoise(texCoord * textureSize(depthStencil, 0));
     
-    // Create tangent-space to view-space matrix
     vec3 tangent = normalize(randomVec - normal * dot(randomVec, normal));
     vec3 bitangent = cross(normal, tangent);
     mat3 tbn = mat3(tangent, bitangent, normal);
@@ -115,30 +247,24 @@ float calculateSSAO(vec2 texCoord, vec2 texelSize) {
     float validSamples = 0.0;
     
     for (int i = 0; i < ssaoOptions.ssaoSampleCount; ++i) {
-        // Get sample position in view space
         vec3 sampleKernel = generateSampleKernel(i);
         vec3 samplePos = tbn * sampleKernel;
         samplePos = viewPos + samplePos * ssaoOptions.ssaoRadius;
         
-        // Convert to screen space
         vec4 offset = sceneData.projection * vec4(samplePos, 1.0);
         offset.xyz /= offset.w;
-        offset.xyz = offset.xyz * 0.5 + 0.5; // [-1,1] to [0,1]
-        offset.y = 1.0 - offset.y;  // Flip Y back for texture sampling
+        offset.xyz = offset.xyz * 0.5 + 0.5;
+        offset.y = 1.0 - offset.y;
         
-        // Check if sample is within screen bounds
         if (offset.x < 0.0 || offset.x > 1.0 || offset.y < 0.0 || offset.y > 1.0) {
             continue;
         }
         
-        // Get depth at sample position
         float sampleDepth = texture(depthStencil, offset.xy).r;
         vec3 sampleViewPos = screenToView(offset.xy, sampleDepth);
         
-        // Range check and accumulate occlusion
         float rangeCheck = smoothstep(0.0, 1.0, ssaoOptions.ssaoRadius / abs(viewPos.z - sampleViewPos.z));
         
-        // Check if sample is occluded
         if (sampleViewPos.z >= samplePos.z + ssaoOptions.ssaoBias) {
             occlusion += rangeCheck;
         }
@@ -153,72 +279,122 @@ float calculateSSAO(vec2 texCoord, vec2 texelSize) {
     return 1.0 - occlusion;
 }
 
-void main() 
-{
+void main() {
     ivec2 imageCoords = ivec2(gl_GlobalInvocationID.xy);
     ivec2 imageSize = imageSize(floatColor2);
 
-    // Skip if out of bounds
     if (imageCoords.x >= imageSize.x || imageCoords.y >= imageSize.y) {
         return;
     }
 
-    vec4 color;
     vec2 texCoords = vec2(imageCoords) / vec2(imageSize);
     vec2 texelSize = 1.0 / vec2(imageSize);
+    
+    // Sample depth to distinguish sky from geometry
+    float depth = texture(depthStencil, texCoords).r;
+    const float SKY_DEPTH_THRESHOLD = 0.9999;
+    const float DEPTH_TRANSITION_RANGE = 0.01; // Small range for soft transition
+    
+    // Calculate sky blend factor for smooth transition
+    float skyBlendFactor = smoothstep(SKY_DEPTH_THRESHOLD - DEPTH_TRANSITION_RANGE, 
+                                      SKY_DEPTH_THRESHOLD, depth);
+    
+    vec4 skyColor = imageLoad(floatColor1, imageCoords);
+    vec4 geometryColor = vec4(0.0, 0.0, 0.0, 1.0); // Default black for geometry
+    
+    // Only calculate lighting for geometry pixels (including near-sky pixels for blending)
+    if (depth < SKY_DEPTH_THRESHOLD + DEPTH_TRANSITION_RANGE) {
+        // Sample G-buffer data
+        vec4 albedoMetallic = texture(gAlbedo, texCoords);
+        vec4 normalRoughness = texture(gNormal, texCoords);
+        vec4 positionDepth = texture(gPosition, texCoords);
+        vec4 materialData = texture(gMaterial, texCoords);
+        
+        // Extract material properties
+        vec3 baseColor = albedoMetallic.rgb;
+        float metallic = albedoMetallic.a;
+        vec3 worldNormal = decodeNormal(normalRoughness.rgb);
+        float roughness = normalRoughness.a;
+        vec3 worldPosition = positionDepth.rgb;
+        float ao = materialData.r;
+        float emissiveIntensity = materialData.g;
+        
+        // Clamp material properties
+        roughness = clamp(roughness, 0.0, 1.0);
+        metallic = clamp(metallic, 0.0, 1.0);
+        
+        // Calculate view direction
+        vec3 V = normalize(sceneData.cameraPos - worldPosition);
+        vec3 N = normalize(worldNormal);
+        
+        // IBL lighting - Apply diffuseWeight to diffuse component only
+        vec3 f_diffuse = texture(irradianceMap, N).rgb * baseColor * options.diffuseWeight;
+        vec3 f_specular_metal = getIBLRadianceGGX(N, V, roughness);
+        vec3 f_specular_dielectric = f_specular_metal;
+        
+        // For metallic materials, don't apply specularWeight to IBL fresnel (it's already metallic)
+        vec3 f_metal_fresnel_ibl = getIBLGGXFresnel(N, V, roughness, baseColor.rgb, 1.0);
+        vec3 f_metal_brdf_ibl = f_metal_fresnel_ibl * f_specular_metal;
+        
+        vec3 f0_dielectric = vec3(0.04);
+        vec3 f90_dielectric = vec3(1.0);
+        
+        // For dielectric materials, apply specularWeight to control specular intensity
+        vec3 f_dielectric_fresnel_ibl = getIBLGGXFresnel(N, V, roughness, f0_dielectric, options.specularWeight);
+        vec3 f_dielectric_brdf_ibl = mix(f_diffuse, f_specular_dielectric, f_dielectric_fresnel_ibl);
+        
+        // Directional light - Always calculate lighting, shadow factor depends on shadowOn
+        vec3 l_light = vec3(0.0);
+        {
+            vec3 l = normalize(sceneData.directionalLightDir);
+            vec3 h = normalize(l + V);
+            float NdotL = clampedDot(N, l);
+            float NdotV = clampedDot(N, V);
+            float NdotH = clampedDot(N, h);
+            float VdotH = clampedDot(V, h);
 
-    /*if (imageCoords.x < imageSize.x * 0.01) 
-    {
-        color = vec4(0.8, 0.2, 0.2, 1.0); // Red
-    } 
-    else if(imageCoords.x < imageSize.x * 0.3) 
-    { 
-        // Read depth from depth buffer
-        float depth = texture(depthStencil, texCoords).r;
+            // Apply specularWeight consistently to direct lighting
+            vec3 dielectric_fresnel = F_Schlick(f0_dielectric * options.specularWeight, f90_dielectric, abs(VdotH));
+            vec3 metal_fresnel = F_Schlick(baseColor.rgb, vec3(1.0), abs(VdotH));
+            vec3 lightIntensity = vec3(1.0, 0.9, 0.7) * sceneData.directionalLightColor;
+            vec3 l_diffuse = lightIntensity * NdotL * BRDF_lambertian(baseColor.rgb);
+            
+            vec3 l_specular_metal = lightIntensity * NdotL * BRDF_specularGGX(roughness*roughness, NdotL, NdotV, NdotH);
+            vec3 l_specular_dielectric = l_specular_metal;
+
+            vec3 l_metal_brdf = metal_fresnel * l_specular_metal;
+            vec3 l_dielectric_brdf = mix(l_diffuse, l_specular_dielectric, dielectric_fresnel);
+            
+            // Calculate shadow factor only if shadows are enabled
+            float shadowFactor = 1.0; // Default: no shadow
+            if (options.shadowOn != 0 && NdotL > 0.0) {
+                shadowFactor = calculateShadow(worldPosition);
+                shadowFactor = clamp(shadowFactor + options.shadowOffset, 0.0, 1.0);
+            }
+            
+            l_light = mix(l_dielectric_brdf, l_metal_brdf, metallic) * shadowFactor;
+        }
         
-        // Convert non-linear depth to linear depth for better visualization
-        // This assumes a standard perspective projection
-        float near = 0.1;  // Near plane distance
-        float far = 256.0; // Far plane distance (from your camera setup)
-        float linearDepth = (2.0 * near) / (far + near - depth * (far - near));
+        // Combine IBL and direct lighting
+        vec3 finalColor = mix(f_dielectric_brdf_ibl, f_metal_brdf_ibl, metallic) + l_light;
         
-        // Use linear depth as grayscale color
-        color = vec4(linearDepth, linearDepth, linearDepth, 1.0);
-    }
-    else if(imageCoords.x < imageSize.x * 0.5)
-    {
-    color = imageLoad(floatColor1, imageCoords);
-    }
-    else if(imageCoords.x < imageSize.x * 0.9) 
-    {
-        // SSAO effect
+        // Apply ambient occlusion
+        float u_OcclusionStrength = 1.0;
+        finalColor = finalColor * (1.0 + u_OcclusionStrength * (ao - 1.0));
+        
+        // Add emissive
+        finalColor += baseColor * emissiveIntensity * options.emissiveWeight;
+        
+        // Apply SSAO
         float ssaoValue = calculateSSAO(texCoords, texelSize);
-        
-        // Apply power to enhance contrast
         ssaoValue = pow(ssaoValue, ssaoOptions.ssaoPower);
+        finalColor *= ssaoValue;
         
-        // Display SSAO as grayscale
-        //color = vec4(ssaoValue, ssaoValue, ssaoValue, 1.0);
-
-        vec4 forwardColor = imageLoad(floatColor1, imageCoords);
-        color = vec4(forwardColor.rgb * ssaoValue, forwardColor.a);
+        geometryColor = vec4(finalColor, 1.0);
     }
-    else    
-    {
-        color = imageLoad(floatColor1, imageCoords);
-    }*/
-
-    // SSAO effect
-    float ssaoValue = calculateSSAO(texCoords, texelSize);
-        
-    // Apply power to enhance contrast
-    ssaoValue = pow(ssaoValue, ssaoOptions.ssaoPower);
-        
-    // Display SSAO as grayscale
-    //color = vec4(ssaoValue, ssaoValue, ssaoValue, 1.0);
-
-    vec4 forwardColor = imageLoad(floatColor1, imageCoords);
-    color = vec4(forwardColor.rgb * ssaoValue, forwardColor.a);
+    
+    // Blend between geometry lighting and sky color based on depth
+    vec4 color = mix(geometryColor, skyColor, skyBlendFactor);
 
     imageStore(floatColor2, imageCoords, color);
 }

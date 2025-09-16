@@ -34,7 +34,7 @@ int main()
                                 {{"triangle", {"triangle.vert.spv", "triangle.frag.spv"}}});
 
     Pipeline trianglePipeline(ctx, shaderManager, PipelineConfig::createTriangle(),
-                             VK_FORMAT_R8G8B8A8_UNORM, nullopt, VK_SAMPLE_COUNT_1_BIT);
+                             vector<VkFormat>{VK_FORMAT_R8G8B8A8_UNORM}, nullopt, VK_SAMPLE_COUNT_1_BIT);
 
     CommandBuffer renderCmd =
         ctx.createGraphicsCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);

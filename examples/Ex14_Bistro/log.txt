@@ -129,12 +129,21 @@ Pipeline 'sky': 2 sets
     Binding 1: name='irradianceMap', set=1, binding=1, writeonly=false, layout=SHADER_READ_ONLY_OPTIMAL, access=SHADER_READ, stage=FRAGMENT_SHADER
     Binding 2: name='brdfLut', set=1, binding=2, writeonly=false, layout=SHADER_READ_ONLY_OPTIMAL, access=SHADER_READ, stage=FRAGMENT_SHADER
 Pipeline 'deferredLighting': 1 sets
-  Set 0: 5 bindings
+  Set 0: 14 bindings
     Binding 0: name='sceneData', set=0, binding=0, writeonly=false, layout=UNDEFINED, access=SHADER_READ, stage=COMPUTE_SHADER
-    Binding 1: name='ssaoOptions', set=0, binding=1, writeonly=false, layout=UNDEFINED, access=SHADER_READ, stage=COMPUTE_SHADER
-    Binding 2: name='floatColor1', set=0, binding=2, writeonly=false, layout=GENERAL, access=SHADER_READ|SHADER_WRITE, stage=COMPUTE_SHADER
-    Binding 3: name='floatColor2', set=0, binding=3, writeonly=true, layout=GENERAL, access=SHADER_WRITE, stage=COMPUTE_SHADER
-    Binding 4: name='depthStencil', set=0, binding=4, writeonly=false, layout=SHADER_READ_ONLY_OPTIMAL, access=SHADER_READ, stage=COMPUTE_SHADER
+    Binding 1: name='options', set=0, binding=1, writeonly=false, layout=UNDEFINED, access=SHADER_READ, stage=COMPUTE_SHADER
+    Binding 2: name='ssaoOptions', set=0, binding=2, writeonly=false, layout=UNDEFINED, access=SHADER_READ, stage=COMPUTE_SHADER
+    Binding 3: name='floatColor1', set=0, binding=3, writeonly=false, layout=GENERAL, access=SHADER_READ|SHADER_WRITE, stage=COMPUTE_SHADER
+    Binding 4: name='floatColor2', set=0, binding=4, writeonly=true, layout=GENERAL, access=SHADER_WRITE, stage=COMPUTE_SHADER
+    Binding 5: name='depthStencil', set=0, binding=5, writeonly=false, layout=SHADER_READ_ONLY_OPTIMAL, access=SHADER_READ, stage=COMPUTE_SHADER
+    Binding 6: name='gAlbedo', set=0, binding=6, writeonly=false, layout=SHADER_READ_ONLY_OPTIMAL, access=SHADER_READ, stage=COMPUTE_SHADER
+    Binding 7: name='gNormal', set=0, binding=7, writeonly=false, layout=SHADER_READ_ONLY_OPTIMAL, access=SHADER_READ, stage=COMPUTE_SHADER
+    Binding 8: name='gPosition', set=0, binding=8, writeonly=false, layout=SHADER_READ_ONLY_OPTIMAL, access=SHADER_READ, stage=COMPUTE_SHADER
+    Binding 9: name='gMaterial', set=0, binding=9, writeonly=false, layout=SHADER_READ_ONLY_OPTIMAL, access=SHADER_READ, stage=COMPUTE_SHADER
+    Binding 10: name='shadowMap', set=0, binding=10, writeonly=false, layout=SHADER_READ_ONLY_OPTIMAL, access=SHADER_READ, stage=COMPUTE_SHADER
+    Binding 11: name='prefilteredMap', set=0, binding=11, writeonly=false, layout=SHADER_READ_ONLY_OPTIMAL, access=SHADER_READ, stage=COMPUTE_SHADER
+    Binding 12: name='irradianceMap', set=0, binding=12, writeonly=false, layout=SHADER_READ_ONLY_OPTIMAL, access=SHADER_READ, stage=COMPUTE_SHADER
+    Binding 13: name='brdfLut', set=0, binding=13, writeonly=false, layout=SHADER_READ_ONLY_OPTIMAL, access=SHADER_READ, stage=COMPUTE_SHADER
 Pipeline 'post': 1 sets
   Set 0: 2 bindings
     Binding 0: name='floatColor2', set=0, binding=0, writeonly=false, layout=SHADER_READ_ONLY_OPTIMAL, access=SHADER_READ, stage=FRAGMENT_SHADER
@@ -167,13 +176,22 @@ ShaderManager: Created 7 unique layout(s)
     - Pipeline 'pbrDeferred', Set 1
     Binding 0: type=STORAGE_BUFFER, count=1, stages=FRAGMENT
     Binding 1: type=COMBINED_IMAGE_SAMPLER, count=512, stages=FRAGMENT
-  Layout 5 (0x1e000000001e): 5 binding(s), used by:
+  Layout 5 (0x1e000000001e): 14 binding(s), used by:
     - Pipeline 'deferredLighting', Set 0
     Binding 0: type=UNIFORM_BUFFER, count=1, stages=COMPUTE
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=COMPUTE
-    Binding 2: type=STORAGE_IMAGE, count=1, stages=COMPUTE
+    Binding 2: type=UNIFORM_BUFFER, count=1, stages=COMPUTE
     Binding 3: type=STORAGE_IMAGE, count=1, stages=COMPUTE
-    Binding 4: type=COMBINED_IMAGE_SAMPLER, count=1, stages=COMPUTE
+    Binding 4: type=STORAGE_IMAGE, count=1, stages=COMPUTE
+    Binding 5: type=COMBINED_IMAGE_SAMPLER, count=1, stages=COMPUTE
+    Binding 6: type=COMBINED_IMAGE_SAMPLER, count=1, stages=COMPUTE
+    Binding 7: type=COMBINED_IMAGE_SAMPLER, count=1, stages=COMPUTE
+    Binding 8: type=COMBINED_IMAGE_SAMPLER, count=1, stages=COMPUTE
+    Binding 9: type=COMBINED_IMAGE_SAMPLER, count=1, stages=COMPUTE
+    Binding 10: type=COMBINED_IMAGE_SAMPLER, count=1, stages=COMPUTE
+    Binding 11: type=COMBINED_IMAGE_SAMPLER, count=1, stages=COMPUTE
+    Binding 12: type=COMBINED_IMAGE_SAMPLER, count=1, stages=COMPUTE
+    Binding 13: type=COMBINED_IMAGE_SAMPLER, count=1, stages=COMPUTE
   Layout 6 (0x1f000000001f): 2 binding(s), used by:
     - Pipeline 'post', Set 0
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
@@ -215,14 +233,14 @@ Texture filename: ../../assets/characters/Leonard/Ch31_1002_Diffuse.png
 Successfully loaded model: ../../assets/characters/Leonard/Bboy Hip Hop Move.fbx
   Meshes: 7
   Materials: 2
-  Loading time: 2836 ms
+  Loading time: 2699 ms
 Found 1 animations in model 'Dancer'
 Started animation: 'mixamo.com'
 Animation duration: 2.20 seconds
 Successfully loaded model from cache: ../../assets/models/AmazonLumberyardBistroMorganMcGuire\exterior_cache.bin
   Meshes: 3184
   Materials: 128
-  Loading time: 3334 ms
+  Loading time: 3316 ms
 No animations found in model 'Bistro'
 ✓ Selected HDR format: B10G11R11_UFLOAT_PACK32 (4 bytes/pixel, FLOAT, 50% memory vs RGBA16F)
 HDR Format Selection:
@@ -253,6 +271,12 @@ HDR Memory Analysis:
   Standard RGBA16F memory: 121 MB
   Memory savings: 50.4%
   Quality: ✓ GOOD - B10G11R11 excellent for HDR with memory savings
+Creating G-buffer textures for deferred rendering:
+  gAlbedo: R8G8B8A8_UNORM (4 bytes/pixel)
+  gNormal: UNKNOWN_FORMAT(97) (8 bytes/pixel)
+  gPosition: UNKNOWN_FORMAT(109) (16 bytes/pixel)
+  gMaterial: R8G8B8A8_UNORM (4 bytes/pixel)
+G-buffer creation complete
 Pipeline 'shadowMap': No write-only image binding found for dimension determination
 Allocating descriptor set with variable count: 512
 Pipeline 'pbrDeferred': No write-only image binding found for dimension determination
@@ -265,8 +289,8 @@ Saved descriptor pool statistics to DescriptorPoolSize.txt
 === DescriptorPool Allocated Statistics ===
 Total Pools Created: 1
 Total Allocated Sets: 12
-  COMBINED_IMAGE_SAMPLER: 521
-  UNIFORM_BUFFER: 16
+  COMBINED_IMAGE_SAMPLER: 537
+  UNIFORM_BUFFER: 18
   STORAGE_BUFFER: 1
   STORAGE_IMAGE: 4
 ============================================

@@ -86,7 +86,7 @@ Ex10_Example::~Ex10_Example()
 void Ex10_Example::initializeSkybox()
 {
     // Create skybox pipeline using PipelineConfig
-    skyPipeline_.createFromConfig(PipelineConfig::createSky(), swapchain_.colorFormat(),
+    skyPipeline_.createFromConfig(PipelineConfig::createSky(), vector<VkFormat>{swapchain_.colorFormat()},
                                   ctx_.depthFormat(), VK_SAMPLE_COUNT_1_BIT);
 
     // Initialize samplers

@@ -88,7 +88,7 @@ Ex11_PostProcessingExample::~Ex11_PostProcessingExample()
 void Ex11_PostProcessingExample::initializeSkybox()
 {
     // Create skybox pipeline using PipelineConfig (now renders to HDR buffer instead of swapchain)
-    skyPipeline_.createFromConfig(PipelineConfig::createSky(), swapchain_.colorFormat(),
+    skyPipeline_.createFromConfig(PipelineConfig::createSky(), vector<VkFormat>{swapchain_.colorFormat()},
                                   ctx_.depthFormat(), VK_SAMPLE_COUNT_1_BIT);
 
     // Initialize samplers

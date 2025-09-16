@@ -27,11 +27,11 @@ class Pipeline
 
     // PipelineConfig-based constructor
     Pipeline(Context& ctx, ShaderManager& shaderManager, const PipelineConfig& config,
-             optional<VkFormat> outColorFormat = nullopt, optional<VkFormat> depthFormat = nullopt,
+             vector<VkFormat> outColorFormats = {}, optional<VkFormat> depthFormat = nullopt,
              optional<VkSampleCountFlagBits> msaaSamples = nullopt)
         : ctx_(ctx), shaderManager_(shaderManager)
     {
-        createFromConfig(config, outColorFormat, depthFormat, msaaSamples);
+        createFromConfig(config, outColorFormats, depthFormat, msaaSamples);
     }
 
     // Delete copy and move constructors/operators since we'll use unique_ptr
@@ -47,7 +47,7 @@ class Pipeline
 
     void cleanup();
 
-    void createFromConfig(const PipelineConfig& config, optional<VkFormat> outColorFormat = nullopt,
+    void createFromConfig(const PipelineConfig& config, vector<VkFormat> outColorFormats = {},
                           optional<VkFormat> depthFormat = nullopt,
                           optional<VkSampleCountFlagBits> msaaSamples = nullopt);
 
@@ -120,11 +120,11 @@ class Pipeline
 
     array<uint32_t, 3> local_size_{1, 1, 1}; // [x, y, z] - Initialize from shaderManager when this pipeline created (only if this pipeline is compute)
 
-    void validateRequiredFormats(const PipelineConfig& config, optional<VkFormat> outColorFormat,
+    void validateRequiredFormats(const PipelineConfig& config, vector<VkFormat> outColorFormats,
                                  optional<VkFormat> depthFormat,
                                  optional<VkSampleCountFlagBits> msaaSamples);
 
-    void createGraphicsFromConfig(const PipelineConfig& config, VkFormat outColorFormat,
+    void createGraphicsFromConfig(const PipelineConfig& config, vector<VkFormat> outColorFormats,
                                   optional<VkFormat> depthFormat,
                                   optional<VkSampleCountFlagBits> msaaSamples);
 

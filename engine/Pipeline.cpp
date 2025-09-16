@@ -20,7 +20,7 @@ void Pipeline::cleanup()
     // Do not cleanup descriptorSetLayouts here
 }
 
-void Pipeline::createFromConfig(const PipelineConfig& config, optional<VkFormat> outColorFormat,
+void Pipeline::createFromConfig(const PipelineConfig& config, vector<VkFormat> outColorFormats,
                                 optional<VkFormat> depthFormat,
                                 optional<VkSampleCountFlagBits> msaaSamples)
 {
@@ -38,7 +38,7 @@ void Pipeline::createFromConfig(const PipelineConfig& config, optional<VkFormat>
     }
 
     // Validate required formats
-    validateRequiredFormats(config, outColorFormat, depthFormat, msaaSamples);
+    validateRequiredFormats(config, outColorFormats, depthFormat, msaaSamples);
 
     createCommon();
 
@@ -47,17 +47,17 @@ void Pipeline::createFromConfig(const PipelineConfig& config, optional<VkFormat>
         // Initialize compute shader local workgroup size after pipeline creation
         initializeComputeLocalWorkgroupSize();
     } else {
-        createGraphicsFromConfig(config, outColorFormat.value(), depthFormat, msaaSamples);
+        createGraphicsFromConfig(config, outColorFormats, depthFormat, msaaSamples);
     }
 }
 
 void Pipeline::validateRequiredFormats(const PipelineConfig& config,
-                                       optional<VkFormat> outColorFormat,
+                                       vector<VkFormat> outColorFormats,
                                        optional<VkFormat> depthFormat,
                                        optional<VkSampleCountFlagBits> msaaSamples)
 {
-    if (config.requiredFormats.outColorFormat && !outColorFormat.has_value()) {
-        exitWithMessage("outColorFormat required for pipeline '{}'", config.name);
+    if (config.requiredFormats.outColorFormat && outColorFormats.empty()) {
+        exitWithMessage("outColorFormats required for pipeline '{}'", config.name);
     }
     if (config.requiredFormats.depthFormat && !depthFormat.has_value()) {
         exitWithMessage("depthFormat required for pipeline '{}'", config.name);
@@ -67,7 +67,8 @@ void Pipeline::validateRequiredFormats(const PipelineConfig& config,
     }
 }
 
-void Pipeline::createGraphicsFromConfig(const PipelineConfig& config, VkFormat outColorFormat,
+void Pipeline::createGraphicsFromConfig(const PipelineConfig& config,
+                                        vector<VkFormat> outColorFormats,
                                         optional<VkFormat> depthFormat,
                                         optional<VkSampleCountFlagBits> msaaSamples)
 {
@@ -79,12 +80,6 @@ void Pipeline::createGraphicsFromConfig(const PipelineConfig& config, VkFormat o
     // Get shader stages
     vector<VkPipelineShaderStageCreateInfo> shaderStagesCI =
         shaderManager_.createPipelineShaderStageCIs(config.name);
-
-    // Prepare color formats
-    vector<VkFormat> outColorFormats;
-    if (!config.specialConfig.isDepthOnly) {
-        outColorFormats.push_back(outColorFormat);
-    }
 
     // ========================================================================
     // 1. VERTEX INPUT STATE
@@ -149,40 +144,50 @@ void Pipeline::createGraphicsFromConfig(const PipelineConfig& config, VkFormat o
     // ========================================================================
     // 4. COLOR BLEND STATE
     // ========================================================================
-    VkPipelineColorBlendAttachmentState blendAttachmentState{};
-    blendAttachmentState.blendEnable = config.colorBlend.blendEnable ? VK_TRUE : VK_FALSE;
-    blendAttachmentState.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-                                          VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    // Create blend attachment states for each color attachment
+    vector<VkPipelineColorBlendAttachmentState> blendAttachmentStates;
 
-    if (config.colorBlend.blendEnable) {
-        // Use alpha blending configuration
-        blendAttachmentState.srcColorBlendFactor =
-            config.colorBlend.alphaBlending.srcColorBlendFactor;
-        blendAttachmentState.dstColorBlendFactor =
-            config.colorBlend.alphaBlending.dstColorBlendFactor;
-        blendAttachmentState.colorBlendOp = VK_BLEND_OP_ADD;
-        blendAttachmentState.srcAlphaBlendFactor =
-            config.colorBlend.alphaBlending.srcAlphaBlendFactor;
-        blendAttachmentState.dstAlphaBlendFactor =
-            config.colorBlend.alphaBlending.dstAlphaBlendFactor;
-        blendAttachmentState.alphaBlendOp = VK_BLEND_OP_ADD;
-    } else {
-        // No blending
-        blendAttachmentState.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-        blendAttachmentState.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
-        blendAttachmentState.colorBlendOp = VK_BLEND_OP_ADD;
-        blendAttachmentState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-        blendAttachmentState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-        blendAttachmentState.alphaBlendOp = VK_BLEND_OP_ADD;
+    if (!config.specialConfig.isDepthOnly && !outColorFormats.empty()) {
+        blendAttachmentStates.resize(outColorFormats.size());
+
+        for (size_t i = 0; i < outColorFormats.size(); ++i) {
+            auto& blendAttachmentState = blendAttachmentStates[i];
+            blendAttachmentState.blendEnable = config.colorBlend.blendEnable ? VK_TRUE : VK_FALSE;
+            blendAttachmentState.colorWriteMask =
+                VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
+                VK_COLOR_COMPONENT_A_BIT;
+
+            if (config.colorBlend.blendEnable) {
+                // Use alpha blending configuration
+                blendAttachmentState.srcColorBlendFactor =
+                    config.colorBlend.alphaBlending.srcColorBlendFactor;
+                blendAttachmentState.dstColorBlendFactor =
+                    config.colorBlend.alphaBlending.dstColorBlendFactor;
+                blendAttachmentState.colorBlendOp = VK_BLEND_OP_ADD;
+                blendAttachmentState.srcAlphaBlendFactor =
+                    config.colorBlend.alphaBlending.srcAlphaBlendFactor;
+                blendAttachmentState.dstAlphaBlendFactor =
+                    config.colorBlend.alphaBlending.dstAlphaBlendFactor;
+                blendAttachmentState.alphaBlendOp = VK_BLEND_OP_ADD;
+            } else {
+                // No blending
+                blendAttachmentState.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+                blendAttachmentState.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+                blendAttachmentState.colorBlendOp = VK_BLEND_OP_ADD;
+                blendAttachmentState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+                blendAttachmentState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+                blendAttachmentState.alphaBlendOp = VK_BLEND_OP_ADD;
+            }
+        }
     }
 
     VkPipelineColorBlendStateCreateInfo colorBlendStateCI{};
     colorBlendStateCI.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     colorBlendStateCI.logicOpEnable = VK_FALSE;
     colorBlendStateCI.logicOp = VK_LOGIC_OP_COPY;
-    colorBlendStateCI.attachmentCount = config.specialConfig.isDepthOnly ? 0 : 1;
+    colorBlendStateCI.attachmentCount = static_cast<uint32_t>(blendAttachmentStates.size());
     colorBlendStateCI.pAttachments =
-        config.specialConfig.isDepthOnly ? nullptr : &blendAttachmentState;
+        blendAttachmentStates.empty() ? nullptr : blendAttachmentStates.data();
     colorBlendStateCI.blendConstants[0] = 0.0f;
     colorBlendStateCI.blendConstants[1] = 0.0f;
     colorBlendStateCI.blendConstants[2] = 0.0f;
@@ -251,18 +256,36 @@ void Pipeline::createGraphicsFromConfig(const PipelineConfig& config, VkFormat o
     VkPipelineRenderingCreateInfo pipelineRenderingCI{};
     pipelineRenderingCI.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
     pipelineRenderingCI.viewMask = 0;
-    pipelineRenderingCI.colorAttachmentCount = static_cast<uint32_t>(outColorFormats.size());
-    pipelineRenderingCI.pColorAttachmentFormats =
-        outColorFormats.empty() ? nullptr : outColorFormats.data();
+
+    // For depth-only pipelines (shadow maps), don't set any color attachments
+    if (config.specialConfig.isDepthOnly) {
+        pipelineRenderingCI.colorAttachmentCount = 0;
+        pipelineRenderingCI.pColorAttachmentFormats = nullptr;
+    } else {
+        pipelineRenderingCI.colorAttachmentCount = static_cast<uint32_t>(outColorFormats.size());
+        pipelineRenderingCI.pColorAttachmentFormats =
+            outColorFormats.empty() ? nullptr : outColorFormats.data();
+    }
 
     // Set depth format
-    if (config.specialConfig.isDepthOnly) {
-        pipelineRenderingCI.depthAttachmentFormat =
-            outColorFormat; // For shadow maps, outColorFormat is actually depth format
-        pipelineRenderingCI.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
-    } else if (depthFormat.has_value()) {
+    if (depthFormat.has_value()) {
         pipelineRenderingCI.depthAttachmentFormat = depthFormat.value();
-        pipelineRenderingCI.stencilAttachmentFormat = depthFormat.value();
+
+        // Only set stencil format if the depth format has a stencil aspect
+        // Common depth-stencil formats: VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_D32_SFLOAT_S8_UINT
+        // Depth-only formats: VK_FORMAT_D16_UNORM, VK_FORMAT_D32_SFLOAT
+        switch (depthFormat.value()) {
+        case VK_FORMAT_D24_UNORM_S8_UINT:
+        case VK_FORMAT_D32_SFLOAT_S8_UINT:
+        case VK_FORMAT_D16_UNORM_S8_UINT:
+            // These formats have stencil component
+            pipelineRenderingCI.stencilAttachmentFormat = depthFormat.value();
+            break;
+        default:
+            // Depth-only formats don't have stencil
+            pipelineRenderingCI.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
+            break;
+        }
     } else {
         pipelineRenderingCI.depthAttachmentFormat = VK_FORMAT_UNDEFINED;
         pipelineRenderingCI.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
@@ -341,12 +364,14 @@ void Pipeline::determineDimensionsFromFirstWriteOnlyBinding()
 {
     // Search through all descriptor sets and bindings for the first write-only binding
     for (size_t setIndex = 0; setIndex < bindingInfos_.size(); ++setIndex) {
-        for (size_t bindingIndex = 0; bindingIndex < bindingInfos_[setIndex].size(); ++bindingIndex) {
+        for (size_t bindingIndex = 0; bindingIndex < bindingInfos_[setIndex].size();
+             ++bindingIndex) {
             const auto& bindingInfo = bindingInfos_[setIndex][bindingIndex];
 
             if (bindingInfo.writeonly && !bindingInfo.resourceName.empty()) {
                 // Found first write-only binding, now get its dimensions
-                assert(!descriptorSets_.empty() && "No descriptor sets available for dimension determination");
+                assert(!descriptorSets_.empty() &&
+                       "No descriptor sets available for dimension determination");
                 assert(setIndex < descriptorSets_[0].size() && "Set index out of bounds");
 
                 const auto& descriptorSet = descriptorSets_[0][setIndex].get();
@@ -363,7 +388,8 @@ void Pipeline::determineDimensionsFromFirstWriteOnlyBinding()
                         width_ = image->width();
                         height_ = image->height();
 
-                        printLog("Pipeline '{}' dimensions determined from first write-only binding '{}': {}x{}",
+                        printLog("Pipeline '{}' dimensions determined from first write-only "
+                                 "binding '{}': {}x{}",
                                  name_, bindingInfo.resourceName, width_, height_);
                         return;
                     }
@@ -374,7 +400,8 @@ void Pipeline::determineDimensionsFromFirstWriteOnlyBinding()
 
     // If no write-only image binding found, log a warning
     if (width_ == 0 && height_ == 0) {
-        printLog("Pipeline '{}': No write-only image binding found for dimension determination", name_);
+        printLog("Pipeline '{}': No write-only image binding found for dimension determination",
+                 name_);
     }
 }
 
@@ -389,8 +416,8 @@ void Pipeline::initializeComputeLocalWorkgroupSize()
     auto localSize = shaderManager_.getComputeLocalWorkgroupSize(name_);
     local_size_ = localSize;
 
-    printLog("Pipeline '{}' initialized with local workgroup size: {}x{}x{}", 
-             name_, local_size_[0], local_size_[1], local_size_[2]);
+    printLog("Pipeline '{}' initialized with local workgroup size: {}x{}x{}", name_, local_size_[0],
+             local_size_[1], local_size_[2]);
 }
 
 void Pipeline::submitBarriers(const VkCommandBuffer& cmd, uint32_t frameIndex)

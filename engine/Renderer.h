@@ -48,10 +48,14 @@ struct SkyOptionsUBO
 
 struct OptionsUniform
 {
-    alignas(4) int textureOn = 1;   // Use int instead of bool, 1 = true, 0 = false
-    alignas(4) int shadowOn = 1;    // Use int instead of bool, 1 = true, 0 = false
-    alignas(4) int discardOn = 1;   // Use int instead of bool, 1 = true, 0 = false
-    alignas(4) int animationOn = 1; // Use int instead of bool, 1 = true, 0 = false
+    alignas(4) int textureOn = 1;        // Use int instead of bool, 1 = true, 0 = false
+    alignas(4) int shadowOn = 1;         // Use int instead of bool, 1 = true, 0 = false
+    alignas(4) int discardOn = 1;        // Use int instead of bool, 1 = true, 0 = false
+    alignas(4) int animationOn = 1;      // Use int instead of bool, 1 = true, 0 = false
+    alignas(4) float specularWeight = 0.05f;  // PBR specular weight - reduced default
+    alignas(4) float diffuseWeight = 1.0f;    // PBR diffuse weight
+    alignas(4) float emissiveWeight = 1.0f;   // PBR emissive weight
+    alignas(4) float shadowOffset = 0.0f;     // Shadow bias offset
 };
 
 // Post-processing options uniform buffer structure
@@ -187,8 +191,8 @@ class Renderer
 
     // Resources - Consolidated image buffers using map structure
     unordered_map<string, unique_ptr<Image2D>> imageBuffers_;
-    // Keys: "depthStencil", "floatColor1", "floatColor2", "shadowMap", "prefiltered", "irradiance",
-    // "brdfLut"
+    // Keys: "depthStencil", "floatColor1", "floatColor2", "shadowMap", "prefilteredMap",
+    // "irradianceMap", "brdfLut", "gAlbedo", "gNormal", "gPosition", "gMaterial"
 
     unique_ptr<TextureManager> materialTextures_; // Material textures for bindless rendering
     unique_ptr<StorageBuffer> materialBuffer_;    // Material data storage buffer

@@ -67,7 +67,12 @@ layout(set = 2, binding = 2) uniform sampler2D brdfLut;
 // Shadow map (주의: 각 셋의 바인딩은 0에서 시작해야 함)
 layout(set = 3, binding = 0) uniform sampler2DShadow shadowMap;
 
-layout(location = 0) out vec4 outColor;
+layout(location = 0) out vec4 outColor;     // Temporary for development
+// G-Buffer outputs for deferred rendering
+layout(location = 1) out vec4 gAlbedo;      // RGB: albedo/baseColor, A: metallic
+layout(location = 2) out vec4 gNormal;      // RGB: world-space normal (encoded), A: roughness
+layout(location = 3) out vec4 gPosition;    // RGB: world-space position, A: depth
+layout(location = 4) out vec4 gMaterial;    // R: AO, G: emissive intensity, B: material ID, A: unused
 
 const float PI = 3.14159265359;
 const float MAX_REFLECTION_LOD = 4.0;
@@ -245,6 +250,10 @@ vec3 BRDF_specularGGX(float alphaRoughness, float NdotL, float NdotV, float Ndot
     return vec3(Vis * D);
 }
 
+vec3 encodeNormal(vec3 normal) {
+    return normal * 0.5 + 0.5;
+}
+
 void main() {
     float specularWeight = pushConstants.coeffs[0];
     float diffuseWeight = pushConstants.coeffs[1];
@@ -255,7 +264,9 @@ void main() {
     MaterialUBO material = materialBuffer.materials[pushConstants.materialIndex];
 
     // Sample material properties using bindless access
-    vec4 baseColorRGBA = material.baseColorTextureIndex >= 0 ? texture(materialTextures[nonuniformEXT(material.baseColorTextureIndex)], fragTexCoord) : vec4(1.0) ;
+    vec4 baseColorRGBA = (options.textureOn != 0 && material.baseColorTextureIndex >= 0) ? 
+                        texture(materialTextures[nonuniformEXT(material.baseColorTextureIndex)], fragTexCoord) : 
+                        vec4(1.0);
 
     if(options.discardOn != 0 && material.opacityTextureIndex >= 0)
     {
@@ -268,19 +279,19 @@ void main() {
     float metallic = material.metallicFactor * pushConstants.coeffs[4];
     float roughness = material.roughnessFactor * pushConstants.coeffs[5];
 
-    if(material.metallicRoughnessTextureIndex >= 0){
+    if(options.textureOn != 0 && material.metallicRoughnessTextureIndex >= 0){
         vec3 metallicRoughness = texture(materialTextures[nonuniformEXT(material.metallicRoughnessTextureIndex)], fragTexCoord).rgb;
         metallic *= metallicRoughness.b; // Blue channel
         roughness *= metallicRoughness.g; // Green channel
     }
 
     float ao = 1.0;
-    if(material.occlusionTextureIndex >= 0){
+    if(options.textureOn != 0 && material.occlusionTextureIndex >= 0){
         ao = texture(materialTextures[nonuniformEXT(material.occlusionTextureIndex)], fragTexCoord).r;
     }
 
     vec3 emissive = material.emissiveFactor.xyz * emissiveWeight;
-    if(material.emissiveTextureIndex >= 0){
+    if(options.textureOn != 0 && material.emissiveTextureIndex >= 0){
         emissive *= texture(materialTextures[nonuniformEXT(material.emissiveTextureIndex)], fragTexCoord).rgb;
     }
 
@@ -291,7 +302,7 @@ void main() {
     vec3 B = normalize(fragBitangent);
     mat3 TBN = mat3(T, B, N);
 
-    if(material.normalTextureIndex >= 0) {
+    if(options.textureOn != 0 && material.normalTextureIndex >= 0) {
       vec3 tangentNormal = texture(materialTextures[nonuniformEXT(material.normalTextureIndex)], fragTexCoord).xyz * 2.0 - 1.0;
       if (length(tangentNormal) > 0.5)
         N = normalize(TBN * tangentNormal);
@@ -364,4 +375,18 @@ void main() {
     color += emissive;
 
     outColor = vec4(color, 1.0);
+
+    // Output to G-Buffer
+    
+    // Clamp material properties
+    roughness = clamp(roughness, 0.0, 1.0);
+    metallic = clamp(metallic, 0.0, 1.0);
+
+    // Calculate emissive intensity for storage
+    float emissiveIntensity = length(emissive);
+
+    gAlbedo = vec4(baseColor, metallic);
+    gNormal = vec4(encodeNormal(N), roughness);
+    gPosition = vec4(fragPos, gl_FragCoord.z);
+    gMaterial = vec4(ao, emissiveIntensity, float(pushConstants.materialIndex) / 255.0, 1.0);
 }

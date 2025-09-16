@@ -650,6 +650,65 @@ void Application::updateGui()
     //     renderer_.optionsUBO().animationOn = animationOn ? 1 : 0;
     // }
 
+    // PBR Lighting Controls for Deferred Rendering
+    ImGui::Separator();
+    ImGui::Text("PBR Lighting (Global)");
+    
+    ImGui::SliderFloat("Specular Weight", &renderer_->optionsUBO().specularWeight, 0.0f, 2.0f, "%.2f");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Controls global specular reflection intensity.\n"
+                          "Higher values = stronger reflections");
+    }
+    
+    ImGui::SliderFloat("Diffuse Weight", &renderer_->optionsUBO().diffuseWeight, 0.0f, 2.0f, "%.2f");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Controls global diffuse lighting intensity.\n"
+                          "Higher values = brighter base lighting");
+    }
+    
+    ImGui::SliderFloat("Emissive Weight", &renderer_->optionsUBO().emissiveWeight, 0.0f, 5.0f, "%.2f");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Controls global emissive glow intensity.\n"
+                          "Higher values = stronger self-illumination");
+    }
+    
+    ImGui::SliderFloat("Shadow Offset", &renderer_->optionsUBO().shadowOffset, -0.1f, 0.1f, "%.3f");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Global shadow bias offset.\n"
+                          "Positive = lighter shadows\n"
+                          "Negative = darker shadows");
+    }
+
+    // Quick presets for PBR lighting
+    ImGui::Text("PBR Presets:");
+    if (ImGui::Button("Default")) {
+        renderer_->optionsUBO().specularWeight = 0.05f;
+        renderer_->optionsUBO().diffuseWeight = 1.0f;
+        renderer_->optionsUBO().emissiveWeight = 1.0f;
+        renderer_->optionsUBO().shadowOffset = 0.0f;
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Bright")) {
+        renderer_->optionsUBO().specularWeight = 0.08f;
+        renderer_->optionsUBO().diffuseWeight = 1.3f;
+        renderer_->optionsUBO().emissiveWeight = 1.5f;
+        renderer_->optionsUBO().shadowOffset = 0.02f;
+    }
+    
+    if (ImGui::Button("Matte")) {
+        renderer_->optionsUBO().specularWeight = 0.02f;
+        renderer_->optionsUBO().diffuseWeight = 1.5f;
+        renderer_->optionsUBO().emissiveWeight = 0.8f;
+        renderer_->optionsUBO().shadowOffset = 0.0f;
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Metallic")) {
+        renderer_->optionsUBO().specularWeight = 0.12f;
+        renderer_->optionsUBO().diffuseWeight = 0.7f;
+        renderer_->optionsUBO().emissiveWeight = 1.0f;
+        renderer_->optionsUBO().shadowOffset = 0.01f;
+    }
+
     // Frustum Culling Controls
     bool frustumCullingEnabled = renderer_->isFrustumCullingEnabled();
     if (ImGui::Checkbox("Frustum Culling", &frustumCullingEnabled)) {

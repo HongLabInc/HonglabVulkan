@@ -31,7 +31,7 @@ Renderer::Renderer(Context& ctx, ShaderManager& shaderManager, const uint32_t& k
     descriptorSetNames["shadowMap"] = {"sceneOptions"};
     descriptorSetNames["pbrDeferred"] = {"sceneOptions", "material", "sky", "shadowMap"};
     descriptorSetNames["sky"] = {"skyOptions", "sky"};
-    descriptorSetNames["deferredLighting"] = {"ssao"};
+    descriptorSetNames["deferredLighting"] = {"deferredLightingData"};
     descriptorSetNames["post"] = {"postProcessing"};
 
     unordered_map<string, vector<vector<BindingInfo>>> bindingInfos = shaderManager_.bindingInfos();
@@ -250,9 +250,16 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
                 if (mainTarget.empty()) {
                     mainTarget = colorTarget;
                 }
-                colorAttachments.push_back(createColorAttachment(imageBuffers_[colorTarget]->view(),
-                                                                 VK_ATTACHMENT_LOAD_OP_CLEAR,
-                                                                 {0.0f, 0.0f, 0.5f, 0.0f}));
+
+                if (renderNode.pipelineNames[0] == "pbrDeferred") {
+                    colorAttachments.push_back(createColorAttachment(
+                        imageBuffers_[colorTarget]->view(), VK_ATTACHMENT_LOAD_OP_LOAD,
+                        {0.0f, 0.0f, 0.5f, 0.0f}));
+                } else {
+                    colorAttachments.push_back(createColorAttachment(
+                        imageBuffers_[colorTarget]->view(), VK_ATTACHMENT_LOAD_OP_CLEAR,
+                        {0.0f, 0.0f, 0.5f, 0.0f}));
+                }
             }
         }
 
@@ -262,9 +269,18 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
                 mainTarget = renderNode.depthAttachment;
             }
             imageBuffers_[renderNode.depthAttachment]->transitionToDepthStencilAttachment(cmd);
-            depthAttachment =
-                createDepthAttachment(imageBuffers_[renderNode.depthAttachment]->attachmentView(),
-                                      VK_ATTACHMENT_LOAD_OP_CLEAR, 1.0f);
+
+            if (renderNode.pipelineNames[0] == "pbrDeferred") {
+                depthAttachment = createDepthAttachment(
+                    imageBuffers_[renderNode.depthAttachment]->attachmentView(),
+                    VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+                    1.0f); // <- is this option proper for skybox rendering?
+            } else {
+                depthAttachment = createDepthAttachment(
+                    imageBuffers_[renderNode.depthAttachment]->attachmentView(),
+                    VK_ATTACHMENT_LOAD_OP_CLEAR, 1.0f);
+            }
+
             renderingInfo.pDepthAttachment = &depthAttachment;
         }
 
@@ -338,6 +354,7 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
                     PbrPushConstants pushConstants;
                     pushConstants.model = models[j]->modelMatrix();
                     pushConstants.materialIndex = mesh.materialIndex_;
+                    memcpy(pushConstants.coeffs, models[j]->coeffs(), sizeof(pushConstants.coeffs));
                     vkCmdPushConstants(cmd, pipelines_.at(pipelineName)->pipelineLayout(),
                                        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                                        sizeof(PbrPushConstants), &pushConstants);
@@ -369,25 +386,30 @@ void Renderer::createPipelines(const VkFormat swapChainColorFormat, const VkForm
              getFormatSize(selectedHDRFormat));
 
     // All pipelines use 1x samples (no MSAA) for educational simplicity
-    pipelines_["pbrDeferred"] =
-        make_unique<Pipeline>(ctx_, shaderManager_, PipelineConfig::createPbrDeferred(),
-                              selectedHDRFormat, depthFormat, VK_SAMPLE_COUNT_1_BIT);
+    pipelines_["pbrDeferred"] = make_unique<Pipeline>(
+        ctx_, shaderManager_, PipelineConfig::createPbrDeferred(),
+        vector<VkFormat>{selectedHDRFormat, VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_R16G16B16A16_SFLOAT,
+                         VK_FORMAT_R32G32B32A32_SFLOAT, VK_FORMAT_R8G8B8A8_UNORM},
+        depthFormat, VK_SAMPLE_COUNT_1_BIT);
 
-    pipelines_["sky"] =
-        make_unique<Pipeline>(ctx_, shaderManager_, PipelineConfig::createSky(), selectedHDRFormat,
-                              depthFormat, VK_SAMPLE_COUNT_1_BIT);
+    pipelines_["sky"] = make_unique<Pipeline>(ctx_, shaderManager_, PipelineConfig::createSky(),
+                                              vector<VkFormat>{selectedHDRFormat}, depthFormat,
+                                              VK_SAMPLE_COUNT_1_BIT);
 
-    pipelines_["post"] =
-        make_unique<Pipeline>(ctx_, shaderManager_, PipelineConfig::createPost(),
-                              swapChainColorFormat, depthFormat, VK_SAMPLE_COUNT_1_BIT);
+    pipelines_["post"] = make_unique<Pipeline>(ctx_, shaderManager_, PipelineConfig::createPost(),
+                                               vector<VkFormat>{swapChainColorFormat}, depthFormat,
+                                               VK_SAMPLE_COUNT_1_BIT);
 
+    // Fix shadow map pipeline: depth-only pipelines should have no color attachments
+    // Pass depth format as depthFormat parameter, not in outColorFormats
     pipelines_["shadowMap"] =
         make_unique<Pipeline>(ctx_, shaderManager_, PipelineConfig::createShadowMap(),
-                              VK_FORMAT_D16_UNORM, VK_FORMAT_D16_UNORM, VK_SAMPLE_COUNT_1_BIT);
+                              vector<VkFormat>{}, VK_FORMAT_D16_UNORM, VK_SAMPLE_COUNT_1_BIT);
 
+    // Fix deferred lighting pipeline: compute pipelines don't need color/depth formats
     pipelines_["deferredLighting"] =
         make_unique<Pipeline>(ctx_, shaderManager_, PipelineConfig::createDeferredLighting(),
-                              VK_FORMAT_D16_UNORM, VK_FORMAT_D16_UNORM, VK_SAMPLE_COUNT_1_BIT);
+                              vector<VkFormat>{}, nullopt, VK_SAMPLE_COUNT_1_BIT);
 
     // Store the selected format for texture creation
     selectedHDRFormat_ = selectedHDRFormat;
@@ -404,7 +426,8 @@ void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight)
     // Initialize image buffers (simplified - no MSAA)
     const vector<string> imageNames = {"depthStencil", "floatColor1",    "floatColor2",
                                        "shadowMap",    "prefilteredMap", "irradianceMap",
-                                       "brdfLut"};
+                                       "brdfLut",      "gAlbedo",        "gNormal",
+                                       "gPosition",    "gMaterial"};
 
     for (const auto& name : imageNames) {
         imageBuffers_[name] = make_unique<Image2D>(ctx_);
@@ -451,6 +474,58 @@ void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight)
     imageBuffers_["floatColor2"]->createImage(
         selectedHDRFormat_, swapchainWidth, swapchainHeight, VK_SAMPLE_COUNT_1_BIT, storageUsage,
         VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, 0, VK_IMAGE_VIEW_TYPE_2D);
+
+    // Create G-buffer textures for deferred rendering
+    printLog("Creating G-buffer textures for deferred rendering:");
+
+    // G-Buffer format selection for optimal memory usage and precision
+    VkFormat albedoFormat = VK_FORMAT_R8G8B8A8_UNORM; // Albedo + Metallic (4 bytes)
+    VkFormat normalFormat =
+        VK_FORMAT_R16G16B16A16_SFLOAT; // Normal + Roughness (8 bytes, needs precision)
+    VkFormat positionFormat =
+        VK_FORMAT_R32G32B32A32_SFLOAT; // Position + Depth (16 bytes, needs high precision)
+    VkFormat materialFormat = VK_FORMAT_R8G8B8A8_UNORM; // AO + Emissive + Material ID (4 bytes)
+
+    printLog("  gAlbedo: {} ({} bytes/pixel)", vkFormatToString(albedoFormat),
+             getFormatSize(albedoFormat));
+    printLog("  gNormal: {} ({} bytes/pixel)", vkFormatToString(normalFormat),
+             getFormatSize(normalFormat));
+    printLog("  gPosition: {} ({} bytes/pixel)", vkFormatToString(positionFormat),
+             getFormatSize(positionFormat));
+    printLog("  gMaterial: {} ({} bytes/pixel)", vkFormatToString(materialFormat),
+             getFormatSize(materialFormat));
+
+    // G-buffer usage flags (similar to floatColor but without storage bit since they're render
+    // targets)
+    VkImageUsageFlags gBufferUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+                                     VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                                     VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
+    // Create gAlbedo buffer (Albedo RGB + Metallic A)
+    imageBuffers_["gAlbedo"]->createImage(
+        albedoFormat, swapchainWidth, swapchainHeight, VK_SAMPLE_COUNT_1_BIT, gBufferUsage,
+        VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, 0, VK_IMAGE_VIEW_TYPE_2D);
+    imageBuffers_["gAlbedo"]->setSampler(samplerLinearClamp_.handle());
+
+    // Create gNormal buffer (World Normal RGB + Roughness A)
+    imageBuffers_["gNormal"]->createImage(
+        normalFormat, swapchainWidth, swapchainHeight, VK_SAMPLE_COUNT_1_BIT, gBufferUsage,
+        VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, 0, VK_IMAGE_VIEW_TYPE_2D);
+    imageBuffers_["gNormal"]->setSampler(samplerLinearClamp_.handle());
+
+    // Create gPosition buffer (World Position RGB + Depth A)
+    imageBuffers_["gPosition"]->createImage(
+        positionFormat, swapchainWidth, swapchainHeight, VK_SAMPLE_COUNT_1_BIT, gBufferUsage,
+        VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, 0, VK_IMAGE_VIEW_TYPE_2D);
+    imageBuffers_["gPosition"]->setSampler(samplerLinearClamp_.handle());
+
+    // Create gMaterial buffer (AO R + Emissive Intensity G + Material ID B + Unused A)
+    imageBuffers_["gMaterial"]->createImage(
+        materialFormat, swapchainWidth, swapchainHeight, VK_SAMPLE_COUNT_1_BIT, gBufferUsage,
+        VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, 0, VK_IMAGE_VIEW_TYPE_2D);
+    imageBuffers_["gMaterial"]->setSampler(samplerLinearClamp_.handle());
+
+    printLog("G-buffer creation complete");
 
     // Create depth buffer (no MSAA)
     imageBuffers_["depthStencil"]->createDepthBuffer(swapchainWidth, swapchainHeight);
