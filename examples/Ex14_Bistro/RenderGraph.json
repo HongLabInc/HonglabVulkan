@@ -7,14 +7,14 @@
       "stencilAttachment": ""
     },
     {
-      "pipelineNames": [ "sky" ],
-      "colorAttachments": [ "floatColor1" ],
+      "pipelineNames": [ "pbrDeferred" ],
+      "colorAttachments": [ "gAlbedo", "gNormal", "gPosition", "gMaterial" ],
       "depthAttachment": "depthStencil",
       "stencilAttachment": "depthStencil"
     },
     {
-      "pipelineNames": [ "pbrDeferred" ],
-      "colorAttachments": [ "gAlbedo", "gNormal", "gPosition", "gMaterial" ],
+      "pipelineNames": [ "sky" ],
+      "colorAttachments": [ "floatColor1" ],
       "depthAttachment": "depthStencil",
       "stencilAttachment": "depthStencil"
     },

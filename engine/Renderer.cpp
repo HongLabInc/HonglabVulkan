@@ -251,7 +251,7 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
                     mainTarget = colorTarget;
                 }
 
-                if (renderNode.pipelineNames[0] == "pbrDeferred") {
+                if (renderNode.pipelineNames[0] == "sky") {
                     colorAttachments.push_back(createColorAttachment(
                         imageBuffers_[colorTarget]->view(), VK_ATTACHMENT_LOAD_OP_LOAD,
                         {0.0f, 0.0f, 0.5f, 0.0f}));
@@ -270,11 +270,10 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
             }
             imageBuffers_[renderNode.depthAttachment]->transitionToDepthStencilAttachment(cmd);
 
-            if (renderNode.pipelineNames[0] == "pbrDeferred") {
+            if (renderNode.pipelineNames[0] == "sky") {
                 depthAttachment = createDepthAttachment(
                     imageBuffers_[renderNode.depthAttachment]->attachmentView(),
-                    VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-                    1.0f); // <- is this option proper for skybox rendering?
+                    VK_ATTACHMENT_LOAD_OP_LOAD, 1.0f);
             } else {
                 depthAttachment = createDepthAttachment(
                     imageBuffers_[renderNode.depthAttachment]->attachmentView(),

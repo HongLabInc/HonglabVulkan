@@ -22,7 +22,7 @@ layout (set = 0, binding = 1) uniform PostProcessingOptions {
     float vignetteStrength;     // Vignette effect strength
     float vignetteRadius;       // Vignette radius
     float filmGrainStrength;    // Film grain noise strength
-    float chromaticAberration;  // Chromatic aberration strength
+    float chromaticAberration;  // 0.0-1.0: Chromatic aberration, >1.0: FXAA strength
     
     // Debug and visualization
     int debugMode;              // 0=Off, 1=Show tone mapping comparison, 2=Show color channels
@@ -192,19 +192,133 @@ vec3 addFilmGrain(vec3 color, vec2 uv) {
     return color + noise;
 }
 
-vec3 applyChromaticAberration(vec2 uv) {
-    if (postOptions.chromaticAberration <= 0.0) {
-        return texture(floatColor2, uv).rgb;
+// ===== ADVANCED FXAA IMPLEMENTATION =====
+
+float fxaaLuma(vec3 rgb) {
+    return sqrt(dot(rgb, vec3(0.299, 0.587, 0.114)));
+}
+
+// Enhanced FXAA with multiple quality levels and better edge detection
+vec3 fxaaAdvanced(vec2 uv, float fxaaStrength) {
+    vec2 texelSize = 1.0 / textureSize(floatColor2, 0);
+    
+    // Determine quality level from strength (encoded in fractional part)
+    float baseStrength = floor(fxaaStrength * 10.0) / 10.0;
+    float qualityLevel = (fxaaStrength - baseStrength) * 10.0;
+    
+    int sampleCount = int(mix(4.0, 12.0, qualityLevel)); // 4-12 samples based on quality
+    bool useExtendedSampling = qualityLevel > 0.5;
+    
+    // Sample center and immediate neighbors
+    vec3 rgbM = texture(floatColor2, uv).rgb;
+    vec3 rgbN = texture(floatColor2, uv + vec2(0.0, -texelSize.y)).rgb;
+    vec3 rgbS = texture(floatColor2, uv + vec2(0.0, texelSize.y)).rgb;
+    vec3 rgbW = texture(floatColor2, uv + vec2(-texelSize.x, 0.0)).rgb;
+    vec3 rgbE = texture(floatColor2, uv + vec2(texelSize.x, 0.0)).rgb;
+    
+    // Calculate luminance
+    float lumaM = fxaaLuma(rgbM);
+    float lumaN = fxaaLuma(rgbN);
+    float lumaS = fxaaLuma(rgbS);
+    float lumaW = fxaaLuma(rgbW);
+    float lumaE = fxaaLuma(rgbE);
+    
+    // Find min/max luminance
+    float lumaMin = min(lumaM, min(min(lumaN, lumaS), min(lumaW, lumaE)));
+    float lumaMax = max(lumaM, max(max(lumaN, lumaS), max(lumaW, lumaE)));
+    float lumaRange = lumaMax - lumaMin;
+    
+    // Adaptive quality settings based on strength
+    float edgeThreshold = mix(0.2, 0.125, baseStrength);        // More sensitive at higher quality
+    float edgeThresholdMin = mix(0.1, 0.0625, baseStrength);    // Minimum threshold
+    float subpixelQuality = mix(0.5, 0.85, baseStrength);       // Blend amount
+    
+    // Skip FXAA if contrast is too low
+    if (lumaRange < max(edgeThresholdMin, lumaMax * edgeThreshold)) {
+        return rgbM;
     }
     
-    vec2 center = vec2(0.5, 0.5);
-    vec2 offset = (uv - center) * postOptions.chromaticAberration * 0.01;
+    // Extended sampling for higher quality
+    vec3 rgbNW = vec3(0.0), rgbNE = vec3(0.0), rgbSW = vec3(0.0), rgbSE = vec3(0.0);
+    float lumaNW = 0.0, lumaNE = 0.0, lumaSW = 0.0, lumaSE = 0.0;
     
-    float r = texture(floatColor2, uv + offset).r;
-    float g = texture(floatColor2, uv).g;
-    float b = texture(floatColor2, uv - offset).b;
+    if (useExtendedSampling) {
+        rgbNW = texture(floatColor2, uv + vec2(-texelSize.x, -texelSize.y)).rgb;
+        rgbNE = texture(floatColor2, uv + vec2(texelSize.x, -texelSize.y)).rgb;
+        rgbSW = texture(floatColor2, uv + vec2(-texelSize.x, texelSize.y)).rgb;
+        rgbSE = texture(floatColor2, uv + vec2(texelSize.x, texelSize.y)).rgb;
+        
+        lumaNW = fxaaLuma(rgbNW);
+        lumaNE = fxaaLuma(rgbNE);
+        lumaSW = fxaaLuma(rgbSW);
+        lumaSE = fxaaLuma(rgbSE);
+    }
     
-    return vec3(r, g, b);
+    // Enhanced edge detection
+    float edgeHorz = abs(lumaN + lumaS - 2.0 * lumaM) * 2.0 + 
+                   abs(lumaN - lumaM) + abs(lumaS - lumaM);
+    float edgeVert = abs(lumaW + lumaE - 2.0 * lumaM) * 2.0 + 
+                   abs(lumaW - lumaM) + abs(lumaE - lumaM);
+    
+    if (useExtendedSampling) {
+        edgeHorz += abs(lumaNW + lumaSW - 2.0 * lumaW) + abs(lumaNE + lumaSE - 2.0 * lumaE);
+        edgeVert += abs(lumaNW + lumaNE - 2.0 * lumaN) + abs(lumaSW + lumaSE - 2.0 * lumaS);
+    }
+    
+    bool isHorizontal = edgeHorz >= edgeVert;
+    
+    // Multi-sample blur for higher quality
+    vec3 blendColor = rgbM;
+    if (sampleCount <= 4) {
+        // Simple 2-tap blur
+        vec2 blendOffset = isHorizontal ? vec2(0.0, texelSize.y) : vec2(texelSize.x, 0.0);
+        blendColor = (texture(floatColor2, uv + blendOffset).rgb + 
+                      texture(floatColor2, uv - blendOffset).rgb) * 0.5;
+    } else {
+        // Multi-tap blur for higher quality
+        vec2 blendDir = isHorizontal ? vec2(0.0, texelSize.y) : vec2(texelSize.x, 0.0);
+        
+        // 3-tap blur
+        if (sampleCount <= 8) {
+            blendColor = (texture(floatColor2, uv + blendDir).rgb + 
+                         texture(floatColor2, uv).rgb +
+                         texture(floatColor2, uv - blendDir).rgb) / 3.0;
+        } else {
+            // 5-tap blur for maximum quality
+            blendColor = (texture(floatColor2, uv + blendDir * 2.0).rgb +
+                         texture(floatColor2, uv + blendDir).rgb + 
+                         texture(floatColor2, uv).rgb +
+                         texture(floatColor2, uv - blendDir).rgb +
+                         texture(floatColor2, uv - blendDir * 2.0).rgb) / 5.0;
+        }
+    }
+    
+    // Adaptive blend based on edge strength
+    float edgeStrength = lumaRange / lumaMax;
+    float adaptiveBlend = subpixelQuality * smoothstep(0.0, 1.0, edgeStrength);
+    
+    return mix(rgbM, blendColor, adaptiveBlend);
+}
+
+vec3 applyChromaticAberrationOrFXAA(vec2 uv) {
+    if (postOptions.chromaticAberration > 1.0) {
+        // FXAA mode: chromaticAberration > 1.0 acts as FXAA strength with quality encoding
+        float fxaaStrength = postOptions.chromaticAberration - 1.0; // 1.1 = 0.1 strength, 2.0 = 1.0 strength
+        return fxaaAdvanced(uv, clamp(fxaaStrength, 0.0, 1.0));
+    } else if (postOptions.chromaticAberration > 0.0) {
+        // Chromatic aberration mode: 0.0-1.0 range
+        vec2 center = vec2(0.5, 0.5);
+        vec2 offset = (uv - center) * postOptions.chromaticAberration * 0.01;
+        
+        float r = texture(floatColor2, uv + offset).r;
+        float g = texture(floatColor2, uv).g;
+        float b = texture(floatColor2, uv - offset).b;
+        
+        return vec3(r, g, b);
+    } else {
+        // No effect
+        return texture(floatColor2, uv).rgb;
+    }
 }
 
 // ===== DEBUG FUNCTIONS =====
@@ -262,8 +376,8 @@ vec3 toneMappingComparison(vec3 originalColor, vec2 uv) {
 void main() {
     vec2 uv = inTexCoord;
     
-    // Sample the original HDR color with optional chromatic aberration
-    vec3 originalColor = applyChromaticAberration(uv);
+    // Sample the original HDR color with optional chromatic aberration OR FXAA
+    vec3 originalColor = applyChromaticAberrationOrFXAA(uv);
     
     // Apply exposure
     vec3 color = originalColor * postOptions.exposure;

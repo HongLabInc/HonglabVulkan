@@ -145,29 +145,29 @@ Pipeline 'post': 1 sets
 
     Binding 1 is variable-length array (count=512)
 ShaderManager: Created 7 unique layout(s)
-  Layout 0 (0x258abf6ab60): 3 binding(s), used by:
+  Layout 0 (0x1a518915b30): 3 binding(s), used by:
     - Pipeline 'shadowMap', Set 0
     - Pipeline 'pbrDeferred', Set 0
     Binding 0: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
     Binding 2: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
-  Layout 1 (0x258abff3730): 3 binding(s), used by:
+  Layout 1 (0x1a5189ad390): 3 binding(s), used by:
     - Pipeline 'sky', Set 1
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 1: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 2: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
-  Layout 2 (0x258abff3a30): 2 binding(s), used by:
+  Layout 2 (0x1a51890ebf0): 2 binding(s), used by:
     - Pipeline 'sky', Set 0
     Binding 0: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
-  Layout 3 (0x258abff3bb0): 1 binding(s), used by:
+  Layout 3 (0x1a51890f1f0): 1 binding(s), used by:
     - Pipeline 'gui', Set 0
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
-  Layout 4 (0x258abff3d30): 2 binding(s), used by:
+  Layout 4 (0x1a51890ed70): 2 binding(s), used by:
     - Pipeline 'pbrDeferred', Set 1
     Binding 0: type=STORAGE_BUFFER, count=1, stages=FRAGMENT
     Binding 1: type=COMBINED_IMAGE_SAMPLER, count=512, stages=FRAGMENT
-  Layout 5 (0x258abff3eb0): 14 binding(s), used by:
+  Layout 5 (0x1a51890f370): 14 binding(s), used by:
     - Pipeline 'deferredLighting', Set 0
     Binding 0: type=UNIFORM_BUFFER, count=1, stages=COMPUTE
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=COMPUTE
@@ -183,7 +183,7 @@ ShaderManager: Created 7 unique layout(s)
     Binding 11: type=COMBINED_IMAGE_SAMPLER, count=1, stages=COMPUTE
     Binding 12: type=COMBINED_IMAGE_SAMPLER, count=1, stages=COMPUTE
     Binding 13: type=COMBINED_IMAGE_SAMPLER, count=1, stages=COMPUTE
-  Layout 6 (0x258abff4030): 2 binding(s), used by:
+  Layout 6 (0x1a51890f4f0): 2 binding(s), used by:
     - Pipeline 'post', Set 0
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=FRAGMENT
@@ -224,14 +224,14 @@ Texture filename: ../../assets/characters/Leonard/Ch31_1002_Diffuse.png
 Successfully loaded model: ../../assets/characters/Leonard/Bboy Hip Hop Move.fbx
   Meshes: 7
   Materials: 2
-  Loading time: 797 ms
+  Loading time: 768 ms
 Found 1 animations in model 'Dancer'
 Started animation: 'mixamo.com'
 Animation duration: 2.20 seconds
 Successfully loaded model from cache: ../../assets/models/AmazonLumberyardBistroMorganMcGuire\exterior_cache.bin
   Meshes: 3184
   Materials: 128
-  Loading time: 771 ms
+  Loading time: 781 ms
 No animations found in model 'Bistro'
 ✓ Selected HDR format: B10G11R11_UFLOAT_PACK32 (4 bytes/pixel, FLOAT, 50% memory vs RGBA16F)
 HDR Format Selection:

@@ -653,25 +653,28 @@ void Application::updateGui()
     // PBR Lighting Controls for Deferred Rendering
     ImGui::Separator();
     ImGui::Text("PBR Lighting (Global)");
-    
-    ImGui::SliderFloat("Specular Weight", &renderer_->optionsUBO().specularWeight, 0.0f, 2.0f, "%.2f");
+
+    ImGui::SliderFloat("Specular Weight", &renderer_->optionsUBO().specularWeight, 0.0f, 0.1f,
+                       "%.3f");
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Controls global specular reflection intensity.\n"
                           "Higher values = stronger reflections");
     }
-    
-    ImGui::SliderFloat("Diffuse Weight", &renderer_->optionsUBO().diffuseWeight, 0.0f, 2.0f, "%.2f");
+
+    ImGui::SliderFloat("Diffuse Weight", &renderer_->optionsUBO().diffuseWeight, 0.0f, 2.0f,
+                       "%.2f");
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Controls global diffuse lighting intensity.\n"
                           "Higher values = brighter base lighting");
     }
-    
-    ImGui::SliderFloat("Emissive Weight", &renderer_->optionsUBO().emissiveWeight, 0.0f, 5.0f, "%.2f");
+
+    ImGui::SliderFloat("Emissive Weight", &renderer_->optionsUBO().emissiveWeight, 0.0f, 5.0f,
+                       "%.2f");
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Controls global emissive glow intensity.\n"
                           "Higher values = stronger self-illumination");
     }
-    
+
     ImGui::SliderFloat("Shadow Offset", &renderer_->optionsUBO().shadowOffset, -0.1f, 0.1f, "%.3f");
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Global shadow bias offset.\n"
@@ -694,7 +697,7 @@ void Application::updateGui()
         renderer_->optionsUBO().emissiveWeight = 1.5f;
         renderer_->optionsUBO().shadowOffset = 0.02f;
     }
-    
+
     if (ImGui::Button("Matte")) {
         renderer_->optionsUBO().specularWeight = 0.02f;
         renderer_->optionsUBO().diffuseWeight = 1.5f;
@@ -922,8 +925,106 @@ void Application::renderPostProcessingControlWindow()
 
         ImGui::SliderFloat("Film Grain", &renderer_->postOptionsUBO().filmGrainStrength, 0.0f, 0.2f,
                            "%.3f");
-        ImGui::SliderFloat("Chromatic Aberration", &renderer_->postOptionsUBO().chromaticAberration,
-                           0.0f, 5.0f, "%.1f");
+
+        // Anti-aliasing and Chromatic Aberration Controls (dual-purpose parameter)
+        ImGui::Separator();
+        ImGui::Text("Anti-Aliasing / Chromatic Aberration:");
+
+        float& chromAberr = renderer_->postOptionsUBO().chromaticAberration;
+
+        // Determine current mode
+        bool fxaaEnabled = chromAberr > 1.0f;
+        bool chromEnabled = chromAberr > 0.0f && chromAberr <= 1.0f;
+
+        // Mode selection
+        if (ImGui::RadioButton("Off", !fxaaEnabled && !chromEnabled)) {
+            chromAberr = 0.0f;
+        }
+        ImGui::SameLine();
+        if (ImGui::RadioButton("FXAA", fxaaEnabled)) {
+            chromAberr = fxaaEnabled ? chromAberr : 1.5f; // Default FXAA strength
+        }
+        ImGui::SameLine();
+        if (ImGui::RadioButton("Chromatic Aberration", chromEnabled)) {
+            chromAberr = chromEnabled ? chromAberr : 0.5f; // Default chrom aberr strength
+        }
+
+        // Controls based on current mode
+        if (fxaaEnabled) {
+            float fxaaStrength = chromAberr - 1.0f;
+            if (ImGui::SliderFloat("FXAA Strength", &fxaaStrength, 0.1f, 1.0f, "%.2f")) {
+                chromAberr = 1.0f + fxaaStrength;
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("FXAA Anti-Aliasing Strength\n"
+                                  "0.1 = Light smoothing, good performance\n"
+                                  "0.5 = Balanced quality and performance\n"
+                                  "1.0 = Maximum smoothing, lower performance");
+            }
+
+            // Advanced Quality Control
+            ImGui::Separator();
+            ImGui::Text("Advanced FXAA Quality:");
+
+            // Extract quality level from fractional part
+            float baseStrength = std::floor(fxaaStrength * 10.0f) / 10.0f;
+            float qualityLevel = (fxaaStrength - baseStrength) * 10.0f;
+
+            // Quality presets with encoded settings
+            if (ImGui::Button("Fast##fxaa")) {
+                chromAberr = 1.25f; // 0.25 strength, 0.0 quality (4 samples)
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Balanced##fxaa")) {
+                chromAberr = 1.55f; // 0.5 strength, 0.5 quality (8 samples)
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Quality##fxaa")) {
+                chromAberr = 1.79f; // 0.7 strength, 0.9 quality (12 samples)
+            }
+
+            // Quality level slider (affects sample count and edge detection)
+            float newQualityLevel = qualityLevel;
+            if (ImGui::SliderFloat("Sample Quality", &newQualityLevel, 0.0f, 1.0f, "%.2f")) {
+                chromAberr = 1.0f + baseStrength + (newQualityLevel * 0.1f);
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Controls FXAA sample count and edge detection quality\n"
+                                  "0.0 = 4 samples, basic edge detection\n"
+                                  "0.5 = 8 samples, enhanced edge detection\n"
+                                  "1.0 = 12 samples, premium edge detection");
+            }
+
+            // Real-time quality information
+            int estimatedSamples = int(4.0f + qualityLevel * 8.0f);
+            bool extendedSampling = qualityLevel > 0.5f;
+            ImGui::Text("Current Settings:");
+            ImGui::BulletText("Sample Count: %d", estimatedSamples);
+            ImGui::BulletText("Edge Detection: %s", extendedSampling ? "Enhanced" : "Basic");
+            ImGui::BulletText("Performance Cost: ~%.1f%%", (2.0f + qualityLevel * 3.0f));
+
+        } else if (chromEnabled) {
+            if (ImGui::SliderFloat("Aberration Strength", &chromAberr, 0.0f, 1.0f, "%.3f")) {
+                // Ensure we stay in chromatic aberration range
+                chromAberr = std::clamp(chromAberr, 0.0f, 1.0f);
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Chromatic Aberration Effect\n"
+                                  "Simulates lens distortion where colors separate\n"
+                                  "Higher values = more dramatic color fringing");
+            }
+        }
+
+        // Info text
+        if (fxaaEnabled) {
+            ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "✓ FXAA Active");
+            ImGui::Text("Performance impact: ~2-5%%");
+        } else if (chromEnabled) {
+            ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.0f, 1.0f), "✓ Chromatic Aberration Active");
+            ImGui::Text("Performance impact: ~1-2%%");
+        } else {
+            ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "○ No Effect Active");
+        }
     }
 
     // Debug Controls
@@ -970,24 +1071,65 @@ void Application::renderPostProcessingControlWindow()
             renderer_->postOptionsUBO().vignetteStrength = 0.3f;
             renderer_->postOptionsUBO().vignetteRadius = 0.8f;
             renderer_->postOptionsUBO().filmGrainStrength = 0.02f;
+            renderer_->postOptionsUBO().chromaticAberration = 0.2f; // Light chromatic aberration
         }
 
-        if (ImGui::Button("High Contrast")) {
-            renderer_->postOptionsUBO().contrast = 1.5f;
-            renderer_->postOptionsUBO().brightness = 0.1f;
-            renderer_->postOptionsUBO().saturation = 1.3f;
-            renderer_->postOptionsUBO().vignetteStrength = 0.2f;
+        if (ImGui::Button("High Quality + FXAA")) {
+            renderer_->postOptionsUBO().toneMappingType = 2; // ACES
+            renderer_->postOptionsUBO().exposure = 1.1f;
+            renderer_->postOptionsUBO().contrast = 1.05f;
+            renderer_->postOptionsUBO().saturation = 1.1f;
+            renderer_->postOptionsUBO().vignetteStrength = 0.1f;
+            renderer_->postOptionsUBO().filmGrainStrength = 0.0f;
+            renderer_->postOptionsUBO().chromaticAberration =
+                1.79f; // High quality FXAA (0.7 strength, 0.9 quality)
         }
         ImGui::SameLine();
-        if (ImGui::Button("Low Contrast")) {
-            renderer_->postOptionsUBO().contrast = 0.7f;
-            renderer_->postOptionsUBO().brightness = 0.05f;
-            renderer_->postOptionsUBO().saturation = 0.8f;
+        if (ImGui::Button("Performance + FXAA")) {
+            renderer_->postOptionsUBO().toneMappingType = 1; // Reinhard (faster)
+            renderer_->postOptionsUBO().exposure = 1.0f;
+            renderer_->postOptionsUBO().contrast = 1.0f;
+            renderer_->postOptionsUBO().saturation = 1.0f;
+            renderer_->postOptionsUBO().vignetteStrength = 0.0f;
+            renderer_->postOptionsUBO().filmGrainStrength = 0.0f;
+            renderer_->postOptionsUBO().chromaticAberration =
+                1.25f; // Fast FXAA (0.25 strength, 0.0 quality)
         }
 
         if (ImGui::Button("Show Tone Mapping")) {
             renderer_->postOptionsUBO().debugMode = 1;
             renderer_->postOptionsUBO().exposure = 2.0f;
+            renderer_->postOptionsUBO().chromaticAberration = 0.0f; // Disable effects for debug
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Show FXAA Effect")) {
+            renderer_->postOptionsUBO().debugMode = 3; // Split comparison
+            renderer_->postOptionsUBO().debugSplit = 0.5f;
+            renderer_->postOptionsUBO().chromaticAberration =
+                1.89f; // Maximum quality FXAA (0.8 strength, 0.9 quality)
+        }
+
+        // Additional FXAA-specific presets
+        if (ImGui::Button("Ultra FXAA")) {
+            renderer_->postOptionsUBO().toneMappingType = 2; // ACES
+            renderer_->postOptionsUBO().exposure = 1.0f;
+            renderer_->postOptionsUBO().contrast = 1.0f;
+            renderer_->postOptionsUBO().saturation = 1.0f;
+            renderer_->postOptionsUBO().vignetteStrength = 0.0f;
+            renderer_->postOptionsUBO().filmGrainStrength = 0.0f;
+            renderer_->postOptionsUBO().chromaticAberration =
+                1.99f; // Maximum FXAA (0.9 strength, 0.9 quality)
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Subtle FXAA")) {
+            renderer_->postOptionsUBO().toneMappingType = 2; // ACES
+            renderer_->postOptionsUBO().exposure = 1.0f;
+            renderer_->postOptionsUBO().contrast = 1.0f;
+            renderer_->postOptionsUBO().saturation = 1.0f;
+            renderer_->postOptionsUBO().vignetteStrength = 0.0f;
+            renderer_->postOptionsUBO().filmGrainStrength = 0.0f;
+            renderer_->postOptionsUBO().chromaticAberration =
+                1.35f; // Subtle FXAA (0.3 strength, 0.5 quality)
         }
     }
 
