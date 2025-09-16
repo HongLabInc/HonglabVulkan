@@ -28,8 +28,11 @@ layout (set = 0, binding = 1) uniform PostProcessingOptions {
     int debugMode;              // 0=Off, 1=Show tone mapping comparison, 2=Show color channels
     float debugSplit;           // Split position for comparison (0.0-1.0)
     int showOnlyChannel;        // 0=All, 1=Red, 2=Green, 3=Blue, 4=Alpha, 5=Luminance
-    float padding1;
+    float padding1;             // Bokeh DOF parameters: focusDistance + aperture + bokehIntensity encoded
 } postOptions;
+
+// Add depth buffer access for Bokeh effect
+layout (set = 0, binding = 2) uniform sampler2D depthStencil;
 
 layout (location = 0) out vec4 outFragColor;
 
@@ -373,11 +376,158 @@ vec3 toneMappingComparison(vec3 originalColor, vec2 uv) {
     return toneMapped;
 }
 
+// ===== BOKEH DEPTH OF FIELD IMPLEMENTATION =====
+
+// Decode Bokeh parameters from padding1
+vec3 decodeBokehParams(float encoded) {
+    // Encode: focusDistance (0-100) + aperture (0-10) + intensity (0-10)
+    // Format: FFFFAAAAII where F=focus(2digits), A=aperture(2digits), I=intensity(2digits)
+    float focusDistance = floor(encoded / 10000.0);
+    float aperture = floor(mod(encoded, 10000.0) / 100.0);
+    float intensity = mod(encoded, 100.0);
+    
+    return vec3(focusDistance / 100.0, aperture / 100.0, intensity / 100.0);
+}
+
+// Convert depth buffer value to linear depth
+float linearizeDepth(float depth) {
+    // Assuming reversed Z (far=0, near=1) which is common in modern engines
+    float near = 0.1;  // Near plane
+    float far = 256.0; // Far plane
+    
+    // Convert from [0,1] to linear depth
+    return near / (depth * (near - far) + far);
+}
+
+// Calculate Circle of Confusion based on depth and camera parameters
+float calculateCoC(float depth, vec3 bokehParams) {
+    float focusDistance = bokehParams.x * 50.0 + 0.1; // 0.1 to 50.1 units
+    float aperture = bokehParams.y * 0.1 + 0.001;     // 0.001 to 0.101 (f-stop simulation)
+    
+    float linearDepth = linearizeDepth(depth);
+    
+    // Thin lens equation for Circle of Confusion
+    float focalLength = 0.05; // 50mm equivalent
+    float cocRadius = abs(aperture * focalLength * (linearDepth - focusDistance)) / 
+                     (linearDepth * (focusDistance - focalLength));
+    
+    // Scale CoC for screen space (adjust based on resolution)
+    return clamp(cocRadius * 100.0, 0.0, 20.0); // Max 20 pixel radius
+}
+
+// Hexagonal sampling pattern for high-quality Bokeh
+vec2 hexSample(int index, float radius) {
+    const vec2 hexOffsets[19] = vec2[](
+        vec2(0.0, 0.0),
+        // Ring 1 (6 samples)
+        vec2(1.0, 0.0), vec2(0.5, 0.866), vec2(-0.5, 0.866),
+        vec2(-1.0, 0.0), vec2(-0.5, -0.866), vec2(0.5, -0.866),
+        // Ring 2 (12 samples)
+        vec2(2.0, 0.0), vec2(1.5, 0.866), vec2(1.0, 1.732), vec2(0.0, 2.0),
+        vec2(-1.0, 1.732), vec2(-1.5, 0.866), vec2(-2.0, 0.0), vec2(-1.5, -0.866),
+        vec2(-1.0, -1.732), vec2(0.0, -2.0), vec2(1.0, -1.732), vec2(1.5, -0.866)
+    );
+    
+    return hexOffsets[index] * radius;
+}
+
+// Enhanced Bokeh blur with quality-based sampling
+vec3 applyBokeh(vec2 uv, vec3 bokehParams) {
+    float intensity = bokehParams.z;
+    
+    if (intensity <= 0.0) {
+        return texture(floatColor2, uv).rgb;
+    }
+    
+    vec2 texelSize = 1.0 / textureSize(floatColor2, 0);
+    float centerDepth = texture(depthStencil, uv).r;
+    float centerCoC = calculateCoC(centerDepth, bokehParams);
+    
+    // Early exit for sharp pixels
+    if (centerCoC < 0.5) {
+        return texture(floatColor2, uv).rgb;
+    }
+    
+    vec3 centerColor = texture(floatColor2, uv).rgb;
+    vec3 blurredColor = vec3(0.0);
+    float totalWeight = 0.0;
+    
+    // Adaptive sample count based on CoC size
+    int sampleCount = int(clamp(centerCoC * 2.0 + 7.0, 7.0, 19.0));
+    
+    for (int i = 0; i < sampleCount; i++) {
+        vec2 offset = hexSample(i, centerCoC * texelSize.x);
+        vec2 sampleUV = uv + offset;
+        
+        // Bounds check
+        if (sampleUV.x < 0.0 || sampleUV.x > 1.0 || sampleUV.y < 0.0 || sampleUV.y > 1.0) {
+            continue;
+        }
+        
+        float sampleDepth = texture(depthStencil, sampleUV).r;
+        float sampleCoC = calculateCoC(sampleDepth, bokehParams);
+        vec3 sampleColor = texture(floatColor2, sampleUV).rgb;
+        
+        // Weight based on depth relationship and CoC overlap
+        float depthWeight = 1.0;
+        if (sampleDepth > centerDepth) {
+            // Background pixel: full contribution if its CoC covers center
+            depthWeight = smoothstep(0.0, centerCoC, sampleCoC);
+        } else {
+            // Foreground pixel: contributes based on its own CoC
+            depthWeight = smoothstep(0.0, centerCoC, sampleCoC);
+        }
+        
+        // Enhance bright areas for Bokeh highlights
+        float brightness = dot(sampleColor, vec3(0.299, 0.587, 0.114));
+        float bokehHighlight = 1.0 + smoothstep(0.7, 1.2, brightness) * intensity;
+        
+        float weight = depthWeight * bokehHighlight;
+        blurredColor += sampleColor * weight;
+        totalWeight += weight;
+    }
+    
+    if (totalWeight > 0.0) {
+        blurredColor /= totalWeight;
+        // Blend between original and blurred based on CoC and intensity
+        float blendFactor = smoothstep(0.0, 2.0, centerCoC) * intensity;
+        return mix(centerColor, blurredColor, blendFactor);
+    }
+    
+    return centerColor;
+}
+
+// Debug visualization for Bokeh effect
+vec3 visualizeBokehDebug(vec2 uv, vec3 bokehParams) {
+    float depth = texture(depthStencil, uv).r;
+    float coc = calculateCoC(depth, bokehParams);
+    
+    // Visualize CoC as heat map
+    vec3 heatMap = vec3(0.0);
+    if (coc < 1.0) {
+        heatMap = vec3(0.0, 1.0, 0.0); // Green for sharp areas
+    } else if (coc < 5.0) {
+        float t = (coc - 1.0) / 4.0;
+        heatMap = mix(vec3(0.0, 1.0, 0.0), vec3(1.0, 1.0, 0.0), t); // Green to Yellow
+    } else {
+        float t = clamp((coc - 5.0) / 15.0, 0.0, 1.0);
+        heatMap = mix(vec3(1.0, 1.0, 0.0), vec3(1.0, 0.0, 0.0), t); // Yellow to Red
+    }
+    
+    return heatMap;
+}
+
 void main() {
     vec2 uv = inTexCoord;
     
     // Sample the original HDR color with optional chromatic aberration OR FXAA
     vec3 originalColor = applyChromaticAberrationOrFXAA(uv);
+    
+    // Apply Bokeh depth of field if enabled
+    vec3 bokehParams = decodeBokehParams(postOptions.padding1);
+    if (bokehParams.z > 0.0) {
+        originalColor = applyBokeh(uv, bokehParams);
+    }
     
     // Apply exposure
     vec3 color = originalColor * postOptions.exposure;
@@ -385,6 +535,9 @@ void main() {
     // Debug mode: tone mapping comparison
     if (postOptions.debugMode == 1) {
         color = toneMappingComparison(color, uv);
+    } else if (postOptions.debugMode == 4) {
+        // New debug mode for Bokeh visualization
+        color = visualizeBokehDebug(uv, bokehParams);
     } else {
         // Apply tone mapping
         color = applyToneMapping(color);

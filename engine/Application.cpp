@@ -1025,12 +1025,105 @@ void Application::renderPostProcessingControlWindow()
         } else {
             ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "○ No Effect Active");
         }
+        
+        // Bokeh Depth of Field Controls
+        ImGui::Separator();
+        ImGui::Text("Bokeh Depth of Field:");
+        
+        float& padding1 = renderer_->postOptionsUBO().padding1;
+        
+        // Decode current Bokeh parameters
+        float focusDistance = std::floor(padding1 / 10000.0f) / 100.0f;
+        float aperture = std::floor(std::fmod(padding1, 10000.0f) / 100.0f) / 100.0f;
+        float intensity = std::fmod(padding1, 100.0f) / 100.0f;
+        
+        bool bokehEnabled = intensity > 0.0f;
+        if (ImGui::Checkbox("Enable Bokeh DOF", &bokehEnabled)) {
+            if (!bokehEnabled) {
+                intensity = 0.0f;
+            } else if (intensity == 0.0f) {
+                intensity = 0.5f; // Default intensity
+                focusDistance = 0.3f; // Default focus distance
+                aperture = 0.3f; // Default aperture
+            }
+        }
+        
+        if (bokehEnabled) {
+            // Focus Distance Control
+            if (ImGui::SliderFloat("Focus Distance", &focusDistance, 0.0f, 1.0f, "%.2f")) {
+                // Re-encode parameters
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Distance to the focal plane\n"
+                                  "0.0 = Near focus (foreground sharp)\n"
+                                  "0.5 = Middle focus\n"
+                                  "1.0 = Far focus (background sharp)");
+            }
+            
+            // Aperture Control
+            if (ImGui::SliderFloat("Aperture Size", &aperture, 0.0f, 1.0f, "%.2f")) {
+                // Re-encode parameters
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Controls the size of the blur circles\n"
+                                  "0.0 = Small aperture (sharp)\n"
+                                  "0.5 = Medium aperture\n"
+                                  "1.0 = Large aperture (very blurry)");
+            }
+            
+            // Bokeh Intensity Control
+            if (ImGui::SliderFloat("Bokeh Intensity", &intensity, 0.1f, 1.0f, "%.2f")) {
+                // Re-encode parameters
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Controls the strength of the Bokeh effect\n"
+                                  "0.1 = Subtle depth of field\n"
+                                  "0.5 = Moderate effect\n"
+                                  "1.0 = Strong cinematic Bokeh");
+            }
+            
+            // Re-encode parameters into padding1
+            padding1 = std::floor(focusDistance * 100.0f) * 10000.0f + 
+                      std::floor(aperture * 100.0f) * 100.0f + 
+                      std::floor(intensity * 100.0f);
+            
+            // Bokeh Quality Presets
+            ImGui::Text("Bokeh Presets:");
+            if (ImGui::Button("Portrait##bokeh")) {
+                focusDistance = 0.2f; // Close focus
+                aperture = 0.7f; // Wide aperture
+                intensity = 0.8f; // Strong effect
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Landscape##bokeh")) {
+                focusDistance = 0.6f; // Far focus
+                aperture = 0.3f; // Small aperture
+                intensity = 0.4f; // Subtle effect
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Macro##bokeh")) {
+                focusDistance = 0.1f; // Very close focus
+                aperture = 0.9f; // Very wide aperture
+                intensity = 1.0f; // Maximum effect
+            }
+            
+            // Real-time information
+            ImGui::Text("Bokeh Status:");
+            ImGui::BulletText("Focus: %.1fm", focusDistance * 50.0f + 0.1f);
+            ImGui::BulletText("f-stop: f/%.1f", 1.0f / (aperture * 0.1f + 0.001f));
+            ImGui::BulletText("Max blur: %.0fpx", aperture * intensity * 20.0f);
+            
+            // Performance warning
+            if (intensity > 0.7f && aperture > 0.7f) {
+                ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.0f, 1.0f), "⚠ High performance cost");
+            }
+        }
     }
 
     // Debug Controls
     if (ImGui::CollapsingHeader("Debug Visualization")) {
         const char* debugModeNames[] = {"Off", "Tone Mapping Comparison", "Color Channels",
-                                        "Split Comparison"};
+                                        "Split Comparison", "Bokeh Depth Visualization"};
         ImGui::Combo("Debug Mode", &renderer_->postOptionsUBO().debugMode, debugModeNames,
                      IM_ARRAYSIZE(debugModeNames));
 
@@ -1044,6 +1137,12 @@ void Application::renderPostProcessingControlWindow()
         if (renderer_->postOptionsUBO().debugMode == 3) { // Split Comparison
             ImGui::SliderFloat("Split Position", &renderer_->postOptionsUBO().debugSplit, 0.0f,
                                1.0f, "%.2f");
+        }
+        
+        if (renderer_->postOptionsUBO().debugMode == 4) { // Bokeh Depth Visualization
+            ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "Green: Sharp areas");
+            ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Yellow: Moderate blur");
+            ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Red: Maximum blur");
         }
     }
 
@@ -1105,10 +1204,15 @@ void Application::renderPostProcessingControlWindow()
         if (ImGui::Button("Show FXAA Effect")) {
             renderer_->postOptionsUBO().debugMode = 3; // Split comparison
             renderer_->postOptionsUBO().debugSplit = 0.5f;
-            renderer_->postOptionsUBO().chromaticAberration =
-                1.89f; // Maximum quality FXAA (0.8 strength, 0.9 quality)
+            renderer_->postOptionsUBO().chromaticAberration = 1.89f; // Maximum quality FXAA (0.8 strength, 0.9 quality)
         }
-
+        ImGui::SameLine();
+        if (ImGui::Button("Show Bokeh Depth")) {
+            renderer_->postOptionsUBO().debugMode = 4; // Bokeh depth visualization
+            // Enable Bokeh with moderate settings for visualization
+            renderer_->postOptionsUBO().padding1 = 30.0f * 10000.0f + 50.0f * 100.0f + 50.0f; // Focus=0.3, Aperture=0.5, Intensity=0.5
+        }
+        
         // Additional FXAA-specific presets
         if (ImGui::Button("Ultra FXAA")) {
             renderer_->postOptionsUBO().toneMappingType = 2; // ACES
@@ -1117,19 +1221,30 @@ void Application::renderPostProcessingControlWindow()
             renderer_->postOptionsUBO().saturation = 1.0f;
             renderer_->postOptionsUBO().vignetteStrength = 0.0f;
             renderer_->postOptionsUBO().filmGrainStrength = 0.0f;
-            renderer_->postOptionsUBO().chromaticAberration =
-                1.99f; // Maximum FXAA (0.9 strength, 0.9 quality)
+            renderer_->postOptionsUBO().chromaticAberration = 1.99f; // Maximum FXAA (0.9 strength, 0.9 quality)
+            renderer_->postOptionsUBO().padding1 = 0.0f; // Disable Bokeh
         }
         ImGui::SameLine();
-        if (ImGui::Button("Subtle FXAA")) {
+        if (ImGui::Button("Cinematic Bokeh")) {
+            renderer_->postOptionsUBO().toneMappingType = 3; // Uncharted 2
+            renderer_->postOptionsUBO().exposure = 1.1f;
+            renderer_->postOptionsUBO().contrast = 1.05f;
+            renderer_->postOptionsUBO().saturation = 0.95f;
+            renderer_->postOptionsUBO().vignetteStrength = 0.2f;
+            renderer_->postOptionsUBO().filmGrainStrength = 0.01f;
+            renderer_->postOptionsUBO().chromaticAberration = 0.1f; // Light chromatic aberration
+            renderer_->postOptionsUBO().padding1 = 25.0f * 10000.0f + 70.0f * 100.0f + 75.0f; // Cinematic Bokeh settings
+        }
+        
+        if (ImGui::Button("Photo Realism")) {
             renderer_->postOptionsUBO().toneMappingType = 2; // ACES
             renderer_->postOptionsUBO().exposure = 1.0f;
-            renderer_->postOptionsUBO().contrast = 1.0f;
-            renderer_->postOptionsUBO().saturation = 1.0f;
-            renderer_->postOptionsUBO().vignetteStrength = 0.0f;
-            renderer_->postOptionsUBO().filmGrainStrength = 0.0f;
-            renderer_->postOptionsUBO().chromaticAberration =
-                1.35f; // Subtle FXAA (0.3 strength, 0.5 quality)
+            renderer_->postOptionsUBO().contrast = 1.02f;
+            renderer_->postOptionsUBO().saturation = 1.05f;
+            renderer_->postOptionsUBO().vignetteStrength = 0.1f;
+            renderer_->postOptionsUBO().filmGrainStrength = 0.005f;
+            renderer_->postOptionsUBO().chromaticAberration = 1.5f; // Medium FXAA
+            renderer_->postOptionsUBO().padding1 = 40.0f * 10000.0f + 40.0f * 100.0f + 60.0f; // Realistic Bokeh
         }
     }
 
