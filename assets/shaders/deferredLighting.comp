@@ -137,8 +137,10 @@ float calculateShadow(vec3 worldPos) {
     vec4 lightSpacePos = scaleBias * sceneData.lightSpaceMatrix * vec4(worldPos, 1.0);
     vec3 projCoords = lightSpacePos.xyz / lightSpacePos.w;
     
-    // Check bounds - same as forward renderer
-    if(projCoords.z <= -1.0 || projCoords.z >= 1.0)
+    // Early bounds check - avoid expensive sampling if outside shadow map
+    if(projCoords.z <= -1.0 || projCoords.z >= 1.0 || 
+       projCoords.x < 0.0 || projCoords.x > 1.0 ||
+       projCoords.y < 0.0 || projCoords.y > 1.0)
         return 1.0;
     
     // PCF with Poisson disk sampling (matching forward renderer)
@@ -197,6 +199,9 @@ vec3 generateNoise(vec2 coord) {
     return normalize(vec3(x * 2.0 - 1.0, y * 2.0 - 1.0, 0.0));
 }
 
+// Pre-calculate inverse projection matrix once per invocation group
+shared mat4 inverseProjection;
+
 vec3 screenToView(vec2 texCoord, float depth) {
     vec2 ndc = texCoord * 2.0 - 1.0;
     ndc.y = -ndc.y;
@@ -204,7 +209,7 @@ vec3 screenToView(vec2 texCoord, float depth) {
     float ndcZ = depth * 2.0 - 1.0;
     
     vec4 clipPos = vec4(ndc, ndcZ, 1.0);
-    vec4 viewPos = inverse(sceneData.projection) * clipPos;
+    vec4 viewPos = inverseProjection * clipPos;
         
     return viewPos.xyz / viewPos.w;
 }
@@ -283,6 +288,12 @@ void main() {
     ivec2 imageCoords = ivec2(gl_GlobalInvocationID.xy);
     ivec2 imageSize = imageSize(floatColor2);
 
+    // Initialize shared inverse projection matrix once per workgroup
+    if (gl_LocalInvocationIndex == 0) {
+        inverseProjection = inverse(sceneData.projection);
+    }
+    barrier();
+
     if (imageCoords.x >= imageSize.x || imageCoords.y >= imageSize.y) {
         return;
     }
@@ -293,9 +304,16 @@ void main() {
     // Sample depth to distinguish sky from geometry
     float depth = texture(depthStencil, texCoords).r;
     const float SKY_DEPTH_THRESHOLD = 0.9999;
-    const float DEPTH_TRANSITION_RANGE = 0.01; // Small range for soft transition
+    const float DEPTH_TRANSITION_RANGE = 0.001;
     
-    // Calculate sky blend factor for smooth transition
+    // Early exit for pure sky pixels to avoid unnecessary G-buffer samples
+    if (depth >= SKY_DEPTH_THRESHOLD + DEPTH_TRANSITION_RANGE) {
+        vec4 skyColor = imageLoad(floatColor1, imageCoords);
+        imageStore(floatColor2, imageCoords, skyColor);
+        return;
+    }
+    
+    // Calculate sky blend factor for transition pixels
     float skyBlendFactor = smoothstep(SKY_DEPTH_THRESHOLD - DEPTH_TRANSITION_RANGE, 
                                       SKY_DEPTH_THRESHOLD, depth);
     
@@ -385,10 +403,12 @@ void main() {
         // Add emissive
         finalColor += baseColor * emissiveIntensity * options.emissiveWeight;
         
-        // Apply SSAO
-        float ssaoValue = calculateSSAO(texCoords, texelSize);
-        ssaoValue = pow(ssaoValue, ssaoOptions.ssaoPower);
-        finalColor *= ssaoValue;
+        // Apply SSAO only if sample count > 0 (performance optimization)
+        if (ssaoOptions.ssaoSampleCount > 0) {
+            float ssaoValue = calculateSSAO(texCoords, texelSize);
+            ssaoValue = pow(ssaoValue, ssaoOptions.ssaoPower);
+            finalColor *= ssaoValue;
+        }
         
         geometryColor = vec4(finalColor, 1.0);
     }

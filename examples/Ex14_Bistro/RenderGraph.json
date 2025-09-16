@@ -14,7 +14,7 @@
     },
     {
       "pipelineNames": [ "pbrDeferred" ],
-      "colorAttachments": [ "floatColor1", "gAlbedo", "gNormal", "gPosition", "gMaterial" ],
+      "colorAttachments": [ "gAlbedo", "gNormal", "gPosition", "gMaterial" ],
       "depthAttachment": "depthStencil",
       "stencilAttachment": "depthStencil"
     },

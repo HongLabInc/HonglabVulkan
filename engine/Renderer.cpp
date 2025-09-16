@@ -29,7 +29,7 @@ Renderer::Renderer(Context& ctx, ShaderManager& shaderManager, const uint32_t& k
 
     unordered_map<string, vector<string>> descriptorSetNames; // TODO: move to script
     descriptorSetNames["shadowMap"] = {"sceneOptions"};
-    descriptorSetNames["pbrDeferred"] = {"sceneOptions", "material", "sky", "shadowMap"};
+    descriptorSetNames["pbrDeferred"] = {"sceneOptions", "material"};
     descriptorSetNames["sky"] = {"skyOptions", "sky"};
     descriptorSetNames["deferredLighting"] = {"deferredLightingData"};
     descriptorSetNames["post"] = {"postProcessing"};
@@ -388,7 +388,7 @@ void Renderer::createPipelines(const VkFormat swapChainColorFormat, const VkForm
     // All pipelines use 1x samples (no MSAA) for educational simplicity
     pipelines_["pbrDeferred"] = make_unique<Pipeline>(
         ctx_, shaderManager_, PipelineConfig::createPbrDeferred(),
-        vector<VkFormat>{selectedHDRFormat, VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_R16G16B16A16_SFLOAT,
+        vector<VkFormat>{VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_R16G16B16A16_SFLOAT,
                          VK_FORMAT_R32G32B32A32_SFLOAT, VK_FORMAT_R8G8B8A8_UNORM},
         depthFormat, VK_SAMPLE_COUNT_1_BIT);
 
