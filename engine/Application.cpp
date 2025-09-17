@@ -1,6 +1,7 @@
 #include "Application.h"
 #include "Logger.h"
 #include "GpuTimer.h"
+#include "TracyProfiler.h" // Add Tracy macros wrapper
 
 #include <format>
 #include <glm/glm.hpp>
@@ -42,6 +43,15 @@ Application::Application(const ApplicationConfig& config)
     renderer_ = std::make_unique<Renderer>(
         ctx_, shaderManager_, kMaxFramesInFlight, kAssetsPathPrefix, kShaderPathPrefix, models_,
         swapchain_.colorFormat(), ctx_.depthFormat(), windowSize_.width, windowSize_.height);
+
+    // Initialize Tracy profiler conditionally
+#ifdef TRACY_ENABLE
+    tracyProfiler_ = std::make_unique<TracyProfiler>(ctx_, kMaxFramesInFlight);
+    printLog("Tracy profiler initialized");
+#else
+    tracyProfiler_ = nullptr;
+    printLog("Tracy profiler disabled (compiled without TRACY_ENABLE)");
+#endif
 }
 
 // Future: Load from file constructor
@@ -335,6 +345,8 @@ Application::~Application()
 
 void Application::run()
 {
+    TRACY_CPU_SCOPE("Application::run");
+
     // 파이프라인은 어떤 레이아웃으로 리소스가 들어와야 하는지는 알고 있지만
     // 구체적으로 어떤 리소스가 들어올지를 직접 결정하지는 않는다.
     // 렌더러가 파이프라인을 사용할 때 어떤 리소스를 넣을지 결정한다.
@@ -348,6 +360,8 @@ void Application::run()
     float deltaTime = 0.016f; // Default to ~60 FPS
 
     while (!window_.isCloseRequested()) {
+        TRACY_CPU_SCOPE("MainLoop");
+
         window_.pollEvents();
 
         // NEW: Calculate delta time for smooth animation
@@ -361,21 +375,32 @@ void Application::run()
         // Update performance metrics (both CPU FPS and GPU timing)
         updatePerformanceMetrics(deltaTime);
 
-        updateGui();
+        {
+            TRACY_CPU_SCOPE("GUI Update");
+            updateGui();
+        }
 
-        camera_.update(deltaTime);
-        renderer_->sceneUBO().projection = camera_.matrices.perspective;
-        renderer_->sceneUBO().view = camera_.matrices.view;
-        renderer_->sceneUBO().cameraPos = camera_.position;
+        {
+            TRACY_CPU_SCOPE("Camera Update");
+            camera_.update(deltaTime);
+            renderer_->sceneUBO().projection = camera_.matrices.perspective;
+            renderer_->sceneUBO().view = camera_.matrices.view;
+            renderer_->sceneUBO().cameraPos = camera_.position;
+        }
 
-        for (auto& model : models_) {
-            if (model->hasAnimations()) {
-                model->updateAnimation(deltaTime);
+        {
+            TRACY_CPU_SCOPE("Animation Update");
+            for (auto& model : models_) {
+                if (model->hasAnimations()) {
+                    model->updateAnimation(deltaTime);
+                }
             }
         }
 
         // Update for shadow mapping
         {
+            TRACY_CPU_SCOPE("Shadow Mapping Setup");
+
             if (models_.size() > 0) {
 
                 glm::mat4 lightView =
@@ -437,15 +462,26 @@ void Application::run()
         check(vkWaitForFences(ctx_.device(), 1, &waitFences_[currentFrame], VK_TRUE, UINT64_MAX));
         check(vkResetFences(ctx_.device(), 1, &waitFences_[currentFrame]));
 
-        renderer_->update(camera_, models_, currentFrame, (float)glfwGetTime());
+        {
+            TRACY_CPU_SCOPE("Renderer Update");
+            renderer_->update(camera_, models_, currentFrame, (float)glfwGetTime());
+        }
 
-        guiRenderer_.update(currentFrame);
+        {
+            TRACY_CPU_SCOPE("GUI Renderer Update");
+            guiRenderer_.update(currentFrame);
+        }
 
         // Acquire using currentSemaphore index (GPU-side semaphore)
         uint32_t imageIndex{0};
-        VkResult result = vkAcquireNextImageKHR(ctx_.device(), swapchain_.handle(), UINT64_MAX,
-                                                presentCompleteSemaphores_[currentSemaphore],
-                                                VK_NULL_HANDLE, &imageIndex);
+        VkResult result;
+        {
+            TRACY_CPU_SCOPE("Swapchain Image Acquire");
+            result = vkAcquireNextImageKHR(ctx_.device(), swapchain_.handle(), UINT64_MAX,
+                                           presentCompleteSemaphores_[currentSemaphore],
+                                           VK_NULL_HANDLE, &imageIndex);
+        }
+
         if (result == VK_ERROR_OUT_OF_DATE_KHR) {
             continue; // Ignore resize in this example
         } else if ((result != VK_SUCCESS) && (result != VK_SUBOPTIMAL_KHR)) {
@@ -456,37 +492,65 @@ void Application::run()
         CommandBuffer& cmd = commandBuffers_[currentFrame];
 
         // Begin command buffer
-        vkResetCommandBuffer(cmd.handle(), 0);
-        VkCommandBufferBeginInfo cmdBufferBeginInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-        check(vkBeginCommandBuffer(cmd.handle(), &cmdBufferBeginInfo));
+        {
+            TRACY_CPU_SCOPE("Command Buffer Begin");
+            vkResetCommandBuffer(cmd.handle(), 0);
+            VkCommandBufferBeginInfo cmdBufferBeginInfo{
+                VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+            check(vkBeginCommandBuffer(cmd.handle(), &cmdBufferBeginInfo));
+        }
 
         // *** GPU TIMING START ***
         // Reset and begin GPU timing for this frame
         gpuTimer_.resetQueries(cmd.handle(), currentFrame);
         gpuTimer_.beginFrame(cmd.handle(), currentFrame);
 
+        // *** TRACY GPU PROFILING START ***
+        if (tracyProfiler_) {
+            tracyProfiler_->beginFrame(cmd.handle(), currentFrame);
+        }
+
         // Transition swapchain image from undefined to color attachment layout
-        // 안내: 스왑체인 이미지를 write로 바꿔주는 것은 renderer_.draw()의
-        //      post 파이프라인 시작할 때 해도 됩니다.
-        swapchain_.barrierHelper(imageIndex)
-            .transitionTo(cmd.handle(), VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-                          VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                          VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
+        {
+            if (tracyProfiler_) {
+                TRACY_GPU_SCOPE(*tracyProfiler_, cmd.handle(), "Swapchain Transition");
+            }
+            swapchain_.barrierHelper(imageIndex)
+                .transitionTo(cmd.handle(), VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                              VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                              VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
+        }
 
         VkViewport viewport{0.0f, 0.0f, (float)windowSize_.width, (float)windowSize_.height,
                             0.0f, 1.0f};
         VkRect2D scissor{0, 0, windowSize_.width, windowSize_.height};
 
         // Draw models
-        renderer_->draw(cmd.handle(), currentFrame, swapchain_.imageView(imageIndex), models_,
-                        viewport, scissor);
+        {
+            if (tracyProfiler_) {
+                TRACY_GPU_SCOPE(*tracyProfiler_, cmd.handle(), "Rendering");
+            }
+            renderer_->draw(cmd.handle(), currentFrame, swapchain_.imageView(imageIndex), models_,
+                            viewport, scissor);
+        }
 
         // Draw GUI (overwrite to swapchain image)
-        guiRenderer_.draw(cmd.handle(), swapchain_.imageView(imageIndex), viewport, currentFrame);
+        {
+            if (tracyProfiler_) {
+                TRACY_GPU_SCOPE(*tracyProfiler_, cmd.handle(), "GUI Rendering");
+            }
+            guiRenderer_.draw(cmd.handle(), swapchain_.imageView(imageIndex), viewport,
+                              currentFrame);
+        }
 
-        swapchain_.barrierHelper(imageIndex)
-            .transitionTo(cmd.handle(), VK_ACCESS_2_NONE, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-                          VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT);
+        {
+            if (tracyProfiler_) {
+                TRACY_GPU_SCOPE(*tracyProfiler_, cmd.handle(), "Swapchain Present Transition");
+            }
+            swapchain_.barrierHelper(imageIndex)
+                .transitionTo(cmd.handle(), VK_ACCESS_2_NONE, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                              VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT);
+        }
 
         // *** GPU TIMING END ***
         // End GPU timing (excludes presentation)
@@ -505,7 +569,11 @@ void Application::run()
         submitInfo.waitSemaphoreCount = 1;
         submitInfo.pSignalSemaphores = &renderCompleteSemaphores_[currentSemaphore];
         submitInfo.signalSemaphoreCount = 1;
-        check(vkQueueSubmit(cmd.queue(), 1, &submitInfo, waitFences_[currentFrame]));
+
+        {
+            TRACY_CPU_SCOPE("GPU Submit");
+            check(vkQueueSubmit(cmd.queue(), 1, &submitInfo, waitFences_[currentFrame]));
+        }
 
         // Present (NOT included in GPU timing)
         VkPresentInfoKHR presentInfo{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
@@ -514,12 +582,35 @@ void Application::run()
         presentInfo.swapchainCount = 1;
         presentInfo.pSwapchains = &swapchain_.handle();
         presentInfo.pImageIndices = &imageIndex;
-        check(vkQueuePresentKHR(ctx_.graphicsQueue(), &presentInfo));
+
+        {
+            TRACY_CPU_SCOPE("Present");
+            check(vkQueuePresentKHR(ctx_.graphicsQueue(), &presentInfo));
+        }
 
         currentFrame = (currentFrame + 1) % kMaxFramesInFlight;
         currentSemaphore = (currentSemaphore + 1) % swapchain_.imageCount();
 
         frameCounter++;
+
+        // *** TRACY FRAME MARK ***
+        if (tracyProfiler_) {
+            tracyProfiler_->endFrame();
+        }
+
+        // Track performance data in Tracy
+        if (tracyProfiler_ && tracyProfiler_->isTracySupported()) {
+            tracyProfiler_->plot("CPU_FPS", currentFPS_);
+            tracyProfiler_->plot("GPU_Time_ms", currentGpuTimeMs_);
+            tracyProfiler_->plot("Frame_Delta_ms", deltaTime * 1000.0f);
+
+            if (frameCounter % 60 == 0) { // Every 60 frames
+                char message[128];
+                snprintf(message, sizeof(message), "Frame %u - FPS: %.1f, GPU: %.2fms",
+                         frameCounter, currentFPS_, currentGpuTimeMs_);
+                tracyProfiler_->messageL(message);
+            }
+        }
     }
 
     ctx_.waitIdle(); // 종료하기 전 GPU 사용이 모두 끝날때까지 대기
@@ -563,6 +654,21 @@ void Application::updateGui()
         ImGui::Text("GPU Time: Not supported");
     }
 
+    // Tracy profiler status
+    if (tracyProfiler_ && tracyProfiler_->isTracySupported()) {
+        ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "✓ Tracy Profiler Active");
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Tracy profiler is connected and collecting data.\n"
+                              "Connect Tracy client to view detailed profiling information.");
+        }
+    } else {
+        ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "○ Tracy Profiler Disabled");
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Tracy profiler is not available.\n"
+                              "Compile with -DTRACY_ENABLE to enable profiling.");
+        }
+    }
+
     // Color-coded performance indicators
     ImVec4 cpuColor = ImVec4(0.0f, 1.0f, 0.0f, 1.0f); // Green for good FPS
     if (currentFPS_ < 30.0f) {
@@ -584,11 +690,16 @@ void Application::updateGui()
         ImGui::SameLine();
         ImGui::TextColored(gpuColor, "● GPU");
     }
+    if (tracyProfiler_ && tracyProfiler_->isTracySupported()) {
+        ImGui::SameLine();
+        ImGui::TextColored(ImVec4(0.0f, 1.0f, 1.0f, 1.0f), "● Tracy");
+    }
 
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Performance Indicators\n"
                           "CPU: Frame rate (includes CPU overhead)\n"
                           "GPU: Pure GPU rendering time (excludes presentation)\n"
+                          "Tracy: Real-time profiler (connect Tracy client for details)\n"
                           "Green: Good performance\n"
                           "Yellow: Moderate performance\n"
                           "Red: Poor performance");
@@ -1025,29 +1136,29 @@ void Application::renderPostProcessingControlWindow()
         } else {
             ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "○ No Effect Active");
         }
-        
+
         // Bokeh Depth of Field Controls
         ImGui::Separator();
         ImGui::Text("Bokeh Depth of Field:");
-        
+
         float& padding1 = renderer_->postOptionsUBO().padding1;
-        
+
         // Decode current Bokeh parameters
         float focusDistance = std::floor(padding1 / 10000.0f) / 100.0f;
         float aperture = std::floor(std::fmod(padding1, 10000.0f) / 100.0f) / 100.0f;
         float intensity = std::fmod(padding1, 100.0f) / 100.0f;
-        
+
         bool bokehEnabled = intensity > 0.0f;
         if (ImGui::Checkbox("Enable Bokeh DOF", &bokehEnabled)) {
             if (!bokehEnabled) {
                 intensity = 0.0f;
             } else if (intensity == 0.0f) {
-                intensity = 0.5f; // Default intensity
+                intensity = 0.5f;     // Default intensity
                 focusDistance = 0.3f; // Default focus distance
-                aperture = 0.3f; // Default aperture
+                aperture = 0.3f;      // Default aperture
             }
         }
-        
+
         if (bokehEnabled) {
             // Focus Distance Control
             if (ImGui::SliderFloat("Focus Distance", &focusDistance, 0.0f, 1.0f, "%.2f")) {
@@ -1059,7 +1170,7 @@ void Application::renderPostProcessingControlWindow()
                                   "0.5 = Middle focus\n"
                                   "1.0 = Far focus (background sharp)");
             }
-            
+
             // Aperture Control
             if (ImGui::SliderFloat("Aperture Size", &aperture, 0.0f, 1.0f, "%.2f")) {
                 // Re-encode parameters
@@ -1070,7 +1181,7 @@ void Application::renderPostProcessingControlWindow()
                                   "0.5 = Medium aperture\n"
                                   "1.0 = Large aperture (very blurry)");
             }
-            
+
             // Bokeh Intensity Control
             if (ImGui::SliderFloat("Bokeh Intensity", &intensity, 0.1f, 1.0f, "%.2f")) {
                 // Re-encode parameters
@@ -1081,38 +1192,37 @@ void Application::renderPostProcessingControlWindow()
                                   "0.5 = Moderate effect\n"
                                   "1.0 = Strong cinematic Bokeh");
             }
-            
+
             // Re-encode parameters into padding1
-            padding1 = std::floor(focusDistance * 100.0f) * 10000.0f + 
-                      std::floor(aperture * 100.0f) * 100.0f + 
-                      std::floor(intensity * 100.0f);
-            
+            padding1 = std::floor(focusDistance * 100.0f) * 10000.0f +
+                       std::floor(aperture * 100.0f) * 100.0f + std::floor(intensity * 100.0f);
+
             // Bokeh Quality Presets
             ImGui::Text("Bokeh Presets:");
             if (ImGui::Button("Portrait##bokeh")) {
                 focusDistance = 0.2f; // Close focus
-                aperture = 0.7f; // Wide aperture
-                intensity = 0.8f; // Strong effect
+                aperture = 0.7f;      // Wide aperture
+                intensity = 0.8f;     // Strong effect
             }
             ImGui::SameLine();
             if (ImGui::Button("Landscape##bokeh")) {
                 focusDistance = 0.6f; // Far focus
-                aperture = 0.3f; // Small aperture
-                intensity = 0.4f; // Subtle effect
+                aperture = 0.3f;      // Small aperture
+                intensity = 0.4f;     // Subtle effect
             }
             ImGui::SameLine();
             if (ImGui::Button("Macro##bokeh")) {
                 focusDistance = 0.1f; // Very close focus
-                aperture = 0.9f; // Very wide aperture
-                intensity = 1.0f; // Maximum effect
+                aperture = 0.9f;      // Very wide aperture
+                intensity = 1.0f;     // Maximum effect
             }
-            
+
             // Real-time information
             ImGui::Text("Bokeh Status:");
             ImGui::BulletText("Focus: %.1fm", focusDistance * 50.0f + 0.1f);
             ImGui::BulletText("f-stop: f/%.1f", 1.0f / (aperture * 0.1f + 0.001f));
             ImGui::BulletText("Max blur: %.0fpx", aperture * intensity * 20.0f);
-            
+
             // Performance warning
             if (intensity > 0.7f && aperture > 0.7f) {
                 ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.0f, 1.0f), "⚠ High performance cost");
@@ -1138,7 +1248,7 @@ void Application::renderPostProcessingControlWindow()
             ImGui::SliderFloat("Split Position", &renderer_->postOptionsUBO().debugSplit, 0.0f,
                                1.0f, "%.2f");
         }
-        
+
         if (renderer_->postOptionsUBO().debugMode == 4) { // Bokeh Depth Visualization
             ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "Green: Sharp areas");
             ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Yellow: Moderate blur");
@@ -1204,15 +1314,17 @@ void Application::renderPostProcessingControlWindow()
         if (ImGui::Button("Show FXAA Effect")) {
             renderer_->postOptionsUBO().debugMode = 3; // Split comparison
             renderer_->postOptionsUBO().debugSplit = 0.5f;
-            renderer_->postOptionsUBO().chromaticAberration = 1.89f; // Maximum quality FXAA (0.8 strength, 0.9 quality)
+            renderer_->postOptionsUBO().chromaticAberration =
+                1.89f; // Maximum quality FXAA (0.8 strength, 0.9 quality)
         }
         ImGui::SameLine();
         if (ImGui::Button("Show Bokeh Depth")) {
             renderer_->postOptionsUBO().debugMode = 4; // Bokeh depth visualization
             // Enable Bokeh with moderate settings for visualization
-            renderer_->postOptionsUBO().padding1 = 30.0f * 10000.0f + 50.0f * 100.0f + 50.0f; // Focus=0.3, Aperture=0.5, Intensity=0.5
+            renderer_->postOptionsUBO().padding1 =
+                30.0f * 10000.0f + 50.0f * 100.0f + 50.0f; // Focus=0.3, Aperture=0.5, Intensity=0.5
         }
-        
+
         // Additional FXAA-specific presets
         if (ImGui::Button("Ultra FXAA")) {
             renderer_->postOptionsUBO().toneMappingType = 2; // ACES
@@ -1221,7 +1333,8 @@ void Application::renderPostProcessingControlWindow()
             renderer_->postOptionsUBO().saturation = 1.0f;
             renderer_->postOptionsUBO().vignetteStrength = 0.0f;
             renderer_->postOptionsUBO().filmGrainStrength = 0.0f;
-            renderer_->postOptionsUBO().chromaticAberration = 1.99f; // Maximum FXAA (0.9 strength, 0.9 quality)
+            renderer_->postOptionsUBO().chromaticAberration =
+                1.99f;                                   // Maximum FXAA (0.9 strength, 0.9 quality)
             renderer_->postOptionsUBO().padding1 = 0.0f; // Disable Bokeh
         }
         ImGui::SameLine();
@@ -1233,9 +1346,10 @@ void Application::renderPostProcessingControlWindow()
             renderer_->postOptionsUBO().vignetteStrength = 0.2f;
             renderer_->postOptionsUBO().filmGrainStrength = 0.01f;
             renderer_->postOptionsUBO().chromaticAberration = 0.1f; // Light chromatic aberration
-            renderer_->postOptionsUBO().padding1 = 25.0f * 10000.0f + 70.0f * 100.0f + 75.0f; // Cinematic Bokeh settings
+            renderer_->postOptionsUBO().padding1 =
+                25.0f * 10000.0f + 70.0f * 100.0f + 75.0f; // Cinematic Bokeh settings
         }
-        
+
         if (ImGui::Button("Photo Realism")) {
             renderer_->postOptionsUBO().toneMappingType = 2; // ACES
             renderer_->postOptionsUBO().exposure = 1.0f;
@@ -1244,7 +1358,8 @@ void Application::renderPostProcessingControlWindow()
             renderer_->postOptionsUBO().vignetteStrength = 0.1f;
             renderer_->postOptionsUBO().filmGrainStrength = 0.005f;
             renderer_->postOptionsUBO().chromaticAberration = 1.5f; // Medium FXAA
-            renderer_->postOptionsUBO().padding1 = 40.0f * 10000.0f + 40.0f * 100.0f + 60.0f; // Realistic Bokeh
+            renderer_->postOptionsUBO().padding1 =
+                40.0f * 10000.0f + 40.0f * 100.0f + 60.0f; // Realistic Bokeh
         }
     }
 
@@ -1410,6 +1525,8 @@ void Application::handleMouseMove(int32_t x, int32_t y)
 
 void Application::updatePerformanceMetrics(float deltaTime)
 {
+    TRACY_CPU_SCOPE("Performance Metrics Update");
+
     // Update CPU FPS
     framesSinceLastUpdate_++;
     fpsUpdateTimer_ += deltaTime;
@@ -1420,6 +1537,12 @@ void Application::updatePerformanceMetrics(float deltaTime)
 
         framesSinceLastUpdate_ = 0;
         fpsUpdateTimer_ = 0.0f;
+
+        // Update Tracy plots
+        if (tracyProfiler_ && tracyProfiler_->isTracySupported()) {
+            tracyProfiler_->plot("FPS_Average", currentFPS_);
+            tracyProfiler_->plot("Frame_Time_ms", 1000.0f / std::max(currentFPS_, 1.0f));
+        }
     }
 
     // Update GPU timing - check less frequently to allow GPU queries to complete
@@ -1435,6 +1558,13 @@ void Application::updatePerformanceMetrics(float deltaTime)
                 float newGpuTime = gpuTimer_.getGpuTimeMs(i);
                 if (newGpuTime > 0.0f) {
                     currentGpuTimeMs_ = newGpuTime;
+
+                    // Update Tracy plots
+                    if (tracyProfiler_ && tracyProfiler_->isTracySupported()) {
+                        tracyProfiler_->plot("GPU_Time_Average_ms", currentGpuTimeMs_);
+                        tracyProfiler_->plot("GPU_FPS_Equivalent",
+                                             1000.0f / std::max(currentGpuTimeMs_, 0.1f));
+                    }
                     break;
                 }
             }
@@ -1443,100 +1573,90 @@ void Application::updatePerformanceMetrics(float deltaTime)
         gpuFramesSinceLastUpdate_ = 0;
         gpuTimeUpdateTimer_ = 0.0f;
     }
+
+    // Track additional metrics in Tracy
+    if (tracyProfiler_ && tracyProfiler_->isTracySupported()) {
+        // Track model count and vertex data
+        size_t totalVertices = 0;
+        size_t totalTriangles = 0;
+        size_t visibleModels = 0;
+
+        for (const auto& model : models_) {
+            if (model->visible()) {
+                visibleModels++;
+                // Add vertex/triangle counting if your Model class supports it
+                // totalVertices += model->getVertexCount();
+                // totalTriangles += model->getTriangleCount();
+            }
+        }
+
+        tracyProfiler_->plot("Visible_Models", static_cast<float>(visibleModels));
+        tracyProfiler_->plot("Total_Models", static_cast<float>(models_.size()));
+
+        // Track memory usage if available
+        // tracyProfiler_.plot("GPU_Memory_MB", getGPUMemoryUsageMB());
+
+        // Track rendering settings
+        if (renderer_) {
+            tracyProfiler_->plot("Shadows_Enabled", renderer_->optionsUBO().shadowOn ? 1.0f : 0.0f);
+            tracyProfiler_->plot("Textures_Enabled",
+                                 renderer_->optionsUBO().textureOn ? 1.0f : 0.0f);
+            tracyProfiler_->plot("Frustum_Culling",
+                                 renderer_->isFrustumCullingEnabled() ? 1.0f : 0.0f);
+        }
+    }
 }
 
-// SSAO Control window method
+// ADD: SSAO Control window method (new function)
 void Application::renderSSAOControlWindow()
 {
-    ImGui::SetNextWindowPos(ImVec2(1090, 10), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(350, 400), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(ImVec2(10, 780), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(300, 200), ImGuiCond_FirstUseEver);
 
     if (!ImGui::Begin("SSAO Controls")) {
         ImGui::End();
         return;
     }
 
-    // SSAO Parameters
-    if (ImGui::CollapsingHeader("SSAO Parameters", ImGuiTreeNodeFlags_DefaultOpen)) {
-        ImGui::SliderFloat("Radius", &renderer_->ssaoOptionsUBO().ssaoRadius, 0.01f, 0.2f, "%.3f");
+    if (ImGui::CollapsingHeader("SSAO Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::SliderFloat("SSAO Radius", &renderer_->ssaoOptionsUBO().ssaoRadius, 0.01f, 1.0f,
+                           "%.3f");
         if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("Controls the sampling radius for ambient occlusion.\n"
-                              "Larger values = wider occlusion, but may cause artifacts.\n"
-                              "Recommended range: 0.05f - 0.5f");
+            ImGui::SetTooltip("Controls the sample radius for SSAO\n"
+                              "Smaller values = fine detail occlusion\n"
+                              "Larger values = broader occlusion");
         }
 
-        ImGui::SliderFloat("Bias", &renderer_->ssaoOptionsUBO().ssaoBias, 0.001f, 0.1f, "%.4f");
+        ImGui::SliderFloat("SSAO Bias", &renderer_->ssaoOptionsUBO().ssaoBias, 0.0f, 0.1f, "%.4f");
         if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("Prevents self-occlusion artifacts.\n"
-                              "Too low = self-occlusion artifacts\n"
-                              "Too high = less occlusion detail\n"
-                              "Recommended range: 0.01f - 0.05f");
+            ImGui::SetTooltip("Bias to prevent self-occlusion artifacts\n"
+                              "Too low = acne/noise\n"
+                              "Too high = loss of detail");
         }
 
-        ImGui::SliderInt("Sample Count", &renderer_->ssaoOptionsUBO().ssaoSampleCount, 1, 64);
+        int sampleCount = static_cast<int>(renderer_->ssaoOptionsUBO().ssaoSampleCount);
+        if (ImGui::SliderInt("Sample Count", &sampleCount, 4, 64)) {
+            renderer_->ssaoOptionsUBO().ssaoSampleCount = static_cast<int>(sampleCount);
+        }
         if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("Number of samples per pixel for SSAO calculation.\n"
-                              "More samples = better quality but lower performance.\n"
-                              "Recommended values: 8, 16, 32");
+            ImGui::SetTooltip("Number of samples per pixel\n"
+                              "More samples = better quality, lower performance");
         }
 
-        ImGui::SliderFloat("Power", &renderer_->ssaoOptionsUBO().ssaoPower, 0.1f, 10.0f, "%.2f");
+        ImGui::SliderFloat("SSAO Power", &renderer_->ssaoOptionsUBO().ssaoPower, 0.5f, 4.0f,
+                           "%.2f");
         if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("Controls the contrast/intensity of the SSAO effect.\n"
-                              "Higher values = more dramatic darkening\n"
-                              "Recommended range: 1.0f - 4.0f");
+            ImGui::SetTooltip("Controls the contrast of the SSAO effect\n"
+                              "Higher values = stronger contrast");
         }
     }
 
-    // Quality Presets
-    if (ImGui::CollapsingHeader("Quality Presets")) {
-        if (ImGui::Button("Off")) {
-            renderer_->ssaoOptionsUBO().ssaoRadius = 0.1f;
-            renderer_->ssaoOptionsUBO().ssaoBias = 0.025f;
-            renderer_->ssaoOptionsUBO().ssaoSampleCount = 0; // Disable SSAO
-            renderer_->ssaoOptionsUBO().ssaoPower = 2.0f;
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Low Quality")) {
+    if (ImGui::CollapsingHeader("Presets")) {
+        if (ImGui::Button("Subtle")) {
             renderer_->ssaoOptionsUBO().ssaoRadius = 0.05f;
-            renderer_->ssaoOptionsUBO().ssaoBias = 0.03f;
-            renderer_->ssaoOptionsUBO().ssaoSampleCount = 8;
+            renderer_->ssaoOptionsUBO().ssaoBias = 0.025f;
+            renderer_->ssaoOptionsUBO().ssaoSampleCount = 16;
             renderer_->ssaoOptionsUBO().ssaoPower = 1.5f;
-        }
-
-        if (ImGui::Button("Medium Quality")) {
-            renderer_->ssaoOptionsUBO().ssaoRadius = 0.1f;
-            renderer_->ssaoOptionsUBO().ssaoBias = 0.025f;
-            renderer_->ssaoOptionsUBO().ssaoSampleCount = 16;
-            renderer_->ssaoOptionsUBO().ssaoPower = 2.0f;
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("High Quality")) {
-            renderer_->ssaoOptionsUBO().ssaoRadius = 0.15f;
-            renderer_->ssaoOptionsUBO().ssaoBias = 0.02f;
-            renderer_->ssaoOptionsUBO().ssaoSampleCount = 32;
-            renderer_->ssaoOptionsUBO().ssaoPower = 2.5f;
-        }
-
-        if (ImGui::Button("Ultra Quality")) {
-            renderer_->ssaoOptionsUBO().ssaoRadius = 0.2f;
-            renderer_->ssaoOptionsUBO().ssaoBias = 0.015f;
-            renderer_->ssaoOptionsUBO().ssaoSampleCount = 64;
-            renderer_->ssaoOptionsUBO().ssaoPower = 3.0f;
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Subtle SSAO")) {
-            renderer_->ssaoOptionsUBO().ssaoRadius = 0.08f;
-            renderer_->ssaoOptionsUBO().ssaoBias = 0.025f;
-            renderer_->ssaoOptionsUBO().ssaoSampleCount = 16;
-            renderer_->ssaoOptionsUBO().ssaoPower = 1.2f;
-        }
-
-        if (ImGui::Button("Strong SSAO")) {
-            renderer_->ssaoOptionsUBO().ssaoRadius = 0.25f;
-            renderer_->ssaoOptionsUBO().ssaoBias = 0.02f;
-            renderer_->ssaoOptionsUBO().ssaoSampleCount = 24;
-            renderer_->ssaoOptionsUBO().ssaoPower = 4.0f;
         }
         ImGui::SameLine();
         if (ImGui::Button("Default")) {
@@ -1545,33 +1665,20 @@ void Application::renderSSAOControlWindow()
             renderer_->ssaoOptionsUBO().ssaoSampleCount = 16;
             renderer_->ssaoOptionsUBO().ssaoPower = 2.0f;
         }
-    }
 
-    // Performance Info
-    if (ImGui::CollapsingHeader("Performance Info")) {
-        ImGui::Text("SSAO Performance Impact:");
-        ImGui::BulletText("Sample Count: Major impact");
-        ImGui::BulletText("Radius: Minor impact");
-        ImGui::BulletText("Bias/Power: Negligible impact");
-
-        ImGui::Separator();
-        ImGui::Text("Current Configuration:");
-        float performanceScore = (float)renderer_->ssaoOptionsUBO().ssaoSampleCount / 64.0f;
-        ImVec4 perfColor = performanceScore < 0.25f ? ImVec4(0.0f, 1.0f, 0.0f, 1.0f) : // Green
-                               performanceScore < 0.5f ? ImVec4(1.0f, 1.0f, 0.0f, 1.0f)
-                                                       :       // Yellow
-                               ImVec4(1.0f, 0.0f, 0.0f, 1.0f); // Red
-
-        ImGui::TextColored(perfColor, "Performance Impact: %.1f%%", performanceScore * 100.0f);
-    }
-
-    // Debug Values Display
-    if (ImGui::CollapsingHeader("Debug Values")) {
-        ImGui::Text("Current SSAO Parameters:");
-        ImGui::Text("Radius: %.3f", renderer_->ssaoOptionsUBO().ssaoRadius);
-        ImGui::Text("Bias: %.4f", renderer_->ssaoOptionsUBO().ssaoBias);
-        ImGui::Text("Sample Count: %d", renderer_->ssaoOptionsUBO().ssaoSampleCount);
-        ImGui::Text("Power: %.2f", renderer_->ssaoOptionsUBO().ssaoPower);
+        if (ImGui::Button("Strong")) {
+            renderer_->ssaoOptionsUBO().ssaoRadius = 0.2f;
+            renderer_->ssaoOptionsUBO().ssaoBias = 0.02f;
+            renderer_->ssaoOptionsUBO().ssaoSampleCount = 32;
+            renderer_->ssaoOptionsUBO().ssaoPower = 3.0f;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("High Quality")) {
+            renderer_->ssaoOptionsUBO().ssaoRadius = 0.15f;
+            renderer_->ssaoOptionsUBO().ssaoBias = 0.015f;
+            renderer_->ssaoOptionsUBO().ssaoSampleCount = 64;
+            renderer_->ssaoOptionsUBO().ssaoPower = 2.5f;
+        }
     }
 
     ImGui::End();

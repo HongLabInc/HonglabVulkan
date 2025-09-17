@@ -19,6 +19,7 @@ add_library(Engine STATIC
     DescriptorSet.cpp
     DescriptorSet.h
     GpuTimer.cpp
+    GpuTimer.h
     GuiRenderer.cpp
     GuiRenderer.h
     Image2D.cpp
@@ -69,6 +70,14 @@ add_library(Engine STATIC
     StorageBuffer.h
     Swapchain.cpp
     Swapchain.h
+    TextureManager.cpp
+    TextureManager.h
+    TextureManagerAtlas.cpp
+    TextureManagerAtlas.h
+    TextureManagerCube.cpp
+    TextureManagerCube.h
+    TracyProfiler.cpp
+    TracyProfiler.h
     UniformBuffer.cpp
     UniformBuffer.h
     Vertex.cpp
@@ -95,6 +104,28 @@ target_compile_definitions(Engine PUBLIC
     GLM_FORCE_DEPTH_ZERO_TO_ONE
     GLFW_INCLUDE_VULKAN
 )
+
+# Tracy profiler support - Enable by default in Debug builds
+option(ENABLE_TRACY "Enable Tracy profiler" OFF)
+if(CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+    set(ENABLE_TRACY ON CACHE BOOL "Enable Tracy profiler in debug builds" FORCE)
+endif()
+
+if(ENABLE_TRACY)
+    target_compile_definitions(Engine PUBLIC 
+        TRACY_ENABLE
+        TRACY_ON_DEMAND
+    )
+    message(STATUS "Engine: Tracy profiler ENABLED")
+else()
+    message(STATUS "Engine: Tracy profiler DISABLED")
+endif()
+
+# Link Tracy if available
+if(TARGET Tracy::TracyClient AND ENABLE_TRACY)
+    target_link_libraries(Engine PUBLIC Tracy::TracyClient)
+    message(STATUS "Engine: Linked Tracy::TracyClient")
+endif()
 
 # Link required dependencies
 target_link_libraries(Engine PUBLIC Vulkan::Vulkan)

@@ -15,6 +15,7 @@
 #include "Renderer.h"
 #include "ShaderManager.h"
 #include "GpuTimer.h"
+#include "TracyProfiler.h" // Add Tracy profiler
 
 #include <format>
 #include <fstream>
@@ -238,6 +239,7 @@ class Application
 
     // GPU timing
     GpuTimer gpuTimer_;
+    unique_ptr<TracyProfiler> tracyProfiler_;
     float currentGpuTimeMs_{0.0f};
     float gpuTimeUpdateTimer_{0.0f};
     uint32_t gpuFramesSinceLastUpdate_{0};

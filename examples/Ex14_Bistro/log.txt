@@ -25,7 +25,6 @@ Required Instance Extensions:
   VK_KHR_surface
   VK_KHR_win32_surface
   VK_KHR_portability_enumeration
-  VK_EXT_debug_utils
 Available instance layers:
   VK_LAYER_EOS_Overlay
   VK_LAYER_EOS_Overlay
@@ -147,34 +146,34 @@ Pipeline 'post': 1 sets
 
     Binding 1 is variable-length array (count=512)
 ShaderManager: Created 7 unique layout(s)
-  Layout 0 (0x190000000019): 3 binding(s), used by:
+  Layout 0 (0x1fb7312d210): 3 binding(s), used by:
     - Pipeline 'post', Set 0
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=FRAGMENT
     Binding 2: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
-  Layout 1 (0x1a000000001a): 3 binding(s), used by:
+  Layout 1 (0x1fb7312d690): 3 binding(s), used by:
     - Pipeline 'shadowMap', Set 0
     - Pipeline 'pbrDeferred', Set 0
     Binding 0: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
     Binding 2: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
-  Layout 2 (0x1b000000001b): 3 binding(s), used by:
+  Layout 2 (0x1fb7312d810): 3 binding(s), used by:
     - Pipeline 'sky', Set 1
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 1: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
     Binding 2: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
-  Layout 3 (0x1c000000001c): 2 binding(s), used by:
+  Layout 3 (0x1fb7312d990): 2 binding(s), used by:
     - Pipeline 'sky', Set 0
     Binding 0: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=VERTEX|FRAGMENT
-  Layout 4 (0x1d000000001d): 1 binding(s), used by:
+  Layout 4 (0x1fb7331ee00): 1 binding(s), used by:
     - Pipeline 'gui', Set 0
     Binding 0: type=COMBINED_IMAGE_SAMPLER, count=1, stages=FRAGMENT
-  Layout 5 (0x1e000000001e): 2 binding(s), used by:
+  Layout 5 (0x1fb7331e980): 2 binding(s), used by:
     - Pipeline 'pbrDeferred', Set 1
     Binding 0: type=STORAGE_BUFFER, count=1, stages=FRAGMENT
     Binding 1: type=COMBINED_IMAGE_SAMPLER, count=512, stages=FRAGMENT
-  Layout 6 (0x1f000000001f): 14 binding(s), used by:
+  Layout 6 (0x1fb73320180): 14 binding(s), used by:
     - Pipeline 'deferredLighting', Set 0
     Binding 0: type=UNIFORM_BUFFER, count=1, stages=COMPUTE
     Binding 1: type=UNIFORM_BUFFER, count=1, stages=COMPUTE
@@ -227,14 +226,14 @@ Texture filename: ../../assets/characters/Leonard/Ch31_1002_Diffuse.png
 Successfully loaded model: ../../assets/characters/Leonard/Bboy Hip Hop Move.fbx
   Meshes: 7
   Materials: 2
-  Loading time: 2749 ms
+  Loading time: 773 ms
 Found 1 animations in model 'Dancer'
 Started animation: 'mixamo.com'
 Animation duration: 2.20 seconds
 Successfully loaded model from cache: ../../assets/models/AmazonLumberyardBistroMorganMcGuire\exterior_cache.bin
   Meshes: 3184
   Materials: 128
-  Loading time: 3366 ms
+  Loading time: 748 ms
 No animations found in model 'Bistro'
 ✓ Selected HDR format: B10G11R11_UFLOAT_PACK32 (4 bytes/pixel, FLOAT, 50% memory vs RGBA16F)
 HDR Format Selection:
@@ -277,7 +276,16 @@ Pipeline 'pbrDeferred': No write-only image binding found for dimension determin
 Pipeline 'sky': No write-only image binding found for dimension determination
 Pipeline 'deferredLighting' dimensions determined from first write-only binding 'floatColor2': 3072x1728
 Pipeline 'post': No write-only image binding found for dimension determination
+Initializing Tracy profiler...
+✓ Tracy Vulkan context created successfully
+✓ Tracy profiler is now active and collecting data
+→ Tracy server should be starting on port 8086
+→ Connect Tracy GUI client to view profiling data
+→ Download Tracy from: https://github.com/wolfpld/tracy/releases
+Tracy is ENABLED - Attempting to start profiler and web server
+Tracy profiler initialized
 hasAnimation changed to: true
+Cleaning up Tracy context...
 Saved descriptor pool statistics to DescriptorPoolSize.txt
 
 === DescriptorPool Allocated Statistics ===

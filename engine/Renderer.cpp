@@ -1,5 +1,6 @@
 #include "Renderer.h"
 #include "Logger.h"
+#include "TracyProfiler.h" // Add Tracy macros wrapper
 #include <stb_image.h>
 
 namespace hlab {
@@ -18,105 +19,107 @@ Renderer::Renderer(Context& ctx, ShaderManager& shaderManager, const uint32_t& k
     createTextures(swapChainWidth, swapChainHeight);
     createUniformBuffers();
 
-    vector<MaterialUBO> allMaterials;
+    {
+        vector<MaterialUBO> allMaterials;
 
-    for (auto& m : models) {
-        m->prepareForBindlessRendering(samplerLinearRepeat_, allMaterials, *materialTextures_);
+        for (auto& m : models) {
+            m->prepareForBindlessRendering(samplerLinearRepeat_, allMaterials, *materialTextures_);
+        }
+
+        materialBuffer_ = make_unique<StorageBuffer>(ctx_, allMaterials.data(),
+                                                     sizeof(MaterialUBO) * allMaterials.size());
     }
 
-    materialBuffer_ = make_unique<StorageBuffer>(ctx_, allMaterials.data(),
-                                                 sizeof(MaterialUBO) * allMaterials.size());
+    {
+        // ... existing descriptor set creation code ...
+        unordered_map<string, vector<string>> descriptorSetNames; // TODO: move to script
+        descriptorSetNames["shadowMap"] = {"sceneOptions"};
+        descriptorSetNames["pbrDeferred"] = {"sceneOptions", "material"};
+        descriptorSetNames["sky"] = {"skyOptions", "sky"};
+        descriptorSetNames["deferredLighting"] = {"deferredLightingData"};
+        descriptorSetNames["post"] = {"postProcessing"};
 
-    unordered_map<string, vector<string>> descriptorSetNames; // TODO: move to script
-    descriptorSetNames["shadowMap"] = {"sceneOptions"};
-    descriptorSetNames["pbrDeferred"] = {"sceneOptions", "material"};
-    descriptorSetNames["sky"] = {"skyOptions", "sky"};
-    descriptorSetNames["deferredLighting"] = {"deferredLightingData"};
-    descriptorSetNames["post"] = {"postProcessing"};
+        unordered_map<string, vector<vector<BindingInfo>>> bindingInfos =
+            shaderManager_.bindingInfos();
 
-    unordered_map<string, vector<vector<BindingInfo>>> bindingInfos = shaderManager_.bindingInfos();
+        for (auto i : descriptorSetNames) {
+            auto pipelineName = i.first;
 
-    for (auto i : descriptorSetNames) {
-        auto pipelineName = i.first;
+            auto& bindings = bindingInfos.at(pipelineName);
 
-        cout << pipelineName << endl;
+            assert(bindings.size() == descriptorSetNames[pipelineName].size());
 
-        auto& bindings = bindingInfos.at(pipelineName);
+            for (int s = 0; s < bindings.size(); s++) {
 
-        assert(bindings.size() == descriptorSetNames[pipelineName].size());
+                string setName = descriptorSetNames[pipelineName][s];
 
-        for (int s = 0; s < bindings.size(); s++) {
+                if (perFrameDescriptorSets_.find(setName) != perFrameDescriptorSets_.end())
+                    continue;
+                if (descriptorSets_.find(setName) != descriptorSets_.end())
+                    continue;
 
-            string setName = descriptorSetNames[pipelineName][s];
+                vector<string> bindingNames;
+                for (int b = 0; b < bindings[s].size(); b++) {
+                    bindingNames.push_back(bindings[s][b].resourceName);
+                }
 
-            if (perFrameDescriptorSets_.find(setName) != perFrameDescriptorSets_.end())
-                continue;
-            if (descriptorSets_.find(setName) != descriptorSets_.end())
-                continue;
+                bool perFramesSet = this->perFrameResources(bindingNames);
 
-            cout << "Set " << s << " " << setName << endl;
+                if (perFramesSet) {
+                    perFrameDescriptorSets_[setName].resize(kMaxFramesInFlight_);
+                    for (uint32_t i = 0; i < kMaxFramesInFlight_; i++) {
+                        // Collect resources for this descriptor set
+                        vector<reference_wrapper<Resource>> resources;
 
-            vector<string> bindingNames;
-            for (int b = 0; b < bindings[s].size(); b++) {
-                bindingNames.push_back(bindings[s][b].resourceName);
-            }
+                        for (const string& resourceName : bindingNames) {
+                            addResource(resourceName, i, resources);
+                        }
 
-            bool perFramesSet = this->perFrameResources(bindingNames);
-
-            if (perFramesSet) {
-                perFrameDescriptorSets_[setName].resize(kMaxFramesInFlight_);
-                for (uint32_t i = 0; i < kMaxFramesInFlight_; i++) {
-                    // Collect resources for this descriptor set
+                        // Create the descriptor set with collected resources
+                        perFrameDescriptorSets_[setName][i].create(
+                            ctx_, pipelines_[pipelineName]->layouts()[s], resources);
+                    }
+                } else {
+                    // Collect resources for non-per-frame descriptor set
                     vector<reference_wrapper<Resource>> resources;
 
                     for (const string& resourceName : bindingNames) {
-                        addResource(resourceName, i, resources);
+                        addResource(resourceName, uint32_t(-1), resources);
                     }
 
                     // Create the descriptor set with collected resources
-                    perFrameDescriptorSets_[setName][i].create(
-                        ctx_, pipelines_[pipelineName]->layouts()[s], resources);
-                }
-            } else {
-                // Collect resources for non-per-frame descriptor set
-                vector<reference_wrapper<Resource>> resources;
-
-                for (const string& resourceName : bindingNames) {
-                    addResource(resourceName, uint32_t(-1), resources);
-                }
-
-                // Create the descriptor set with collected resources
-                descriptorSets_[setName].create(ctx_, pipelines_[pipelineName]->layouts()[s],
-                                                resources);
-            }
-        }
-
-        // Update pipeline's descriptor sets with the created descriptor sets for this pipeline
-        vector<vector<reference_wrapper<DescriptorSet>>> pipelineDescriptorSets;
-        pipelineDescriptorSets.resize(kMaxFramesInFlight_);
-
-        for (uint32_t frameIndex = 0; frameIndex < kMaxFramesInFlight_; ++frameIndex) {
-            pipelineDescriptorSets[frameIndex].reserve(descriptorSetNames[pipelineName].size());
-
-            for (size_t setIndex = 0; setIndex < descriptorSetNames[pipelineName].size();
-                 ++setIndex) {
-                const string& setName = descriptorSetNames[pipelineName][setIndex];
-
-                // Check if this is a per-frame descriptor set
-                if (perFrameDescriptorSets_.find(setName) != perFrameDescriptorSets_.end()) {
-                    // For per-frame sets, use the specific frame
-                    pipelineDescriptorSets[frameIndex].emplace_back(
-                        std::ref(perFrameDescriptorSets_[setName][frameIndex]));
-                } else if (descriptorSets_.find(setName) != descriptorSets_.end()) {
-                    // For non-per-frame sets, use the same descriptor set for all frames
-                    pipelineDescriptorSets[frameIndex].emplace_back(
-                        std::ref(descriptorSets_[setName]));
+                    descriptorSets_[setName].create(ctx_, pipelines_[pipelineName]->layouts()[s],
+                                                    resources);
                 }
             }
-        }
 
-        // Set the descriptor sets on the pipeline
-        pipelines_[pipelineName]->setDescriptorSets(pipelineDescriptorSets);
+            // Update pipeline's descriptor sets with the created descriptor sets for this pipeline
+            vector<vector<reference_wrapper<DescriptorSet>>> pipelineDescriptorSets;
+            pipelineDescriptorSets.resize(kMaxFramesInFlight_);
+
+            for (uint32_t frameIndex = 0; frameIndex < kMaxFramesInFlight_; ++frameIndex) {
+                pipelineDescriptorSets[frameIndex].reserve(descriptorSetNames[pipelineName].size());
+
+                for (size_t setIndex = 0; setIndex < descriptorSetNames[pipelineName].size();
+                     ++setIndex) {
+                    const string& setName = descriptorSetNames[pipelineName][setIndex];
+
+                    // Check if this is a per-frame descriptor set
+                    if (perFrameDescriptorSets_.find(setName) != perFrameDescriptorSets_.end()) {
+                        // For per-frame sets, use the specific frame
+                        pipelineDescriptorSets[frameIndex].emplace_back(
+                            std::ref(perFrameDescriptorSets_[setName][frameIndex]));
+                    } else if (descriptorSets_.find(setName) != descriptorSets_.end()) {
+                        // For non-per-frame sets, use the same descriptor set for all frames
+                        pipelineDescriptorSets[frameIndex].emplace_back(
+                            std::ref(descriptorSets_[setName]));
+                    }
+                }
+            }
+
+            // Set the descriptor sets on the pipeline
+            pipelines_[pipelineName]->setDescriptorSets(pipelineDescriptorSets);
+        }
     }
 }
 
@@ -170,15 +173,28 @@ void Renderer::createUniformBuffers()
 void Renderer::update(Camera& camera, vector<unique_ptr<Model>>& models, uint32_t currentFrame,
                       double time)
 {
-    // Update view frustum based on current camera view-projection matrix
-    updateViewFrustum(camera.matrices.perspective * camera.matrices.view);
-    updateWorldBounds(models);
-    updateBoneData(models, currentFrame);
-    performFrustumCulling(models);
+    {
+        // Update view frustum based on current camera view-projection matrix
+        updateViewFrustum(camera.matrices.perspective * camera.matrices.view);
+    }
 
-    // Update all uniform buffers using direct iteration over the map
-    for (const auto& [bufferName, bufferVector] : perFrameUniformBuffers_) {
-        bufferVector[currentFrame]->updateFromCpuData();
+    {
+        updateWorldBounds(models);
+    }
+
+    {
+        updateBoneData(models, currentFrame);
+    }
+
+    {
+        performFrustumCulling(models);
+    }
+
+    {
+        // Update all uniform buffers using direct iteration over the map
+        for (const auto& [bufferName, bufferVector] : perFrameUniformBuffers_) {
+            bufferVector[currentFrame]->updateFromCpuData();
+        }
     }
 }
 
@@ -226,8 +242,12 @@ void Renderer::updateBoneData(const vector<unique_ptr<Model>>& models, uint32_t 
 void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swapchainImageView,
                     vector<unique_ptr<Model>>& models, VkViewport viewport, VkRect2D scissor)
 {
+    TRACY_CPU_SCOPE("Renderer::draw");
+
     for (auto& renderNode : renderGraph_.renderNodes_) {
+
         if (renderNode.pipelineNames[0] == "deferredLighting") {
+            TRACY_CPU_SCOPE("deferredLighting");
             pipelines_.at("deferredLighting")->dispatch(cmd, currentFrame); // Compute
             continue;
         }
@@ -309,61 +329,85 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
         vkCmdSetViewport(cmd, 0, 1, &viewport);
         vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-        for (auto& pipelineName : renderNode.pipelineNames) {
+        // Process all pipelines for this render node
+        {
+            TRACY_CPU_SCOPE("ProcessPipelines");
 
-            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                              pipelines_.at(pipelineName)->pipeline());
+            for (auto& pipelineName : renderNode.pipelineNames) {
+                vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                  pipelines_.at(pipelineName)->pipeline());
 
-            pipelines_.at(pipelineName)->bindDescriptorSets(cmd, currentFrame);
+                pipelines_.at(pipelineName)->bindDescriptorSets(cmd, currentFrame);
 
-            if (pipelineName == "sky") {
-                vkCmdDraw(cmd, 36, 1, 0, 0);
-                continue;
-            }
-
-            if (pipelineName == "post") {
-                vkCmdDraw(cmd, 6, 1, 0, 0);
-                continue;
-            }
-
-            if (pipelineName == "shadowMap") {
-                vkCmdSetDepthBias(cmd,
-                                  1.1f,  // Constant factor
-                                  0.0f,  // Clamp value
-                                  2.0f); // Slope factor
-            }
-
-            // Render all visible models
-            VkDeviceSize offsets[1]{0};
-
-            for (size_t j = 0; j < models.size(); j++) {
-                if (!models[j]->visible()) {
+                if (pipelineName == "sky") {
+                    TRACY_CPU_SCOPE("drawSky");
+                    vkCmdDraw(cmd, 36, 1, 0, 0);
                     continue;
                 }
 
-                // Render all meshes in this model
-                for (size_t i = 0; i < models[j]->meshes().size(); i++) {
-                    auto& mesh = models[j]->meshes()[i];
+                if (pipelineName == "post") {
+                    TRACY_CPU_SCOPE("drawPost");
+                    vkCmdDraw(cmd, 6, 1, 0, 0);
+                    continue;
+                }
 
-                    // Skip culled meshes
-                    if (mesh.isCulled) {
-                        continue;
+                if (pipelineName == "shadowMap") {
+                    TRACY_CPU_SCOPE("shadowMapSetup");
+                    vkCmdSetDepthBias(cmd,
+                                      1.1f,  // Constant factor
+                                      0.0f,  // Clamp value
+                                      2.0f); // Slope factor
+                }
+
+                // Render all visible models for this pipeline
+                {
+                    TRACY_CPU_SCOPE("DrawModels");
+
+                    VkDeviceSize offsets[1]{0};
+                    size_t visibleMeshCount = 0;
+                    size_t totalMeshCount = 0;
+
+                    for (size_t j = 0; j < models.size(); j++) {
+                        if (!models[j]->visible()) {
+                            continue;
+                        }
+
+                        // Render all meshes in this model
+                        for (size_t i = 0; i < models[j]->meshes().size(); i++) {
+                            auto& mesh = models[j]->meshes()[i];
+                            totalMeshCount++;
+
+                            // Skip culled meshes
+                            if (mesh.isCulled) {
+                                continue;
+                            }
+                            visibleMeshCount++;
+
+                            PbrPushConstants pushConstants;
+                            pushConstants.model = models[j]->modelMatrix();
+                            pushConstants.materialIndex = mesh.materialIndex_;
+                            memcpy(pushConstants.coeffs, models[j]->coeffs(),
+                                   sizeof(pushConstants.coeffs));
+                            vkCmdPushConstants(cmd, pipelines_.at(pipelineName)->pipelineLayout(),
+                                               VK_SHADER_STAGE_VERTEX_BIT |
+                                                   VK_SHADER_STAGE_FRAGMENT_BIT,
+                                               0, sizeof(PbrPushConstants), &pushConstants);
+
+                            // Bind vertex and index buffers
+                            vkCmdBindVertexBuffers(cmd, 0, 1, &mesh.vertexBuffer_, offsets);
+                            vkCmdBindIndexBuffer(cmd, mesh.indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
+
+                            // Draw the mesh
+                            vkCmdDrawIndexed(cmd, static_cast<uint32_t>(mesh.indices_.size()), 1, 0,
+                                             0, 0);
+                        }
                     }
 
-                    PbrPushConstants pushConstants;
-                    pushConstants.model = models[j]->modelMatrix();
-                    pushConstants.materialIndex = mesh.materialIndex_;
-                    memcpy(pushConstants.coeffs, models[j]->coeffs(), sizeof(pushConstants.coeffs));
-                    vkCmdPushConstants(cmd, pipelines_.at(pipelineName)->pipelineLayout(),
-                                       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                                       sizeof(PbrPushConstants), &pushConstants);
-
-                    // Bind vertex and index buffers
-                    vkCmdBindVertexBuffers(cmd, 0, 1, &mesh.vertexBuffer_, offsets);
-                    vkCmdBindIndexBuffer(cmd, mesh.indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
-
-                    // Draw the mesh
-                    vkCmdDrawIndexed(cmd, static_cast<uint32_t>(mesh.indices_.size()), 1, 0, 0, 0);
+                    // Track rendering statistics
+                    TRACY_PLOT("VisibleMeshes", static_cast<int64_t>(visibleMeshCount));
+                    TRACY_PLOT("TotalMeshes", static_cast<int64_t>(totalMeshCount));
+                    TRACY_PLOT("CulledMeshes",
+                               static_cast<int64_t>(totalMeshCount - visibleMeshCount));
                 }
             }
         }
@@ -416,11 +460,14 @@ void Renderer::createPipelines(const VkFormat swapChainColorFormat, const VkForm
 
 void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight)
 {
-    samplerLinearRepeat_.createLinearRepeat();
-    samplerLinearClamp_.createLinearClamp();
-    samplerAnisoRepeat_.createAnisoRepeat();
-    samplerAnisoClamp_.createAnisoClamp();
-    samplerShadow_.createShadow();
+    {
+        TRACY_CPU_SCOPE("createSamplers");
+        samplerLinearRepeat_.createLinearRepeat();
+        samplerLinearClamp_.createLinearClamp();
+        samplerAnisoRepeat_.createAnisoRepeat();
+        samplerAnisoClamp_.createAnisoClamp();
+        samplerShadow_.createShadow();
+    }
 
     // Initialize image buffers (simplified - no MSAA)
     const vector<string> imageNames = {"depthStencil", "floatColor1",    "floatColor2",
@@ -432,112 +479,128 @@ void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight)
         imageBuffers_[name] = make_unique<Image2D>(ctx_);
     }
 
-    // Load IBL textures for PBR rendering
-    string path = kAssetsPathPrefix_ + "textures/golden_gate_hills_4k/";
+    {
+        TRACY_CPU_SCOPE("loadIBLTextures");
+        // Load IBL textures for PBR rendering
+        string path = kAssetsPathPrefix_ + "textures/golden_gate_hills_4k/";
 
-    printLog("Loading IBL textures...");
-    printLog("  Prefiltered: {}", path + "specularGGX.ktx2");
-    printLog("  Irradiance: {}", path + "diffuseLambertian.ktx2");
-    printLog("  BRDF LUT: {}", path + "outputLUT.png");
+        printLog("Loading IBL textures...");
+        printLog("  Prefiltered: {}", path + "specularGGX.ktx2");
+        printLog("  Irradiance: {}", path + "diffuseLambertian.ktx2");
+        printLog("  BRDF LUT: {}", path + "outputLUT.png");
 
-    // Load prefiltered environment map (cubemap for specular reflections)
-    imageBuffers_["prefilteredMap"]->createTextureFromKtx2(path + "specularGGX.ktx2", true);
-    imageBuffers_["prefilteredMap"]->setSampler(samplerLinearRepeat_.handle());
+        // Load prefiltered environment map (cubemap for specular reflections)
+        imageBuffers_["prefilteredMap"]->createTextureFromKtx2(path + "specularGGX.ktx2", true);
+        imageBuffers_["prefilteredMap"]->setSampler(samplerLinearRepeat_.handle());
 
-    // Load irradiance map (cubemap for diffuse lighting)
-    imageBuffers_["irradianceMap"]->createTextureFromKtx2(path + "diffuseLambertian.ktx2", true);
-    imageBuffers_["irradianceMap"]->setSampler(samplerLinearRepeat_.handle());
+        // Load irradiance map (cubemap for diffuse lighting)
+        imageBuffers_["irradianceMap"]->createTextureFromKtx2(path + "diffuseLambertian.ktx2",
+                                                              true);
+        imageBuffers_["irradianceMap"]->setSampler(samplerLinearRepeat_.handle());
 
-    // Load BRDF lookup table (2D texture)
-    imageBuffers_["brdfLut"]->createTextureFromImage(path + "outputLUT.png", false, false);
-    imageBuffers_["brdfLut"]->setSampler(samplerLinearClamp_.handle());
+        // Load BRDF lookup table (2D texture)
+        imageBuffers_["brdfLut"]->createTextureFromImage(path + "outputLUT.png", false, false);
+        imageBuffers_["brdfLut"]->setSampler(samplerLinearClamp_.handle());
+    }
 
-    // Create HDR render targets with selected format
-    printLog("Creating HDR render targets:");
-    printLog("  Format: {} ({} bytes/pixel)", vkFormatToString(selectedHDRFormat_),
-             getFormatSize(selectedHDRFormat_));
+    {
+        TRACY_CPU_SCOPE("createHDRRenderTargets");
+        // Create HDR render targets with selected format
+        printLog("Creating HDR render targets:");
+        printLog("  Format: {} ({} bytes/pixel)", vkFormatToString(selectedHDRFormat_),
+                 getFormatSize(selectedHDRFormat_));
 
-    // Log memory usage analysis
-    logHDRMemoryUsage(swapchainWidth, swapchainHeight);
+        // Log memory usage analysis
+        logHDRMemoryUsage(swapchainWidth, swapchainHeight);
 
-    // Storage color buffers for compute shaders and post-processing
-    VkImageUsageFlags storageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
-                                     VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT |
-                                     VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
-                                     VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        // Storage color buffers for compute shaders and post-processing
+        VkImageUsageFlags storageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+                                         VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT |
+                                         VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                                         VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
-    imageBuffers_["floatColor1"]->createImage(
-        selectedHDRFormat_, swapchainWidth, swapchainHeight, VK_SAMPLE_COUNT_1_BIT, storageUsage,
-        VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, 0, VK_IMAGE_VIEW_TYPE_2D);
+        imageBuffers_["floatColor1"]->createImage(
+            selectedHDRFormat_, swapchainWidth, swapchainHeight, VK_SAMPLE_COUNT_1_BIT,
+            storageUsage, VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, 0, VK_IMAGE_VIEW_TYPE_2D);
 
-    imageBuffers_["floatColor2"]->createImage(
-        selectedHDRFormat_, swapchainWidth, swapchainHeight, VK_SAMPLE_COUNT_1_BIT, storageUsage,
-        VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, 0, VK_IMAGE_VIEW_TYPE_2D);
+        imageBuffers_["floatColor2"]->createImage(
+            selectedHDRFormat_, swapchainWidth, swapchainHeight, VK_SAMPLE_COUNT_1_BIT,
+            storageUsage, VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, 0, VK_IMAGE_VIEW_TYPE_2D);
+    }
 
-    // Create G-buffer textures for deferred rendering
-    printLog("Creating G-buffer textures for deferred rendering:");
+    {
+        TRACY_CPU_SCOPE("createGBuffer");
+        // Create G-buffer textures for deferred rendering
+        printLog("Creating G-buffer textures for deferred rendering:");
 
-    // G-Buffer format selection for optimal memory usage and precision
-    VkFormat albedoFormat = VK_FORMAT_R8G8B8A8_UNORM; // Albedo + Metallic (4 bytes)
-    VkFormat normalFormat =
-        VK_FORMAT_R16G16B16A16_SFLOAT; // Normal + Roughness (8 bytes, needs precision)
-    VkFormat positionFormat =
-        VK_FORMAT_R32G32B32A32_SFLOAT; // Position + Depth (16 bytes, needs high precision)
-    VkFormat materialFormat = VK_FORMAT_R8G8B8A8_UNORM; // AO + Emissive + Material ID (4 bytes)
+        // G-Buffer format selection for optimal memory usage and precision
+        VkFormat albedoFormat = VK_FORMAT_R8G8B8A8_UNORM; // Albedo + Metallic (4 bytes)
+        VkFormat normalFormat =
+            VK_FORMAT_R16G16B16A16_SFLOAT; // Normal + Roughness (8 bytes, needs precision)
+        VkFormat positionFormat =
+            VK_FORMAT_R32G32B32A32_SFLOAT; // Position + Depth (16 bytes, needs high precision)
+        VkFormat materialFormat = VK_FORMAT_R8G8B8A8_UNORM; // AO + Emissive + Material ID (4 bytes)
 
-    printLog("  gAlbedo: {} ({} bytes/pixel)", vkFormatToString(albedoFormat),
-             getFormatSize(albedoFormat));
-    printLog("  gNormal: {} ({} bytes/pixel)", vkFormatToString(normalFormat),
-             getFormatSize(normalFormat));
-    printLog("  gPosition: {} ({} bytes/pixel)", vkFormatToString(positionFormat),
-             getFormatSize(positionFormat));
-    printLog("  gMaterial: {} ({} bytes/pixel)", vkFormatToString(materialFormat),
-             getFormatSize(materialFormat));
+        printLog("  gAlbedo: {} ({} bytes/pixel)", vkFormatToString(albedoFormat),
+                 getFormatSize(albedoFormat));
+        printLog("  gNormal: {} ({} bytes/pixel)", vkFormatToString(normalFormat),
+                 getFormatSize(normalFormat));
+        printLog("  gPosition: {} ({} bytes/pixel)", vkFormatToString(positionFormat),
+                 getFormatSize(positionFormat));
+        printLog("  gMaterial: {} ({} bytes/pixel)", vkFormatToString(materialFormat),
+                 getFormatSize(materialFormat));
 
-    // G-buffer usage flags (similar to floatColor but without storage bit since they're render
-    // targets)
-    VkImageUsageFlags gBufferUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
-                                     VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
-                                     VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        // G-buffer usage flags (similar to floatColor but without storage bit since they're render
+        // targets)
+        VkImageUsageFlags gBufferUsage =
+            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
+            VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
-    // Create gAlbedo buffer (Albedo RGB + Metallic A)
-    imageBuffers_["gAlbedo"]->createImage(
-        albedoFormat, swapchainWidth, swapchainHeight, VK_SAMPLE_COUNT_1_BIT, gBufferUsage,
-        VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, 0, VK_IMAGE_VIEW_TYPE_2D);
-    imageBuffers_["gAlbedo"]->setSampler(samplerLinearClamp_.handle());
+        // Create gAlbedo buffer (Albedo RGB + Metallic A)
+        imageBuffers_["gAlbedo"]->createImage(
+            albedoFormat, swapchainWidth, swapchainHeight, VK_SAMPLE_COUNT_1_BIT, gBufferUsage,
+            VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, 0, VK_IMAGE_VIEW_TYPE_2D);
+        imageBuffers_["gAlbedo"]->setSampler(samplerLinearClamp_.handle());
 
-    // Create gNormal buffer (World Normal RGB + Roughness A)
-    imageBuffers_["gNormal"]->createImage(
-        normalFormat, swapchainWidth, swapchainHeight, VK_SAMPLE_COUNT_1_BIT, gBufferUsage,
-        VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, 0, VK_IMAGE_VIEW_TYPE_2D);
-    imageBuffers_["gNormal"]->setSampler(samplerLinearClamp_.handle());
+        // Create gNormal buffer (World Normal RGB + Roughness A)
+        imageBuffers_["gNormal"]->createImage(
+            normalFormat, swapchainWidth, swapchainHeight, VK_SAMPLE_COUNT_1_BIT, gBufferUsage,
+            VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, 0, VK_IMAGE_VIEW_TYPE_2D);
+        imageBuffers_["gNormal"]->setSampler(samplerLinearClamp_.handle());
 
-    // Create gPosition buffer (World Position RGB + Depth A)
-    imageBuffers_["gPosition"]->createImage(
-        positionFormat, swapchainWidth, swapchainHeight, VK_SAMPLE_COUNT_1_BIT, gBufferUsage,
-        VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, 0, VK_IMAGE_VIEW_TYPE_2D);
-    imageBuffers_["gPosition"]->setSampler(samplerLinearClamp_.handle());
+        // Create gPosition buffer (World Position RGB + Depth A)
+        imageBuffers_["gPosition"]->createImage(
+            positionFormat, swapchainWidth, swapchainHeight, VK_SAMPLE_COUNT_1_BIT, gBufferUsage,
+            VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, 0, VK_IMAGE_VIEW_TYPE_2D);
+        imageBuffers_["gPosition"]->setSampler(samplerLinearClamp_.handle());
 
-    // Create gMaterial buffer (AO R + Emissive Intensity G + Material ID B + Unused A)
-    imageBuffers_["gMaterial"]->createImage(
-        materialFormat, swapchainWidth, swapchainHeight, VK_SAMPLE_COUNT_1_BIT, gBufferUsage,
-        VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, 0, VK_IMAGE_VIEW_TYPE_2D);
-    imageBuffers_["gMaterial"]->setSampler(samplerLinearClamp_.handle());
+        // Create gMaterial buffer (AO R + Emissive Intensity G + Material ID B + Unused A)
+        imageBuffers_["gMaterial"]->createImage(
+            materialFormat, swapchainWidth, swapchainHeight, VK_SAMPLE_COUNT_1_BIT, gBufferUsage,
+            VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, 0, VK_IMAGE_VIEW_TYPE_2D);
+        imageBuffers_["gMaterial"]->setSampler(samplerLinearClamp_.handle());
 
-    printLog("G-buffer creation complete");
+        printLog("G-buffer creation complete");
+    }
 
-    // Create depth buffer (no MSAA)
-    imageBuffers_["depthStencil"]->createDepthBuffer(swapchainWidth, swapchainHeight);
+    {
+        TRACY_CPU_SCOPE("createDepthAndShadowBuffers");
+        // Create depth buffer (no MSAA)
+        imageBuffers_["depthStencil"]->createDepthBuffer(swapchainWidth, swapchainHeight);
 
-    // Create shadow map
-    uint32_t shadowMapSize = 2048 * 2;
-    imageBuffers_["shadowMap"]->createShadow(shadowMapSize, shadowMapSize);
-    imageBuffers_["shadowMap"]->setSampler(samplerShadow_.handle());
+        // Create shadow map
+        uint32_t shadowMapSize = 2048 * 2;
+        imageBuffers_["shadowMap"]->createShadow(shadowMapSize, shadowMapSize);
+        imageBuffers_["shadowMap"]->setSampler(samplerShadow_.handle());
+    }
 
-    // Set samplers for storage and sampling images
-    imageBuffers_["floatColor1"]->setSampler(samplerLinearRepeat_.handle());
-    imageBuffers_["floatColor2"]->setSampler(samplerLinearRepeat_.handle());
-    imageBuffers_["depthStencil"]->setSampler(samplerLinearClamp_.handle());
+    {
+        TRACY_CPU_SCOPE("setSamplers");
+        // Set samplers for storage and sampling images
+        imageBuffers_["floatColor1"]->setSampler(samplerLinearRepeat_.handle());
+        imageBuffers_["floatColor2"]->setSampler(samplerLinearRepeat_.handle());
+        imageBuffers_["depthStencil"]->setSampler(samplerLinearClamp_.handle());
+    }
 }
 
 // Format selection function with proper priority: float formats first, R8G8B8A8 last
@@ -673,6 +736,8 @@ void Renderer::logHDRMemoryUsage(uint32_t width, uint32_t height)
 
 void Renderer::updateViewFrustum(const glm::mat4& viewProjection)
 {
+    TRACY_CPU_SCOPE("updateViewFrustum");
+
     if (frustumCullingEnabled_) {
         viewFrustum_.extractFromViewProjection(viewProjection);
     }
@@ -680,6 +745,8 @@ void Renderer::updateViewFrustum(const glm::mat4& viewProjection)
 
 void Renderer::performFrustumCulling(vector<unique_ptr<Model>>& models)
 {
+    TRACY_CPU_SCOPE("performFrustumCulling");
+
     cullingStats_.totalMeshes = 0;
     cullingStats_.culledMeshes = 0;
     cullingStats_.renderedMeshes = 0;
@@ -695,25 +762,41 @@ void Renderer::performFrustumCulling(vector<unique_ptr<Model>>& models)
         return;
     }
 
-    for (auto& model : models) {
-        for (auto& mesh : model->meshes()) {
-            cullingStats_.totalMeshes++;
+    {
+        TRACY_CPU_SCOPE("frustumCullingLoop");
+        for (auto& model : models) {
+            for (auto& mesh : model->meshes()) {
+                cullingStats_.totalMeshes++;
 
-            bool isVisible = viewFrustum_.intersects(mesh.worldBounds);
+                bool isVisible = viewFrustum_.intersects(mesh.worldBounds);
 
-            mesh.isCulled = !isVisible;
+                mesh.isCulled = !isVisible;
 
-            if (isVisible) {
-                cullingStats_.renderedMeshes++;
-            } else {
-                cullingStats_.culledMeshes++;
+                if (isVisible) {
+                    cullingStats_.renderedMeshes++;
+                } else {
+                    cullingStats_.culledMeshes++;
+                }
             }
         }
+    }
+
+    // Track culling statistics in Tracy
+    TRACY_PLOT("FrustumCulling_TotalMeshes", static_cast<int64_t>(cullingStats_.totalMeshes));
+    TRACY_PLOT("FrustumCulling_RenderedMeshes", static_cast<int64_t>(cullingStats_.renderedMeshes));
+    TRACY_PLOT("FrustumCulling_CulledMeshes", static_cast<int64_t>(cullingStats_.culledMeshes));
+
+    if (cullingStats_.totalMeshes > 0) {
+        float cullingEfficiency =
+            (float(cullingStats_.culledMeshes) / float(cullingStats_.totalMeshes)) * 100.0f;
+        TRACY_PLOT("FrustumCulling_EfficiencyPercent", static_cast<int64_t>(cullingEfficiency));
     }
 }
 
 void Renderer::updateWorldBounds(vector<unique_ptr<Model>>& models)
 {
+    TRACY_CPU_SCOPE("updateWorldBounds");
+
     for (auto& model : models) {
         for (auto& mesh : model->meshes()) {
             mesh.updateWorldBounds(model->modelMatrix());

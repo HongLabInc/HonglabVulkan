@@ -6,6 +6,10 @@
     "spirv-reflect",
     "stb",
     {
+      "name": "tracy",
+      "features": [ "on-demand" ]
+    },
+    {
       "name": "imgui",
       "features": [ "wchar32" ]
     },

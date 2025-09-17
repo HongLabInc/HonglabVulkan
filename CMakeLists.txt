@@ -76,6 +76,14 @@ endif()
 
 find_package(Stb QUIET CONFIG)
 
+# Find Tracy profiler through vcpkg
+find_package(Tracy QUIET CONFIG)
+if(Tracy_FOUND)
+    message(STATUS "Found Tracy profiler via vcpkg")
+else()
+    message(STATUS "Tracy profiler not found - will be disabled")
+endif()
+
 # Add subdirectories
 add_subdirectory(engine)
 add_subdirectory(examples)

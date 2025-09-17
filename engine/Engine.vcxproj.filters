@@ -37,6 +37,7 @@
     <ClInclude Include="TextureManager.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="RenderGraph.h" />
+    <ClInclude Include="TracyProfiler.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Logger.cpp" />
@@ -76,6 +77,7 @@
     <ClCompile Include="TextureManager.cpp" />
     <ClCompile Include="Resource.cpp" />
     <ClCompile Include="RenderGraph.cpp" />
+    <ClCompile Include="TracyProfiler.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\.clang-format" />
