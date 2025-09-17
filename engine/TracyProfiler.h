@@ -12,16 +12,35 @@
 
 // Map our custom macros to Tracy's actual macros
 #define TRACY_CPU_SCOPE(name) ZoneScopedN(name)
-#define TRACY_CPU_SCOPE_DYNAMIC(name) ZoneScopedN(name)
 #define TRACY_PLOT(name, value) TracyPlot(name, value)
 #define TRACY_MESSAGE(text, size) TracyMessage(text, size)
 #define TRACY_MESSAGEL(text) TracyMessageL(text)
-// Define TRACY_GPU_SCOPE for Tracy enabled builds
-#define TRACY_GPU_SCOPE(profiler, cmd, name)                           \
-    do {                                                               \
-        if ((profiler).isTracySupported()) {                           \
-            (profiler).beginGpuZone(cmd, name);                       \
-        }                                                               \
+
+// Enhanced GPU scope macro with automatic zone management
+#define TRACY_GPU_SCOPE(profiler, cmd, name) \
+    TracyVkZone((profiler).getTracyContext(), cmd, name)
+
+// Additional GPU zone macros for more flexibility
+#define TRACY_GPU_ZONE_BEGIN(profiler, cmd, name) \
+    do { \
+        if ((profiler).isTracySupported()) { \
+            TracyVkZoneS((profiler).getTracyContext(), cmd, name, 0); \
+        } \
+    } while (0)
+
+#define TRACY_GPU_ZONE_END(profiler, cmd) \
+    do { \
+        if ((profiler).isTracySupported()) { \
+            /* TracyVkZone automatically handles end */ \
+        } \
+    } while (0)
+
+// GPU collection macro
+#define TRACY_GPU_COLLECT(profiler, cmd) \
+    do { \
+        if ((profiler).isTracySupported()) { \
+            TracyVkCollect((profiler).getTracyContext(), cmd); \
+        } \
     } while (0)
 
 #else
@@ -30,10 +49,16 @@
 #define TRACY_CPU_SCOPE(name)                                                                      \
     do {                                                                                           \
     } while (0)
-#define TRACY_CPU_SCOPE_DYNAMIC(name)                                                              \
+#define TRACY_GPU_SCOPE(profiler, cmd, name)                                                       \
     do {                                                                                           \
     } while (0)
-#define TRACY_GPU_SCOPE(profiler, cmd, name)                                                       \
+#define TRACY_GPU_ZONE_BEGIN(profiler, cmd, name)                                                  \
+    do {                                                                                           \
+    } while (0)
+#define TRACY_GPU_ZONE_END(profiler, cmd)                                                          \
+    do {                                                                                           \
+    } while (0)
+#define TRACY_GPU_COLLECT(profiler, cmd)                                                           \
     do {                                                                                           \
     } while (0)
 #define TRACY_PLOT(name, value)                                                                    \
@@ -116,6 +141,13 @@ class TracyProfiler
     // Check if Tracy is available (similar to isTimestampSupported)
     bool isTracySupported() const;
 
+    // Get the Tracy context for direct use with macros
+#ifdef TRACY_ENABLE
+    tracy::VkCtx* getTracyContext() const { return tracyContext_; }
+#else
+    void* getTracyContext() const { return nullptr; }
+#endif
+
     // RAII zone helpers (similar to your command buffer pattern)
     class GpuZone
     {
@@ -152,5 +184,14 @@ class TracyProfiler
     void cleanup();
     void initializeTracy();
 };
+
+// Convenience RAII GPU zone macro for automatic scope management
+#ifdef TRACY_ENABLE
+#define TRACY_GPU_ZONE_RAII(profiler, cmd, name) \
+    auto tracy_gpu_zone = TracyVkZoneC((profiler).getTracyContext(), cmd, name, 0x00ff00)
+#else
+#define TRACY_GPU_ZONE_RAII(profiler, cmd, name) \
+    do { } while (0)
+#endif
 
 } // namespace hlab

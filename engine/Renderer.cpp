@@ -13,24 +13,39 @@ Renderer::Renderer(Context& ctx, ShaderManager& shaderManager, const uint32_t& k
       kAssetsPathPrefix_(kAssetsPathPrefix), kShaderPathPrefix_(kShaderPathPrefix_),
       samplerShadow_(ctx), samplerLinearRepeat_(ctx), samplerLinearClamp_(ctx),
       samplerAnisoRepeat_(ctx), samplerAnisoClamp_(ctx),
-      materialTextures_(make_unique<TextureManager>(ctx))
+      materialTextures_(std::make_unique<TextureManager>(ctx))
 {
-    createPipelines(outColorFormat, depthFormat);
-    createTextures(swapChainWidth, swapChainHeight);
-    createUniformBuffers();
+    TRACY_CPU_SCOPE("Renderer::Constructor");
 
     {
+        TRACY_CPU_SCOPE("Create Pipelines");
+        createPipelines(outColorFormat, depthFormat);
+    }
+
+    {
+        TRACY_CPU_SCOPE("Create Textures");
+        createTextures(swapChainWidth, swapChainHeight);
+    }
+
+    {
+        TRACY_CPU_SCOPE("Create Uniform Buffers");
+        createUniformBuffers();
+    }
+
+    {
+        TRACY_CPU_SCOPE("Setup Material Buffers");
         vector<MaterialUBO> allMaterials;
 
         for (auto& m : models) {
             m->prepareForBindlessRendering(samplerLinearRepeat_, allMaterials, *materialTextures_);
         }
 
-        materialBuffer_ = make_unique<StorageBuffer>(ctx_, allMaterials.data(),
+        materialBuffer_ = std::make_unique<StorageBuffer>(ctx_, allMaterials.data(),
                                                      sizeof(MaterialUBO) * allMaterials.size());
     }
 
     {
+        TRACY_CPU_SCOPE("Setup Descriptor Sets");
         // ... existing descriptor set creation code ...
         unordered_map<string, vector<string>> descriptorSetNames; // TODO: move to script
         descriptorSetNames["shadowMap"] = {"sceneOptions"};
@@ -125,6 +140,8 @@ Renderer::Renderer(Context& ctx, ShaderManager& shaderManager, const uint32_t& k
 
 void Renderer::createUniformBuffers()
 {
+    TRACY_CPU_SCOPE("Renderer::createUniformBuffers");
+
     const VkDevice device = ctx_.device();
 
     // Initialize uniform buffer map with proper keys
@@ -139,32 +156,32 @@ void Renderer::createUniformBuffers()
     // Create uniform buffers for each type and frame
     for (uint32_t i = 0; i < kMaxFramesInFlight_; ++i) {
         // Scene uniform buffers
-        auto sceneBuffer = make_unique<MappedBuffer>(ctx_);
+        auto sceneBuffer = std::make_unique<MappedBuffer>(ctx_);
         sceneBuffer->createUniformBuffer(sceneUBO_);
         perFrameUniformBuffers_["sceneData"].emplace_back(std::move(sceneBuffer));
 
         // Options uniform buffers
-        auto optionsBuffer = make_unique<MappedBuffer>(ctx_);
+        auto optionsBuffer = std::make_unique<MappedBuffer>(ctx_);
         optionsBuffer->createUniformBuffer(optionsUBO_);
         perFrameUniformBuffers_["options"].emplace_back(std::move(optionsBuffer));
 
         // Sky options uniform buffers
-        auto skyOptionsBuffer = make_unique<MappedBuffer>(ctx_);
+        auto skyOptionsBuffer = std::make_unique<MappedBuffer>(ctx_);
         skyOptionsBuffer->createUniformBuffer(skyOptionsUBO_);
         perFrameUniformBuffers_["skyOptions"].emplace_back(std::move(skyOptionsBuffer));
 
         // Post options uniform buffers
-        auto postOptionsBuffer = make_unique<MappedBuffer>(ctx_);
+        auto postOptionsBuffer = std::make_unique<MappedBuffer>(ctx_);
         postOptionsBuffer->createUniformBuffer(postOptionsUBO_);
         perFrameUniformBuffers_["postOptions"].emplace_back(std::move(postOptionsBuffer));
 
         // SSAO options uniform buffers
-        auto ssaoOptionsBuffer = make_unique<MappedBuffer>(ctx_);
+        auto ssaoOptionsBuffer = std::make_unique<MappedBuffer>(ctx_);
         ssaoOptionsBuffer->createUniformBuffer(ssaoOptionsUBO_);
         perFrameUniformBuffers_["ssaoOptions"].emplace_back(std::move(ssaoOptionsBuffer));
 
         // Bone data uniform buffers
-        auto boneDataBuffer = make_unique<MappedBuffer>(ctx_);
+        auto boneDataBuffer = std::make_unique<MappedBuffer>(ctx_);
         boneDataBuffer->createUniformBuffer(boneDataUBO_);
         perFrameUniformBuffers_["boneData"].emplace_back(std::move(boneDataBuffer));
     }
@@ -173,24 +190,31 @@ void Renderer::createUniformBuffers()
 void Renderer::update(Camera& camera, vector<unique_ptr<Model>>& models, uint32_t currentFrame,
                       double time)
 {
+    TRACY_CPU_SCOPE("Renderer::update");
+
     {
+        TRACY_CPU_SCOPE("Update View Frustum");
         // Update view frustum based on current camera view-projection matrix
         updateViewFrustum(camera.matrices.perspective * camera.matrices.view);
     }
 
     {
+        TRACY_CPU_SCOPE("Update World Bounds");
         updateWorldBounds(models);
     }
 
     {
+        TRACY_CPU_SCOPE("Update Bone Data");
         updateBoneData(models, currentFrame);
     }
 
     {
+        TRACY_CPU_SCOPE("Perform Frustum Culling");
         performFrustumCulling(models);
     }
 
     {
+        TRACY_CPU_SCOPE("Update Uniform Buffers");
         // Update all uniform buffers using direct iteration over the map
         for (const auto& [bufferName, bufferVector] : perFrameUniformBuffers_) {
             bufferVector[currentFrame]->updateFromCpuData();
@@ -200,6 +224,8 @@ void Renderer::update(Camera& camera, vector<unique_ptr<Model>>& models, uint32_
 
 void Renderer::updateBoneData(const vector<unique_ptr<Model>>& models, uint32_t currentFrame)
 {
+    TRACY_CPU_SCOPE("Renderer::updateBoneData");
+
     // Reset bone data
     boneDataUBO_.animationData.x = 0.0f;
     for (int i = 0; i < 65; ++i) {
@@ -262,49 +288,58 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
         // Direct rendering (no MSAA) - simplified path
 
         // Handle color attachments
-        for (const auto& colorTarget : renderNode.colorAttachments) {
-            if (colorTarget == "swapchain") {
-                colorAttachments.push_back(createColorAttachment(
-                    swapchainImageView, VK_ATTACHMENT_LOAD_OP_CLEAR, {0.0f, 0.0f, 1.0f, 0.0f}));
-            } else {
-                if (mainTarget.empty()) {
-                    mainTarget = colorTarget;
-                }
-
-                if (renderNode.pipelineNames[0] == "sky") {
+        {
+            TRACY_CPU_SCOPE("Setup Color Attachments");
+            for (const auto& colorTarget : renderNode.colorAttachments) {
+                if (colorTarget == "swapchain") {
                     colorAttachments.push_back(createColorAttachment(
-                        imageBuffers_[colorTarget]->view(), VK_ATTACHMENT_LOAD_OP_LOAD,
-                        {0.0f, 0.0f, 0.5f, 0.0f}));
+                        swapchainImageView, VK_ATTACHMENT_LOAD_OP_CLEAR, {0.0f, 0.0f, 1.0f, 0.0f}));
                 } else {
-                    colorAttachments.push_back(createColorAttachment(
-                        imageBuffers_[colorTarget]->view(), VK_ATTACHMENT_LOAD_OP_CLEAR,
-                        {0.0f, 0.0f, 0.5f, 0.0f}));
+                    if (mainTarget.empty()) {
+                        mainTarget = colorTarget;
+                    }
+
+                    if (renderNode.pipelineNames[0] == "sky") {
+                        colorAttachments.push_back(createColorAttachment(
+                            imageBuffers_[colorTarget]->view(), VK_ATTACHMENT_LOAD_OP_LOAD,
+                            {0.0f, 0.0f, 0.5f, 0.0f}));
+                    } else {
+                        colorAttachments.push_back(createColorAttachment(
+                            imageBuffers_[colorTarget]->view(), VK_ATTACHMENT_LOAD_OP_CLEAR,
+                            {0.0f, 0.0f, 0.5f, 0.0f}));
+                    }
                 }
             }
         }
 
         // Handle depth attachment
-        if (!renderNode.depthAttachment.empty()) {
-            if (mainTarget.empty()) {
-                mainTarget = renderNode.depthAttachment;
-            }
-            imageBuffers_[renderNode.depthAttachment]->transitionToDepthStencilAttachment(cmd);
+        {
+            TRACY_CPU_SCOPE("Setup Depth Attachment");
+            if (!renderNode.depthAttachment.empty()) {
+                if (mainTarget.empty()) {
+                    mainTarget = renderNode.depthAttachment;
+                }
+                imageBuffers_[renderNode.depthAttachment]->transitionToDepthStencilAttachment(cmd);
 
-            if (renderNode.pipelineNames[0] == "sky") {
-                depthAttachment = createDepthAttachment(
-                    imageBuffers_[renderNode.depthAttachment]->attachmentView(),
-                    VK_ATTACHMENT_LOAD_OP_LOAD, 1.0f);
-            } else {
-                depthAttachment = createDepthAttachment(
-                    imageBuffers_[renderNode.depthAttachment]->attachmentView(),
-                    VK_ATTACHMENT_LOAD_OP_CLEAR, 1.0f);
-            }
+                if (renderNode.pipelineNames[0] == "sky") {
+                    depthAttachment = createDepthAttachment(
+                        imageBuffers_[renderNode.depthAttachment]->attachmentView(),
+                        VK_ATTACHMENT_LOAD_OP_LOAD, 1.0f);
+                } else {
+                    depthAttachment = createDepthAttachment(
+                        imageBuffers_[renderNode.depthAttachment]->attachmentView(),
+                        VK_ATTACHMENT_LOAD_OP_CLEAR, 1.0f);
+                }
 
-            renderingInfo.pDepthAttachment = &depthAttachment;
+                renderingInfo.pDepthAttachment = &depthAttachment;
+            }
         }
 
-        for (auto& pipelineName : renderNode.pipelineNames) {
-            pipelines_.at(pipelineName)->submitBarriers(cmd, currentFrame);
+        {
+            TRACY_CPU_SCOPE("Submit Pipeline Barriers");
+            for (auto& pipelineName : renderNode.pipelineNames) {
+                pipelines_.at(pipelineName)->submitBarriers(cmd, currentFrame);
+            }
         }
 
         uint32_t width = uint32_t(viewport.width);
@@ -325,100 +360,116 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
         VkViewport viewport{0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f};
         VkRect2D scissor{0, 0, width, height};
 
-        vkCmdBeginRendering(cmd, &renderingInfo);
-        vkCmdSetViewport(cmd, 0, 1, &viewport);
-        vkCmdSetScissor(cmd, 0, 1, &scissor);
+        {
+            TRACY_CPU_SCOPE("Begin Rendering");
+            vkCmdBeginRendering(cmd, &renderingInfo);
+            vkCmdSetViewport(cmd, 0, 1, &viewport);
+            vkCmdSetScissor(cmd, 0, 1, &scissor);
+        }
 
         // Process all pipelines for this render node
         {
             TRACY_CPU_SCOPE("ProcessPipelines");
 
             for (auto& pipelineName : renderNode.pipelineNames) {
-                vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                  pipelines_.at(pipelineName)->pipeline());
-
-                pipelines_.at(pipelineName)->bindDescriptorSets(cmd, currentFrame);
-
-                if (pipelineName == "sky") {
-                    TRACY_CPU_SCOPE("drawSky");
-                    vkCmdDraw(cmd, 36, 1, 0, 0);
-                    continue;
-                }
-
-                if (pipelineName == "post") {
-                    TRACY_CPU_SCOPE("drawPost");
-                    vkCmdDraw(cmd, 6, 1, 0, 0);
-                    continue;
-                }
-
-                if (pipelineName == "shadowMap") {
-                    TRACY_CPU_SCOPE("shadowMapSetup");
-                    vkCmdSetDepthBias(cmd,
-                                      1.1f,  // Constant factor
-                                      0.0f,  // Clamp value
-                                      2.0f); // Slope factor
-                }
-
-                // Render all visible models for this pipeline
+                // Use a scoped block for each pipeline instead of dynamic scope
                 {
-                    TRACY_CPU_SCOPE("DrawModels");
+                    TRACY_CPU_SCOPE("Pipeline Processing");
+                    
+                    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                      pipelines_.at(pipelineName)->pipeline());
 
-                    VkDeviceSize offsets[1]{0};
-                    size_t visibleMeshCount = 0;
-                    size_t totalMeshCount = 0;
+                    pipelines_.at(pipelineName)->bindDescriptorSets(cmd, currentFrame);
 
-                    for (size_t j = 0; j < models.size(); j++) {
-                        if (!models[j]->visible()) {
-                            continue;
-                        }
-
-                        // Render all meshes in this model
-                        for (size_t i = 0; i < models[j]->meshes().size(); i++) {
-                            auto& mesh = models[j]->meshes()[i];
-                            totalMeshCount++;
-
-                            // Skip culled meshes
-                            if (mesh.isCulled) {
-                                continue;
-                            }
-                            visibleMeshCount++;
-
-                            PbrPushConstants pushConstants;
-                            pushConstants.model = models[j]->modelMatrix();
-                            pushConstants.materialIndex = mesh.materialIndex_;
-                            memcpy(pushConstants.coeffs, models[j]->coeffs(),
-                                   sizeof(pushConstants.coeffs));
-                            vkCmdPushConstants(cmd, pipelines_.at(pipelineName)->pipelineLayout(),
-                                               VK_SHADER_STAGE_VERTEX_BIT |
-                                                   VK_SHADER_STAGE_FRAGMENT_BIT,
-                                               0, sizeof(PbrPushConstants), &pushConstants);
-
-                            // Bind vertex and index buffers
-                            vkCmdBindVertexBuffers(cmd, 0, 1, &mesh.vertexBuffer_, offsets);
-                            vkCmdBindIndexBuffer(cmd, mesh.indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
-
-                            // Draw the mesh
-                            vkCmdDrawIndexed(cmd, static_cast<uint32_t>(mesh.indices_.size()), 1, 0,
-                                             0, 0);
-                        }
+                    if (pipelineName == "sky") {
+                        TRACY_CPU_SCOPE("drawSky");
+                        vkCmdDraw(cmd, 36, 1, 0, 0);
+                        continue;
                     }
 
-                    // Track rendering statistics
-                    TRACY_PLOT("VisibleMeshes", static_cast<int64_t>(visibleMeshCount));
-                    TRACY_PLOT("TotalMeshes", static_cast<int64_t>(totalMeshCount));
-                    TRACY_PLOT("CulledMeshes",
-                               static_cast<int64_t>(totalMeshCount - visibleMeshCount));
+                    if (pipelineName == "post") {
+                        TRACY_CPU_SCOPE("drawPost");
+                        vkCmdDraw(cmd, 6, 1, 0, 0);
+                        continue;
+                    }
+
+                    if (pipelineName == "shadowMap") {
+                        TRACY_CPU_SCOPE("shadowMapSetup");
+                        vkCmdSetDepthBias(cmd,
+                                          1.1f,  // Constant factor
+                                          0.0f,  // Clamp value
+                                          2.0f); // Slope factor
+                    }
+
+                    // Render all visible models for this pipeline
+                    {
+                        TRACY_CPU_SCOPE("DrawModels");
+
+                        VkDeviceSize offsets[1]{0};
+                        size_t visibleMeshCount = 0;
+                        size_t totalMeshCount = 0;
+
+                        for (size_t j = 0; j < models.size(); j++) {
+                            if (!models[j]->visible()) {
+                                continue;
+                            }
+
+                            // Render all meshes in this model
+                            for (size_t i = 0; i < models[j]->meshes().size(); i++) {
+                                auto& mesh = models[j]->meshes()[i];
+                                totalMeshCount++;
+
+                                // Skip culled meshes
+                                if (mesh.isCulled) {
+                                    continue;
+                                }
+                                visibleMeshCount++;
+
+                                PbrPushConstants pushConstants;
+                                pushConstants.model = models[j]->modelMatrix();
+                                pushConstants.materialIndex = mesh.materialIndex_;
+                                memcpy(pushConstants.coeffs, models[j]->coeffs(),
+                                       sizeof(pushConstants.coeffs));
+                                vkCmdPushConstants(cmd, pipelines_.at(pipelineName)->pipelineLayout(),
+                                                   VK_SHADER_STAGE_VERTEX_BIT |
+                                                       VK_SHADER_STAGE_FRAGMENT_BIT,
+                                                   0, sizeof(PbrPushConstants), &pushConstants);
+
+                                // Bind vertex and index buffers
+                                vkCmdBindVertexBuffers(cmd, 0, 1, &mesh.vertexBuffer_, offsets);
+                                vkCmdBindIndexBuffer(cmd, mesh.indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
+
+                                // Draw the mesh
+                                vkCmdDrawIndexed(cmd, static_cast<uint32_t>(mesh.indices_.size()), 1, 0,
+                                                 0, 0);
+                            }
+                        }
+
+                        // Track rendering statistics
+                        TRACY_PLOT("VisibleMeshes", static_cast<int64_t>(visibleMeshCount));
+                        TRACY_PLOT("TotalMeshes", static_cast<int64_t>(totalMeshCount));
+                        TRACY_PLOT("CulledMeshes",
+                                   static_cast<int64_t>(totalMeshCount - visibleMeshCount));
+                    }
                 }
             }
         }
 
-        vkCmdEndRendering(cmd);
+        {
+            TRACY_CPU_SCOPE("End Rendering");
+            vkCmdEndRendering(cmd);
+        }
     }
 }
 
 void Renderer::createPipelines(const VkFormat swapChainColorFormat, const VkFormat depthFormat)
 {
-    renderGraph_.readFromFile("RenderGraph.json");
+    TRACY_CPU_SCOPE("Renderer::createPipelines");
+
+    {
+        TRACY_CPU_SCOPE("Read Render Graph");
+        renderGraph_.readFromFile("RenderGraph.json");
+    }
 
     // Select optimal HDR format with proper priority (float formats first)
     VkFormat selectedHDRFormat =
@@ -428,31 +479,37 @@ void Renderer::createPipelines(const VkFormat swapChainColorFormat, const VkForm
     printLog("  Selected format: {} ({} bytes/pixel)", vkFormatToString(selectedHDRFormat),
              getFormatSize(selectedHDRFormat));
 
-    // All pipelines use 1x samples (no MSAA) for educational simplicity
-    pipelines_["pbrDeferred"] = make_unique<Pipeline>(
-        ctx_, shaderManager_, PipelineConfig::createPbrDeferred(),
-        vector<VkFormat>{VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_R16G16B16A16_SFLOAT,
-                         VK_FORMAT_R32G32B32A32_SFLOAT, VK_FORMAT_R8G8B8A8_UNORM},
-        depthFormat, VK_SAMPLE_COUNT_1_BIT);
+    {
+        TRACY_CPU_SCOPE("Create Graphics Pipelines");
+        // All pipelines use 1x samples (no MSAA) for educational simplicity
+        pipelines_["pbrDeferred"] = std::make_unique<Pipeline>(
+            ctx_, shaderManager_, PipelineConfig::createPbrDeferred(),
+            vector<VkFormat>{VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_R16G16B16A16_SFLOAT,
+                             VK_FORMAT_R32G32B32A32_SFLOAT, VK_FORMAT_R8G8B8A8_UNORM},
+            depthFormat, VK_SAMPLE_COUNT_1_BIT);
 
-    pipelines_["sky"] = make_unique<Pipeline>(ctx_, shaderManager_, PipelineConfig::createSky(),
-                                              vector<VkFormat>{selectedHDRFormat}, depthFormat,
-                                              VK_SAMPLE_COUNT_1_BIT);
+        pipelines_["sky"] = std::make_unique<Pipeline>(ctx_, shaderManager_, PipelineConfig::createSky(),
+                                                  vector<VkFormat>{selectedHDRFormat}, depthFormat,
+                                                  VK_SAMPLE_COUNT_1_BIT);
 
-    pipelines_["post"] = make_unique<Pipeline>(ctx_, shaderManager_, PipelineConfig::createPost(),
-                                               vector<VkFormat>{swapChainColorFormat}, depthFormat,
-                                               VK_SAMPLE_COUNT_1_BIT);
+        pipelines_["post"] = std::make_unique<Pipeline>(ctx_, shaderManager_, PipelineConfig::createPost(),
+                                                   vector<VkFormat>{swapChainColorFormat}, depthFormat,
+                                                   VK_SAMPLE_COUNT_1_BIT);
 
-    // Fix shadow map pipeline: depth-only pipelines should have no color attachments
-    // Pass depth format as depthFormat parameter, not in outColorFormats
-    pipelines_["shadowMap"] =
-        make_unique<Pipeline>(ctx_, shaderManager_, PipelineConfig::createShadowMap(),
-                              vector<VkFormat>{}, VK_FORMAT_D16_UNORM, VK_SAMPLE_COUNT_1_BIT);
+        // Fix shadow map pipeline: depth-only pipelines should have no color attachments
+        // Pass depth format as depthFormat parameter, not in outColorFormats
+        pipelines_["shadowMap"] =
+            std::make_unique<Pipeline>(ctx_, shaderManager_, PipelineConfig::createShadowMap(),
+                                  vector<VkFormat>{}, VK_FORMAT_D16_UNORM, VK_SAMPLE_COUNT_1_BIT);
+    }
 
-    // Fix deferred lighting pipeline: compute pipelines don't need color/depth formats
-    pipelines_["deferredLighting"] =
-        make_unique<Pipeline>(ctx_, shaderManager_, PipelineConfig::createDeferredLighting(),
-                              vector<VkFormat>{}, nullopt, VK_SAMPLE_COUNT_1_BIT);
+    {
+        TRACY_CPU_SCOPE("Create Compute Pipelines");
+        // Fix deferred lighting pipeline: compute pipelines don't need color/depth formats
+        pipelines_["deferredLighting"] =
+            std::make_unique<Pipeline>(ctx_, shaderManager_, PipelineConfig::createDeferredLighting(),
+                                  vector<VkFormat>{}, nullopt, VK_SAMPLE_COUNT_1_BIT);
+    }
 
     // Store the selected format for texture creation
     selectedHDRFormat_ = selectedHDRFormat;
@@ -460,6 +517,8 @@ void Renderer::createPipelines(const VkFormat swapChainColorFormat, const VkForm
 
 void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight)
 {
+    TRACY_CPU_SCOPE("Renderer::createTextures");
+
     {
         TRACY_CPU_SCOPE("createSamplers");
         samplerLinearRepeat_.createLinearRepeat();
@@ -476,7 +535,7 @@ void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight)
                                        "gPosition",    "gMaterial"};
 
     for (const auto& name : imageNames) {
-        imageBuffers_[name] = make_unique<Image2D>(ctx_);
+        imageBuffers_[name] = std::make_unique<Image2D>(ctx_);
     }
 
     {
@@ -606,6 +665,8 @@ void Renderer::createTextures(uint32_t swapchainWidth, uint32_t swapchainHeight)
 // Format selection function with proper priority: float formats first, R8G8B8A8 last
 VkFormat Renderer::selectOptimalHDRFormat(bool needsAlpha, bool fullPrecision)
 {
+    TRACY_CPU_SCOPE("Renderer::selectOptimalHDRFormat");
+
     vector<VkFormat> candidateFormats;
 
     if (!needsAlpha && !fullPrecision) {
@@ -615,7 +676,7 @@ VkFormat Renderer::selectOptimalHDRFormat(bool needsAlpha, bool fullPrecision)
                                                // format)
             VK_FORMAT_R16G16B16_SFLOAT,        // 6 bytes - 25% savings, half precision
             VK_FORMAT_R16G16B16A16_SFLOAT,     // 8 bytes - standard HDR with alpha
-            VK_FORMAT_R32G32B32_SFLOAT,        // 12 bytes - full precision RGB
+            VK_FORMAT_R32G32B32A32_SFLOAT,        // 12 bytes - full precision RGB
             // R8G8B8A8_UNORM is LAST - not a float format, poor for HDR
             VK_FORMAT_R8G8B8A8_UNORM // 4 bytes - NOT FLOAT, last resort
         };
@@ -673,6 +734,8 @@ VkFormat Renderer::selectOptimalHDRFormat(bool needsAlpha, bool fullPrecision)
 // Enhanced format validation function
 bool Renderer::isFormatSuitableForHDR(VkFormat format)
 {
+    TRACY_CPU_SCOPE("Renderer::isFormatSuitableForHDR");
+
     // Check if format supports required features for HDR rendering
     VkFormatProperties props;
     vkGetPhysicalDeviceFormatProperties(ctx_.physicalDevice(), format, &props);
@@ -699,6 +762,8 @@ bool Renderer::isFormatSuitableForHDR(VkFormat format)
 
 void Renderer::logHDRMemoryUsage(uint32_t width, uint32_t height)
 {
+    TRACY_CPU_SCOPE("Renderer::logHDRMemoryUsage");
+
     uint64_t totalPixels = static_cast<uint64_t>(width) * height;
 
     uint32_t hdrBytes = getFormatSize(selectedHDRFormat_);
@@ -736,7 +801,7 @@ void Renderer::logHDRMemoryUsage(uint32_t width, uint32_t height)
 
 void Renderer::updateViewFrustum(const glm::mat4& viewProjection)
 {
-    TRACY_CPU_SCOPE("updateViewFrustum");
+    TRACY_CPU_SCOPE("Renderer::updateViewFrustum");
 
     if (frustumCullingEnabled_) {
         viewFrustum_.extractFromViewProjection(viewProjection);
@@ -745,13 +810,14 @@ void Renderer::updateViewFrustum(const glm::mat4& viewProjection)
 
 void Renderer::performFrustumCulling(vector<unique_ptr<Model>>& models)
 {
-    TRACY_CPU_SCOPE("performFrustumCulling");
+    TRACY_CPU_SCOPE("Renderer::performFrustumCulling");
 
     cullingStats_.totalMeshes = 0;
     cullingStats_.culledMeshes = 0;
     cullingStats_.renderedMeshes = 0;
 
     if (!frustumCullingEnabled_) {
+        TRACY_CPU_SCOPE("Frustum Culling Disabled");
         for (auto& model : models) {
             for (auto& mesh : model->meshes()) {
                 mesh.isCulled = false;
@@ -795,7 +861,7 @@ void Renderer::performFrustumCulling(vector<unique_ptr<Model>>& models)
 
 void Renderer::updateWorldBounds(vector<unique_ptr<Model>>& models)
 {
-    TRACY_CPU_SCOPE("updateWorldBounds");
+    TRACY_CPU_SCOPE("Renderer::updateWorldBounds");
 
     for (auto& model : models) {
         for (auto& mesh : model->meshes()) {

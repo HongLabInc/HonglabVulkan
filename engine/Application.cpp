@@ -362,18 +362,27 @@ void Application::run()
     while (!window_.isCloseRequested()) {
         TRACY_CPU_SCOPE("MainLoop");
 
-        window_.pollEvents();
+        {
+            TRACY_CPU_SCOPE("Window Poll Events");
+            window_.pollEvents();
+        }
 
         // NEW: Calculate delta time for smooth animation
-        auto currentTime = std::chrono::high_resolution_clock::now();
-        deltaTime = std::chrono::duration<float>(currentTime - lastTime).count();
-        lastTime = currentTime;
+        {
+            TRACY_CPU_SCOPE("Delta Time Calculation");
+            auto currentTime = std::chrono::high_resolution_clock::now();
+            deltaTime = std::chrono::duration<float>(currentTime - lastTime).count();
+            lastTime = currentTime;
 
-        // Clamp delta time to prevent large jumps (e.g., when debugging)
-        deltaTime = std::min(deltaTime, 0.033f); // Max 33ms (30 FPS minimum)
+            // Clamp delta time to prevent large jumps (e.g., when debugging)
+            deltaTime = std::min(deltaTime, 0.033f); // Max 33ms (30 FPS minimum)
+        }
 
         // Update performance metrics (both CPU FPS and GPU timing)
-        updatePerformanceMetrics(deltaTime);
+        {
+            TRACY_CPU_SCOPE("Performance Metrics Update");
+            updatePerformanceMetrics(deltaTime);
+        }
 
         {
             TRACY_CPU_SCOPE("GUI Update");
@@ -459,8 +468,11 @@ void Application::run()
         }
 
         // Wait using currentFrame index (CPU-side fence)
-        check(vkWaitForFences(ctx_.device(), 1, &waitFences_[currentFrame], VK_TRUE, UINT64_MAX));
-        check(vkResetFences(ctx_.device(), 1, &waitFences_[currentFrame]));
+        {
+            TRACY_CPU_SCOPE("Fence Wait");
+            check(vkWaitForFences(ctx_.device(), 1, &waitFences_[currentFrame], VK_TRUE, UINT64_MAX));
+            check(vkResetFences(ctx_.device(), 1, &waitFences_[currentFrame]));
+        }
 
         {
             TRACY_CPU_SCOPE("Renderer Update");
@@ -502,16 +514,21 @@ void Application::run()
 
         // *** GPU TIMING START ***
         // Reset and begin GPU timing for this frame
-        gpuTimer_.resetQueries(cmd.handle(), currentFrame);
-        gpuTimer_.beginFrame(cmd.handle(), currentFrame);
+        {
+            TRACY_CPU_SCOPE("GPU Timer Setup");
+            gpuTimer_.resetQueries(cmd.handle(), currentFrame);
+            gpuTimer_.beginFrame(cmd.handle(), currentFrame);
+        }
 
         // *** TRACY GPU PROFILING START ***
         if (tracyProfiler_) {
+            TRACY_CPU_SCOPE("Tracy GPU Setup");
             tracyProfiler_->beginFrame(cmd.handle(), currentFrame);
         }
 
         // Transition swapchain image from undefined to color attachment layout
         {
+            TRACY_CPU_SCOPE("Swapchain Barrier Setup");
             if (tracyProfiler_) {
                 TRACY_GPU_SCOPE(*tracyProfiler_, cmd.handle(), "Swapchain Transition");
             }
@@ -527,6 +544,7 @@ void Application::run()
 
         // Draw models
         {
+            TRACY_CPU_SCOPE("Renderer Draw Call");
             if (tracyProfiler_) {
                 TRACY_GPU_SCOPE(*tracyProfiler_, cmd.handle(), "Rendering");
             }
@@ -536,6 +554,7 @@ void Application::run()
 
         // Draw GUI (overwrite to swapchain image)
         {
+            TRACY_CPU_SCOPE("GUI Draw Call");
             if (tracyProfiler_) {
                 TRACY_GPU_SCOPE(*tracyProfiler_, cmd.handle(), "GUI Rendering");
             }
@@ -544,6 +563,7 @@ void Application::run()
         }
 
         {
+            TRACY_CPU_SCOPE("Swapchain Present Barrier");
             if (tracyProfiler_) {
                 TRACY_GPU_SCOPE(*tracyProfiler_, cmd.handle(), "Swapchain Present Transition");
             }
@@ -554,9 +574,15 @@ void Application::run()
 
         // *** GPU TIMING END ***
         // End GPU timing (excludes presentation)
-        gpuTimer_.endFrame(cmd.handle(), currentFrame);
+        {
+            TRACY_CPU_SCOPE("GPU Timer End");
+            gpuTimer_.endFrame(cmd.handle(), currentFrame);
+        }
 
-        check(vkEndCommandBuffer(cmd.handle())); // End command buffer
+        {
+            TRACY_CPU_SCOPE("Command Buffer End");
+            check(vkEndCommandBuffer(cmd.handle())); // End command buffer
+        }
 
         VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         // 비교: 마지막으로 실행되는 셰이더가 Compute라면 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT
@@ -611,13 +637,21 @@ void Application::run()
                 tracyProfiler_->messageL(message);
             }
         }
+
+        // Mark frame end for Tracy
+        FrameMark;
     }
 
-    ctx_.waitIdle(); // 종료하기 전 GPU 사용이 모두 끝날때까지 대기
+    {
+        TRACY_CPU_SCOPE("Application Shutdown");
+        ctx_.waitIdle(); // 종료하기 전 GPU 사용이 모두 끝날때까지 대기
+    }
 }
 
 void Application::updateGui()
 {
+    TRACY_CPU_SCOPE("Application::updateGui");
+
     static float scale = 1.4f;
 
     ImGuiIO& io = ImGui::GetIO();
@@ -631,7 +665,11 @@ void Application::updateGui()
     io.MouseDown[1] = mouseState_.buttons.right;
     io.MouseDown[2] = mouseState_.buttons.middle;
 
-    ImGui::NewFrame();
+    {
+        TRACY_CPU_SCOPE("ImGui NewFrame");
+        ImGui::NewFrame();
+    }
+
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
     ImGui::SetNextWindowPos(ImVec2(10 * scale, 10 * scale), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(0, 0), ImGuiCond_FirstUseEver);
@@ -903,7 +941,10 @@ void Application::updateGui()
     // Add this line:
     renderSSAOControlWindow();
 
-    ImGui::Render();
+    {
+        TRACY_CPU_SCOPE("ImGui Render");
+        ImGui::Render();
+    }
 }
 
 // ADD: HDR Control window method (based on Ex10_Example)
@@ -1525,13 +1566,14 @@ void Application::handleMouseMove(int32_t x, int32_t y)
 
 void Application::updatePerformanceMetrics(float deltaTime)
 {
-    TRACY_CPU_SCOPE("Performance Metrics Update");
+    TRACY_CPU_SCOPE("Application::updatePerformanceMetrics");
 
     // Update CPU FPS
     framesSinceLastUpdate_++;
     fpsUpdateTimer_ += deltaTime;
 
     if (fpsUpdateTimer_ >= kFpsUpdateInterval) {
+        TRACY_CPU_SCOPE("FPS Calculation");
         currentFPS_ = static_cast<float>(framesSinceLastUpdate_) / fpsUpdateTimer_;
         currentFPS_ = std::clamp(currentFPS_, 0.1f, 1000.0f);
 
@@ -1551,6 +1593,7 @@ void Application::updatePerformanceMetrics(float deltaTime)
 
     // Wait a bit longer for GPU results (0.2s instead of 0.1s)
     if (gpuTimeUpdateTimer_ >= (kGpuTimeUpdateInterval * 2.0f)) {
+        TRACY_CPU_SCOPE("GPU Time Update");
         // Get GPU time for frames that should be ready
         if (gpuTimer_.isTimestampSupported()) {
             for (uint32_t i = 0; i < kMaxFramesInFlight; ++i) {
@@ -1576,6 +1619,7 @@ void Application::updatePerformanceMetrics(float deltaTime)
 
     // Track additional metrics in Tracy
     if (tracyProfiler_ && tracyProfiler_->isTracySupported()) {
+        TRACY_CPU_SCOPE("Additional Tracy Metrics");
         // Track model count and vertex data
         size_t totalVertices = 0;
         size_t totalTriangles = 0;

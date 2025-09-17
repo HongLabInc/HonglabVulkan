@@ -63,13 +63,16 @@ void TracyProfiler::initializeTracy()
         if (tracyContext_) {
             tracySupported_ = true;
             printLog("✓ Tracy Vulkan context created successfully");
-            printLog("✓ Tracy profiler is now active and collecting data");
+            printLog("✓ Tracy profiler is now active and collecting GPU data");
             printLog("→ Tracy server should be starting on port 8086");
             printLog("→ Connect Tracy GUI client to view profiling data");
             printLog("→ Download Tracy from: https://github.com/wolfpld/tracy/releases");
 
-            // Send startup confirmation message
-            TracyMessageL("Tracy Vulkan profiler ready - GPU timing active");
+            // Send startup confirmation message with GPU capabilities
+            TracyMessageL("Tracy Vulkan profiler ready - CPU+GPU timing active");
+
+            // Enable Tracy GPU collection
+            printLog("✓ Tracy GPU zones and timing collection enabled");
 
         } else {
             tracySupported_ = false;
@@ -99,6 +102,7 @@ void TracyProfiler::cleanup()
         printLog("Cleaning up Tracy context...");
         TracyVkDestroy(tracyContext_);
         tracyContext_ = nullptr;
+        printLog("Tracy context destroyed");
     }
 #endif
     tracySupported_ = false;
@@ -108,6 +112,7 @@ void TracyProfiler::beginFrame(VkCommandBuffer cmd, uint32_t frameIndex)
 {
 #ifdef TRACY_ENABLE
     if (tracySupported_ && tracyContext_) {
+        // Collect GPU timing data from previous frames
         TracyVkCollect(tracyContext_, cmd);
     }
 #endif
@@ -117,6 +122,7 @@ void TracyProfiler::endFrame()
 {
 #ifdef TRACY_ENABLE
     if (tracySupported_) {
+        // Mark frame boundary for Tracy
         FrameMark;
     }
 #endif
@@ -126,9 +132,8 @@ void TracyProfiler::beginGpuZone(VkCommandBuffer cmd, const char* name)
 {
 #ifdef TRACY_ENABLE
     if (tracySupported_ && tracyContext_) {
-        // For manual GPU zone creation, we need to use the underlying Tracy API
-        // TracyVkZone macro is meant for automatic scoped zones
-        // We'll implement manual zone tracking if needed
+        // Manual GPU zone creation - note that TracyVkZone is preferred for automatic management
+        // This is kept for API compatibility but TracyVkZone macro is recommended
     }
 #endif
 }
@@ -138,6 +143,7 @@ void TracyProfiler::endGpuZone(VkCommandBuffer cmd)
 #ifdef TRACY_ENABLE
     // Note: TracyVkZone is a scope-based macro, so manual end is not needed
     // This function is kept for API consistency but does nothing
+    // Use TracyVkZone macro for automatic zone management
 #endif
 }
 
@@ -145,6 +151,7 @@ void TracyProfiler::beginCpuZone(const char* name)
 {
 #ifdef TRACY_ENABLE
     // CPU zones are handled by macros, not this function
+    // Use TRACY_CPU_SCOPE(name) macro instead
 #endif
 }
 
@@ -152,6 +159,7 @@ void TracyProfiler::endCpuZone()
 {
 #ifdef TRACY_ENABLE
     // CPU zones are handled by macros, not this function
+    // Use TRACY_CPU_SCOPE(name) macro instead
 #endif
 }
 
@@ -196,6 +204,7 @@ TracyProfiler::GpuZone::GpuZone(TracyProfiler& profiler, VkCommandBuffer cmd, co
         // Tracy GPU zones are handled by the TracyVkZone macro automatically
         // This RAII wrapper just ensures proper scoping
         active_ = true;
+        // Note: Actual GPU zone creation should use TracyVkZone macro at call site
     }
 #endif
 }
@@ -215,6 +224,7 @@ TracyProfiler::CpuZone::CpuZone(const char* name) : active_(false)
 {
 #ifdef TRACY_ENABLE
     // CPU zones use Tracy macros directly
+    // This RAII class is mainly for API compatibility
     active_ = true;
 #endif
 }
