@@ -7,5 +7,5 @@ target_link_libraries(Ex14_Bistro PRIVATE Engine)
 
 # Set output directory
 set_target_properties(Ex14_Bistro PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/x64
 )

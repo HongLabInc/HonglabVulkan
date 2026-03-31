@@ -124,17 +124,22 @@ void updateGui(VkExtent2D windowSize)
 
 // Helper functions for better organization
 void initializeSynchronization(Context& ctx, uint32_t maxFramesInFlight, uint32_t imageCount,
-                               vector<VkSemaphore>& presentSemaphores,
-                               vector<VkSemaphore>& renderSemaphores,
+                               vector<VkSemaphore>& imageAcquiredSemaphores,
+                               vector<VkSemaphore>& renderDoneSemaphores,
                                vector<VkFence>& inFlightFences)
 {
-    // Create semaphores
-    presentSemaphores.resize(imageCount);
-    renderSemaphores.resize(imageCount);
+    // Acquire semaphores: per frame-in-flight (fence guards reuse)
+    imageAcquiredSemaphores.resize(maxFramesInFlight);
+    for (size_t i = 0; i < maxFramesInFlight; i++) {
+        VkSemaphoreCreateInfo semaphoreCI{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+        check(vkCreateSemaphore(ctx.device(), &semaphoreCI, nullptr, &imageAcquiredSemaphores[i]));
+    }
+
+    // Render-done semaphores: per swapchain image (vkAcquireNextImageKHR guards reuse)
+    renderDoneSemaphores.resize(imageCount);
     for (size_t i = 0; i < imageCount; i++) {
         VkSemaphoreCreateInfo semaphoreCI{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-        check(vkCreateSemaphore(ctx.device(), &semaphoreCI, nullptr, &presentSemaphores[i]));
-        check(vkCreateSemaphore(ctx.device(), &semaphoreCI, nullptr, &renderSemaphores[i]));
+        check(vkCreateSemaphore(ctx.device(), &semaphoreCI, nullptr, &renderDoneSemaphores[i]));
     }
 
     // Create fences
@@ -146,13 +151,13 @@ void initializeSynchronization(Context& ctx, uint32_t maxFramesInFlight, uint32_
     }
 }
 
-void cleanupSynchronization(Context& ctx, vector<VkSemaphore>& presentSemaphores,
-                            vector<VkSemaphore>& renderSemaphores, vector<VkFence>& inFlightFences)
+void cleanupSynchronization(Context& ctx, vector<VkSemaphore>& imageAcquiredSemaphores,
+                            vector<VkSemaphore>& renderDoneSemaphores, vector<VkFence>& inFlightFences)
 {
-    for (auto& semaphore : presentSemaphores) {
+    for (auto& semaphore : imageAcquiredSemaphores) {
         vkDestroySemaphore(ctx.device(), semaphore, nullptr);
     }
-    for (auto& semaphore : renderSemaphores) {
+    for (auto& semaphore : renderDoneSemaphores) {
         vkDestroySemaphore(ctx.device(), semaphore, nullptr);
     }
     for (auto& fence : inFlightFences) {
@@ -300,21 +305,20 @@ int main()
     const string kShaderPathPrefix = kAssetsPathPrefix + "shaders/";
 
     ShaderManager shaderManager(ctx, kShaderPathPrefix, {{"gui", {"imgui.vert", "imgui.frag"}}});
-    GuiRenderer guiRenderer(ctx, shaderManager, swapchain.colorFormat());
+    const uint32_t MAX_FRAMES_IN_FLIGHT = 2;
+    GuiRenderer guiRenderer(ctx, shaderManager, swapchain.colorFormat(), MAX_FRAMES_IN_FLIGHT);
 
     // Setup frame resources
-    const uint32_t MAX_FRAMES_IN_FLIGHT = 2;
     vector<CommandBuffer> commandBuffers = ctx.createGraphicsCommandBuffers(MAX_FRAMES_IN_FLIGHT);
 
-    vector<VkSemaphore> presentSemaphores;
-    vector<VkSemaphore> renderSemaphores;
+    vector<VkSemaphore> imageAcquiredSemaphores;
+    vector<VkSemaphore> renderDoneSemaphores;
     vector<VkFence> inFlightFences;
 
-    initializeSynchronization(ctx, MAX_FRAMES_IN_FLIGHT, swapchain.imageCount(), presentSemaphores,
-                              renderSemaphores, inFlightFences);
+    initializeSynchronization(ctx, MAX_FRAMES_IN_FLIGHT, swapchain.imageCount(), imageAcquiredSemaphores,
+                              renderDoneSemaphores, inFlightFences);
 
     uint32_t currentFrame = 0;
-    uint32_t currentSemaphore = 0;
 
     // Initialize GUI
     guiRenderer.resize(windowSize.width, windowSize.height);
@@ -331,7 +335,7 @@ int main()
 
         uint32_t imageIndex = 0;
         VkResult acquireResult =
-            swapchain.acquireNextImage(presentSemaphores[currentSemaphore], imageIndex);
+            swapchain.acquireNextImage(imageAcquiredSemaphores[currentFrame], imageIndex);
 
         if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR) {
             exitWithMessage("Window resize not implemented");
@@ -342,12 +346,12 @@ int main()
         recordCommandBuffer(commandBuffers[currentFrame], swapchain, imageIndex, windowSize,
                             guiRenderer, currentFrame);
 
-        submitFrame(commandBuffers[currentFrame], presentSemaphores[currentSemaphore],
-                    renderSemaphores[currentSemaphore], inFlightFences[currentFrame]);
+        submitFrame(commandBuffers[currentFrame], imageAcquiredSemaphores[currentFrame],
+                    renderDoneSemaphores[imageIndex], inFlightFences[currentFrame]);
 
         // Present frame
         VkResult presentResult = swapchain.queuePresent(ctx.graphicsQueue(), imageIndex,
-                                                        renderSemaphores[currentSemaphore]);
+                                                        renderDoneSemaphores[imageIndex]);
 
         if (presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR) {
             exitWithMessage("Window resize not implemented");
@@ -356,12 +360,11 @@ int main()
         }
 
         currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
-        currentSemaphore = (currentSemaphore + 1) % swapchain.imageCount();
     }
 
     ctx.waitIdle();
 
-    cleanupSynchronization(ctx, presentSemaphores, renderSemaphores, inFlightFences);
+    cleanupSynchronization(ctx, imageAcquiredSemaphores, renderDoneSemaphores, inFlightFences);
 
     return 0;
 }

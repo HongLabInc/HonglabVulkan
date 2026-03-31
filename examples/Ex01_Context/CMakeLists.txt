@@ -7,5 +7,5 @@ target_link_libraries(Ex01_Context PRIVATE Engine)
 
 # Set output directory
 set_target_properties(Ex01_Context PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/x64
 )

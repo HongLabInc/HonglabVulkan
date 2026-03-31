@@ -9,5 +9,5 @@ target_include_directories(Ex03_Triangle13 PRIVATE
 )
 
 set_target_properties(Ex03_Triangle13 PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/x64
 )

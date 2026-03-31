@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>업데이트 안내</title>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.7; color: #333; }
+        h1 { border-bottom: 2px solid #333; padding-bottom: 10px; }
+        h2 { margin-top: 40px; color: #1a1a1a; }
+        h3 { margin-top: 30px; color: #444; }
+        table { border-collapse: collapse; width: 100%; margin: 20px 0; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; vertical-align: top; }
+        th { background-color: #f5f5f5; font-weight: bold; width: 180px; }
+        a { color: #0066cc; }
+        ul { padding-left: 20px; }
+        code { background: #f0f0f0; padding: 2px 6px; border-radius: 3px; font-size: 0.9em; }
+        .notice { color: #c00; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<h1>업데이트 안내</h1>
+
+<ul>
+    <li>코딩 AI의 성능이 좋아져서 강의 제작 당시 발견하지 못했던 문제들을 발견하고 수정할 수 있었습니다.</li>
+    <li><span class="notice">[주의]</span> 강의 영상의 코드와 실제 코드가 약간씩 다를 수 있습니다.</li>
+</ul>
+
+<h2>Tracy 0.13 업그레이드 및 G-buffer 수정 (2026-03-31)</h2>
+
+<ul>
+    <li>Tracy 프로파일러를 0.11.1에서 <strong>0.13.1</strong>로 업그레이드했습니다.</li>
+    <li>0.13에서 <code>__LINE__</code> constexpr 문제가 수정되어 <code>TRACY_NO_CALLSTACK</code> 패치가 더 이상 필요 없습니다.</li>
+</ul>
+
+<h3>vcpkg 설정</h3>
+<ul>
+    <li>vcpkg manifest 모드 사용 (<code>vcpkg.json</code>)</li>
+    <li><code>Directory.Build.props</code> 추가 — Tracy 0.13의 변경된 헤더 경로를 솔루션 전체에 적용</li>
+</ul>
+
+<h3>알려진 이슈: Tracy debug lib 경로 버그</h3>
+<ul>
+    <li>Tracy 0.13의 CMake install이 debug lib을 <code>debug/lib/Debug/</code>에 설치하지만, vcpkg auto-link는 <code>debug/lib/</code>만 탐색합니다.</li>
+    <li><strong>원인:</strong> <a href="https://github.com/wolfpld/tracy/pull/1124">wolfpld/tracy#1124</a>에서 config별 하위 디렉토리 설치가 추가됨. vcpkg는 이미 debug/release를 별도 prefix로 분리하므로 이중 분리가 발생.</li>
+    <li><strong>증상:</strong> Debug 빌드에서 <code>LNK2019: unresolved external symbol tracy::...</code> 링크 에러</li>
+    <li><strong>임시 해결:</strong> <code>vcpkg_installed</code> 설치 후 수동 복사 필요
+        <pre><code>copy vcpkg_installed\x64-windows\x64-windows\debug\lib\Debug\TracyClient.lib vcpkg_installed\x64-windows\x64-windows\debug\lib\
+copy vcpkg_installed\x64-windows\x64-windows\debug\bin\Debug\TracyClient.dll vcpkg_installed\x64-windows\x64-windows\debug\bin\</code></pre>
+    </li>
+    <li>vcpkg Tracy 포트가 수정되면 이 단계는 불필요해집니다.</li>
+</ul>
+
+<h3>G-buffer layout transition 수정</h3>
+<ul>
+    <li>G-buffer color attachment(<code>gAlbedo</code>, <code>gNormal</code>, <code>gPosition</code>, <code>gMaterial</code>)에 명시적 layout transition이 빠져있었습니다.</li>
+    <li><code>pbrDeferred</code> 렌더 후 <code>deferredLighting</code> compute shader가 이미지를 읽을 때 <code>VUID-vkCmdDispatch-imageLayout-00344</code> validation error가 발생.</li>
+    <li><code>Renderer.cpp</code>에서 color attachment 사용 전 <code>transitionToColorAttachment(cmd)</code> 호출 추가.</li>
+</ul>
+
+<h2>동기화 수정 (2026-03-30)</h2>
+
+<ul>
+    <li>구형 30시리즈 GPU에서 오류가 제보되어 조사한 결과, 최신 권고사항이 반영되지 않은 부분을 확인하여 수정하였습니다.</li>
+    <li>널리 사용되는 <a href="https://github.com/SaschaWillems/Vulkan/pull/1224">Sascha Willems 예제도 같은 문제가 있었으며 2025년 8월에 동기화 전체를 리워크</a>했습니다.</li>
+    <li>Ex08 ~ Ex14 예제가 이 변경의 영향을 받습니다.</li>
+</ul>
+
+<h3>세부 변경 사항</h3>
+<ul>
+    <li><strong>세마포어 인덱싱 수정</strong> — 이전 프레임이 사용 중인 세마포어를 다음 프레임이 재사용할 수 있는 문제가 있었습니다. <a href="https://docs.vulkan.org/guide/latest/swapchain_semaphore_reuse.html">Khronos 권장 패턴 (2025-05)</a>으로 변경.
+        <table>
+            <tr><th></th><th>변경 전</th><th>변경 후</th></tr>
+            <tr><td>이미지 획득</td><td><code>presentSemaphores_[currentSemaphore]</code></td><td><code>imageAcquiredSemaphores_[currentFrame]</code></td></tr>
+            <tr><td>렌더 완료</td><td><code>renderSemaphores_[currentSemaphore]</code></td><td><code>renderDoneSemaphores_[imageIndex]</code></td></tr>
+        </table>
+    </li>
+    <li><strong>변수명 변경</strong> — 세마포어의 실제 역할을 알기 쉽게 이름을 바꿨습니다.
+        <table>
+            <tr><th>변경 전</th><th>변경 후</th><th>역할</th></tr>
+            <tr><td><code>presentSemaphores_</code></td><td><code>imageAcquiredSemaphores_</code></td><td>이미지 획득 완료 시 signal</td></tr>
+            <tr><td><code>renderSemaphores_</code></td><td><code>renderDoneSemaphores_</code></td><td>렌더링 완료 시 signal</td></tr>
+        </table>
+    </li>
+    <li><strong>MSAA 레이아웃 전환 추가</strong> — MSAA 렌더 타겟이 초기 레이아웃 전환 없이 사용되고 있었습니다. 최신 SDK에서 오류가 발생할 수 있습니다.</li>
+    <li><strong>Windows CMake 빌드 지원</strong> — <code>cmake --preset vs2022-vcpkg && cmake --build --preset debug</code></li>
+</ul>
+
+<h3>참고</h3>
+<ul>
+    <li><a href="https://docs.vulkan.org/guide/latest/swapchain_semaphore_reuse.html">Khronos: 스왑체인 세마포어 재사용 (2025-05)</a></li>
+    <li><a href="https://github.com/SaschaWillems/Vulkan/issues/1210">SaschaWillems Issue #1210 (2025-06)</a> → <a href="https://github.com/SaschaWillems/Vulkan/pull/1224">PR #1224 동기화 리워크 (2025-08)</a></li>
+    <li><a href="https://github.com/David-DiGioia/vulkan-diagrams">다이어그램 (David DiGioia)</a></li>
+</ul>
+
+<h3>감사</h3>
+<ul>
+    <li>세마포어 인덱싱 문제를 제보해주신 수강생 yoonseok chu 님께 감사드립니다.</li>
+</ul>
+
+</body>
+</html>

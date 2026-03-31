@@ -299,6 +299,9 @@ void Renderer::draw(VkCommandBuffer cmd, uint32_t currentFrame, VkImageView swap
                         mainTarget = colorTarget;
                     }
 
+                    // Transition color attachment to correct layout (keeps barrierHelper in sync)
+                    imageBuffers_[colorTarget]->transitionToColorAttachment(cmd);
+
                     if (renderNode.pipelineNames[0] == "sky") {
                         colorAttachments.push_back(createColorAttachment(
                             imageBuffers_[colorTarget]->view(), VK_ATTACHMENT_LOAD_OP_LOAD,

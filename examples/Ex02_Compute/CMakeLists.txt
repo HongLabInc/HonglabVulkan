@@ -9,5 +9,5 @@ target_include_directories(Ex02_Compute PRIVATE
 )
 
 set_target_properties(Ex02_Compute PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/x64
 )

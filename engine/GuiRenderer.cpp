@@ -3,12 +3,16 @@
 
 namespace hlab {
 
-GuiRenderer::GuiRenderer(Context& ctx, ShaderManager& shaderManager, VkFormat colorFormat)
+GuiRenderer::GuiRenderer(Context& ctx, ShaderManager& shaderManager, VkFormat colorFormat, uint32_t maxFramesInFlight)
     : ctx_(ctx), shaderManager_(shaderManager),
-      frameData_{FrameData(ctx), FrameData(ctx)}, // Initialize frame data array
       fontImage_(make_unique<Image2D>(ctx)), fontSampler_(ctx), pushConsts_(ctx),
       guiPipeline_(ctx, shaderManager_, PipelineConfig::createGui(), {colorFormat})
 {
+    frameData_.reserve(maxFramesInFlight);
+    for (uint32_t i = 0; i < maxFramesInFlight; i++) {
+        frameData_.push_back(make_unique<FrameData>(ctx));
+    }
+
     pushConsts_.setStageFlags(VK_SHADER_STAGE_VERTEX_BIT);
 
     // ImGui 초기화, 스타일 설정
@@ -92,7 +96,7 @@ bool GuiRenderer::update(uint32_t frameIndex)
         return false;
     }
 
-    auto& frame = frameData_[frameIndex % kMaxFramesInFlight];
+    auto& frame = *frameData_[frameIndex % frameData_.size()];
     bool updateCmdBuffers = false;
 
     VkDeviceSize vertexBufferSize = imDrawData->TotalVtxCount * sizeof(ImDrawVert);
@@ -169,7 +173,7 @@ void GuiRenderer::draw(const VkCommandBuffer cmd, VkImageView swapchainImageView
     }
 
     // Get this frame's buffers
-    auto& frame = frameData_[frameIndex % kMaxFramesInFlight];
+    auto& frame = *frameData_[frameIndex % frameData_.size()];
 
     vkCmdBeginRendering(cmd, &colorOnlyRenderingInfo);
 

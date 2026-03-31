@@ -113,13 +113,18 @@ int main()
 
     vector<CommandBuffer> commandBuffers_ = ctx.createGraphicsCommandBuffers(MAX_FRAMES_IN_FLIGHT);
 
-    vector<VkSemaphore> presentSemaphores_(swapchain.imageCount());
-    vector<VkSemaphore> renderSemaphores_(swapchain.imageCount());
+    // Acquire semaphores: per frame-in-flight (fence guards reuse)
+    vector<VkSemaphore> imageAcquiredSemaphores_(MAX_FRAMES_IN_FLIGHT);
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        VkSemaphoreCreateInfo semaphoreCI{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+        check(vkCreateSemaphore(ctx.device(), &semaphoreCI, nullptr, &imageAcquiredSemaphores_[i]));
+    }
 
+    // Render-done semaphores: per swapchain image (vkAcquireNextImageKHR guards reuse)
+    vector<VkSemaphore> renderDoneSemaphores_(swapchain.imageCount());
     for (size_t i = 0; i < swapchain.imageCount(); i++) {
         VkSemaphoreCreateInfo semaphoreCI{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-        check(vkCreateSemaphore(ctx.device(), &semaphoreCI, nullptr, &presentSemaphores_[i]));
-        check(vkCreateSemaphore(ctx.device(), &semaphoreCI, nullptr, &renderSemaphores_[i]));
+        check(vkCreateSemaphore(ctx.device(), &semaphoreCI, nullptr, &renderDoneSemaphores_[i]));
     }
 
     vector<VkFence> inFlightFences_(MAX_FRAMES_IN_FLIGHT);
@@ -130,7 +135,6 @@ int main()
     }
 
     uint32_t currentFrame = 0;
-    uint32_t currentSemaphore = 0;
 
     while (!window.isCloseRequested()) {
         window.pollEvents();
@@ -141,7 +145,7 @@ int main()
 
         uint32_t imageIndex = 0;
         VkResult result =
-            swapchain.acquireNextImage(presentSemaphores_[currentSemaphore], imageIndex);
+            swapchain.acquireNextImage(imageAcquiredSemaphores_[currentFrame], imageIndex);
 
         if (result == VK_ERROR_OUT_OF_DATE_KHR) {
             continue;
@@ -153,13 +157,13 @@ int main()
 
         // Create semaphore submit infos
         VkSemaphoreSubmitInfo waitSemaphoreInfo{VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-        waitSemaphoreInfo.semaphore = presentSemaphores_[currentSemaphore];
+        waitSemaphoreInfo.semaphore = imageAcquiredSemaphores_[currentFrame];
         waitSemaphoreInfo.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
         waitSemaphoreInfo.value = 0; // Binary semaphore
         waitSemaphoreInfo.deviceIndex = 0;
 
         VkSemaphoreSubmitInfo signalSemaphoreInfo{VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-        signalSemaphoreInfo.semaphore = renderSemaphores_[currentSemaphore];
+        signalSemaphoreInfo.semaphore = renderDoneSemaphores_[imageIndex];
         signalSemaphoreInfo.stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
         signalSemaphoreInfo.value = 0; // Binary semaphore
         signalSemaphoreInfo.deviceIndex = 0;
@@ -180,7 +184,7 @@ int main()
                              inFlightFences_[currentFrame]));
 
         VkResult presentResult = swapchain.queuePresent(ctx.graphicsQueue(), imageIndex,
-                                                        renderSemaphores_[currentSemaphore]);
+                                                        renderDoneSemaphores_[imageIndex]);
 
         if (presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR) {
 
@@ -189,15 +193,14 @@ int main()
         }
 
         currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
-        currentSemaphore = (currentSemaphore + 1) % swapchain.imageCount();
     }
 
     ctx.waitIdle();
 
-    for (auto& semaphore : presentSemaphores_) {
+    for (auto& semaphore : imageAcquiredSemaphores_) {
         vkDestroySemaphore(ctx.device(), semaphore, nullptr);
     }
-    for (auto& semaphore : renderSemaphores_) {
+    for (auto& semaphore : renderDoneSemaphores_) {
         vkDestroySemaphore(ctx.device(), semaphore, nullptr);
     }
     for (auto& fence : inFlightFences_) {

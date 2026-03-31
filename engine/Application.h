@@ -227,8 +227,8 @@ class Application
 
     vector<VkFence> waitFences_{};
 
-    vector<VkSemaphore> presentCompleteSemaphores_{};
-    vector<VkSemaphore> renderCompleteSemaphores_{};
+    vector<VkSemaphore> imageAcquiredSemaphores_{};
+    vector<VkSemaphore> renderDoneSemaphores_{};
 
     ShaderManager shaderManager_;
 

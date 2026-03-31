@@ -1,0 +1,15 @@
+<Project>
+  <PropertyGroup>
+    <VcpkgEnabled>true</VcpkgEnabled>
+    <VcpkgEnableManifest>true</VcpkgEnableManifest>
+    <VcpkgManifestInstall>true</VcpkgManifestInstall>
+    <VcpkgTriplet>x64-windows</VcpkgTriplet>
+  </PropertyGroup>
+  <!-- Tracy 0.13 header path fix: vcpkg installs to include/tracy/tracy/Tracy.hpp
+       but code uses #include <tracy/Tracy.hpp>, so we add include/tracy/ -->
+  <ItemDefinitionGroup Condition="'$(Platform)'=='x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(MSBuildThisFileDirectory)vcpkg_installed\x64-windows\x64-windows\include\tracy</AdditionalIncludeDirectories>
+    </ClCompile>
+  </ItemDefinitionGroup>
+</Project>

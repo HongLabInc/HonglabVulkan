@@ -5,6 +5,9 @@
 
 vcpkg_installed/
 build/
+_build/
+.claude/
+log.txt
 assets/characters
 assets/models
 assets/Noto_Sans_KR

@@ -11,5 +11,5 @@ target_include_directories(Ex11_PostProcessing PRIVATE
     ${CMAKE_BINARY_DIR}/vcpkg_installed/x64-linux/include
 )
 set_target_properties(Ex11_PostProcessing PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/x64
 )

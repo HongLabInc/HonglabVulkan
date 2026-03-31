@@ -18,7 +18,7 @@ Ex11_PostProcessingExample::Ex11_PostProcessingExample()
                      {{"gui", {"imgui.vert", "imgui.frag"}},
                       {"sky", {"skybox.vert.spv", "skybox.frag.spv"}},
                       {"post", {"post.vert", "post.frag"}}}},
-      guiRenderer_{ctx_, shaderManager_, swapchain_.colorFormat()},
+      guiRenderer_{ctx_, shaderManager_, swapchain_.colorFormat(), kMaxFramesInFlight},
       skyPipeline_(ctx_, shaderManager_), samplerLinearRepeat_(ctx_), samplerLinearClamp_(ctx_)
 {
     printLog("Current working directory: {}", std::filesystem::current_path().string());
@@ -37,13 +37,18 @@ Ex11_PostProcessingExample::Ex11_PostProcessingExample()
 
     uint32_t imageCount = swapchain_.imageCount();
 
-    // Create semaphores
-    presentSemaphores_.resize(imageCount);
-    renderSemaphores_.resize(imageCount);
+    // Acquire semaphores: per frame-in-flight (fence guards reuse)
+    imageAcquiredSemaphores_.resize(kMaxFramesInFlight);
+    for (size_t i = 0; i < kMaxFramesInFlight; i++) {
+        VkSemaphoreCreateInfo semaphoreCI{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+        check(vkCreateSemaphore(ctx_.device(), &semaphoreCI, nullptr, &imageAcquiredSemaphores_[i]));
+    }
+
+    // Render-done semaphores: per swapchain image (vkAcquireNextImageKHR guards reuse)
+    renderDoneSemaphores_.resize(imageCount);
     for (size_t i = 0; i < imageCount; i++) {
         VkSemaphoreCreateInfo semaphoreCI{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-        check(vkCreateSemaphore(ctx_.device(), &semaphoreCI, nullptr, &presentSemaphores_[i]));
-        check(vkCreateSemaphore(ctx_.device(), &semaphoreCI, nullptr, &renderSemaphores_[i]));
+        check(vkCreateSemaphore(ctx_.device(), &semaphoreCI, nullptr, &renderDoneSemaphores_[i]));
     }
 
     // Create fences
@@ -74,10 +79,10 @@ Ex11_PostProcessingExample::~Ex11_PostProcessingExample()
 {
     ctx_.waitIdle();
 
-    for (auto& semaphore : presentSemaphores_) {
+    for (auto& semaphore : imageAcquiredSemaphores_) {
         vkDestroySemaphore(ctx_.device(), semaphore, nullptr);
     }
-    for (auto& semaphore : renderSemaphores_) {
+    for (auto& semaphore : renderDoneSemaphores_) {
         vkDestroySemaphore(ctx_.device(), semaphore, nullptr);
     }
     for (auto& fence : inFlightFences_) {
@@ -202,7 +207,7 @@ void Ex11_PostProcessingExample::renderFrame()
 
     uint32_t imageIndex = 0;
     VkResult acquireResult =
-        swapchain_.acquireNextImage(presentSemaphores_[currentSemaphore_], imageIndex);
+        swapchain_.acquireNextImage(imageAcquiredSemaphores_[currentFrame_], imageIndex);
 
     if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR) {
         exitWithMessage("Window resize not implemented");
@@ -212,12 +217,12 @@ void Ex11_PostProcessingExample::renderFrame()
 
     recordCommandBuffer(commandBuffers_[currentFrame_], imageIndex, windowSize_);
 
-    submitFrame(commandBuffers_[currentFrame_], presentSemaphores_[currentSemaphore_],
-                renderSemaphores_[currentSemaphore_], inFlightFences_[currentFrame_]);
+    submitFrame(commandBuffers_[currentFrame_], imageAcquiredSemaphores_[currentFrame_],
+                renderDoneSemaphores_[imageIndex], inFlightFences_[currentFrame_]);
 
     // Present frame
     VkResult presentResult = swapchain_.queuePresent(ctx_.graphicsQueue(), imageIndex,
-                                                     renderSemaphores_[currentSemaphore_]);
+                                                     renderDoneSemaphores_[imageIndex]);
 
     if (presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR) {
         exitWithMessage("Window resize not implemented");
@@ -226,7 +231,6 @@ void Ex11_PostProcessingExample::renderFrame()
     }
 
     currentFrame_ = (currentFrame_ + 1) % kMaxFramesInFlight;
-    currentSemaphore_ = (currentSemaphore_ + 1) % swapchain_.imageCount();
 }
 
 void Ex11_PostProcessingExample::updateGui(VkExtent2D windowSize)

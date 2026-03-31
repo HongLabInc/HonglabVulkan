@@ -8,5 +8,5 @@ target_include_directories(Ex09_Gui PRIVATE
     ${CMAKE_BINARY_DIR}/vcpkg_installed/x64-linux/include
 )
 set_target_properties(Ex09_Gui PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/x64
 )

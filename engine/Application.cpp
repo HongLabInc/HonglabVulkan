@@ -32,7 +32,7 @@ Application::Application(const ApplicationConfig& config)
                       {"deferredLighting", {"deferredLighting.comp.spv"}},
                       {"post", {"post.vert.spv", "post.frag.spv"}},
                       {"gui", {"imgui.vert", "imgui.frag"}}}),
-      guiRenderer_(ctx_, shaderManager_, swapchain_.colorFormat()),
+      guiRenderer_(ctx_, shaderManager_, swapchain_.colorFormat(), kMaxFramesInFlight),
       gpuTimer_(ctx_, kMaxFramesInFlight) // Initialize GPU timer
 {
     initializeVulkanResources();
@@ -74,15 +74,22 @@ void Application::initializeVulkanResources()
         check(vkCreateFence(ctx_.device(), &fenceCreateInfo, nullptr, &fence));
     }
 
-    // Initialize semaphores
-    presentCompleteSemaphores_.resize(swapchain_.images().size());
-    renderCompleteSemaphores_.resize(swapchain_.images().size());
+    // Acquire semaphores: per frame-in-flight (fence guards reuse)
+    imageAcquiredSemaphores_.resize(kMaxFramesInFlight);
+    for (size_t i = 0; i < kMaxFramesInFlight; i++) {
+        VkSemaphoreCreateInfo semaphoreCI{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+        check(vkCreateSemaphore(ctx_.device(), &semaphoreCI, nullptr,
+                                &imageAcquiredSemaphores_[i]));
+    }
+
+    // Render-done semaphores: per swapchain image (vkAcquireNextImageKHR guards reuse)
+    assert(kMaxFramesInFlight <= swapchain_.images().size()
+           && "kMaxFramesInFlight must not exceed swapchain image count");
+    renderDoneSemaphores_.resize(swapchain_.images().size());
     for (size_t i = 0; i < swapchain_.images().size(); i++) {
         VkSemaphoreCreateInfo semaphoreCI{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
         check(vkCreateSemaphore(ctx_.device(), &semaphoreCI, nullptr,
-                                &presentCompleteSemaphores_[i]));
-        check(
-            vkCreateSemaphore(ctx_.device(), &semaphoreCI, nullptr, &renderCompleteSemaphores_[i]));
+                                &renderDoneSemaphores_[i]));
     }
 }
 
@@ -327,13 +334,17 @@ void Application::setupCallbacks()
 
 Application::~Application()
 {
+    ctx_.waitIdle();
+
     for (auto& cmd : commandBuffers_) {
         cmd.cleanup();
     }
 
-    for (size_t i = 0; i < swapchain_.images().size(); i++) {
-        vkDestroySemaphore(ctx_.device(), presentCompleteSemaphores_[i], nullptr);
-        vkDestroySemaphore(ctx_.device(), renderCompleteSemaphores_[i], nullptr);
+    for (auto& sem : imageAcquiredSemaphores_) {
+        vkDestroySemaphore(ctx_.device(), sem, nullptr);
+    }
+    for (auto& sem : renderDoneSemaphores_) {
+        vkDestroySemaphore(ctx_.device(), sem, nullptr);
     }
 
     for (auto& fence : waitFences_) {
@@ -352,8 +363,7 @@ void Application::run()
     // 렌더러가 파이프라인을 사용할 때 어떤 리소스를 넣을지 결정한다.
 
     uint32_t frameCounter = 0;
-    uint32_t currentFrame = 0;     // For CPU resources (command buffers, fences)
-    uint32_t currentSemaphore = 0; // For GPU semaphores (swapchain sync)
+    uint32_t currentFrame = 0; // For CPU resources (command buffers, fences, acquire semaphores)
 
     // NEW: Animation timing variables
     auto lastTime = std::chrono::high_resolution_clock::now();
@@ -484,13 +494,13 @@ void Application::run()
             guiRenderer_.update(currentFrame);
         }
 
-        // Acquire using currentSemaphore index (GPU-side semaphore)
+        // Acquire using currentFrame index (fence guards semaphore reuse)
         uint32_t imageIndex{0};
         VkResult result;
         {
             TRACY_CPU_SCOPE("Swapchain Image Acquire");
             result = vkAcquireNextImageKHR(ctx_.device(), swapchain_.handle(), UINT64_MAX,
-                                           presentCompleteSemaphores_[currentSemaphore],
+                                           imageAcquiredSemaphores_[currentFrame],
                                            VK_NULL_HANDLE, &imageIndex);
         }
 
@@ -591,9 +601,9 @@ void Application::run()
         submitInfo.pCommandBuffers = &cmd.handle();
         submitInfo.commandBufferCount = 1;
         submitInfo.pWaitDstStageMask = &waitStageMask;
-        submitInfo.pWaitSemaphores = &presentCompleteSemaphores_[currentSemaphore];
+        submitInfo.pWaitSemaphores = &imageAcquiredSemaphores_[currentFrame];
         submitInfo.waitSemaphoreCount = 1;
-        submitInfo.pSignalSemaphores = &renderCompleteSemaphores_[currentSemaphore];
+        submitInfo.pSignalSemaphores = &renderDoneSemaphores_[imageIndex];
         submitInfo.signalSemaphoreCount = 1;
 
         {
@@ -604,7 +614,7 @@ void Application::run()
         // Present (NOT included in GPU timing)
         VkPresentInfoKHR presentInfo{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
         presentInfo.waitSemaphoreCount = 1;
-        presentInfo.pWaitSemaphores = &renderCompleteSemaphores_[currentSemaphore];
+        presentInfo.pWaitSemaphores = &renderDoneSemaphores_[imageIndex];
         presentInfo.swapchainCount = 1;
         presentInfo.pSwapchains = &swapchain_.handle();
         presentInfo.pImageIndices = &imageIndex;
@@ -615,7 +625,6 @@ void Application::run()
         }
 
         currentFrame = (currentFrame + 1) % kMaxFramesInFlight;
-        currentSemaphore = (currentSemaphore + 1) % swapchain_.imageCount();
 
         frameCounter++;
 
@@ -1554,11 +1563,14 @@ void Application::handleMouseMove(int32_t x, int32_t y)
     }
 
     if (mouseState_.buttons.right) {
-        camera_.translate(glm::vec3(-0.0f, 0.0f, dy * .005f));
+        glm::vec3 forward = glm::vec3(camera_.matrices.view[0][2], camera_.matrices.view[1][2], camera_.matrices.view[2][2]);
+        camera_.translate(forward * (float)dy * 0.005f);
     }
 
     if (mouseState_.buttons.middle) {
-        camera_.translate(glm::vec3(-dx * 0.005f, dy * 0.005f, 0.0f));
+        glm::vec3 right = glm::vec3(camera_.matrices.view[0][0], camera_.matrices.view[1][0], camera_.matrices.view[2][0]);
+        glm::vec3 up = glm::vec3(camera_.matrices.view[0][1], camera_.matrices.view[1][1], camera_.matrices.view[2][1]);
+        camera_.translate(right * (float)dx * -0.005f + up * (float)dy * 0.005f);
     }
 
     mouseState_.position = glm::vec2((float)x, (float)y);

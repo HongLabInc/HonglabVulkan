@@ -113,14 +113,13 @@ class Ex11_PostProcessingExample
 
     // Frame resources
     std::vector<CommandBuffer> commandBuffers_;
-    std::vector<VkSemaphore> presentSemaphores_;
-    std::vector<VkSemaphore> renderSemaphores_;
+    std::vector<VkSemaphore> imageAcquiredSemaphores_;
+    std::vector<VkSemaphore> renderDoneSemaphores_;
     std::vector<VkFence> inFlightFences_;
 
     // Application state
     MouseState mouseState_;
     uint32_t currentFrame_{0};
-    uint32_t currentSemaphore_{0};
     bool shouldClose_{false};
 
     // Camera

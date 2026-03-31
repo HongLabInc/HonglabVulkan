@@ -12,8 +12,6 @@ add_library(Engine STATIC
     CommandBuffer.h
     Context.cpp
     Context.h
-    DepthStencil.cpp
-    DepthStencil.h
     DescriptorPool.cpp
     DescriptorPool.h
     DescriptorSet.cpp
@@ -41,17 +39,16 @@ add_library(Engine STATIC
     Pipeline.cpp
     Pipeline.h
     PipelineCompute.cpp
-    PipelineGui.cpp
-    PipelinePbrDeferred.cpp
-    PipelinePbrForward.cpp
-    PipelinePost.cpp
-    PipelineShadowMap.cpp
-    PipelineSky.cpp
-    PipelineTriangle.cpp
+    PipelineConfig.cpp
+    PipelineConfig.h
     PushConstants.cpp
     PushConstants.h
+    RenderGraph.cpp
+    RenderGraph.h
     Renderer.cpp
     Renderer.h
+    Resource.cpp
+    Resource.h
     ResourceBinding.cpp
     ResourceBinding.h
     Sampler.cpp
@@ -60,26 +57,16 @@ add_library(Engine STATIC
     Shader.h
     ShaderManager.cpp
     ShaderManager.h
-    ShadowMap.cpp
-    ShadowMap.h
     Skeleton.cpp
     Skeleton.h
-    SkyTextures.cpp
-    SkyTextures.h
     StorageBuffer.cpp
     StorageBuffer.h
     Swapchain.cpp
     Swapchain.h
     TextureManager.cpp
     TextureManager.h
-    TextureManagerAtlas.cpp
-    TextureManagerAtlas.h
-    TextureManagerCube.cpp
-    TextureManagerCube.h
     TracyProfiler.cpp
     TracyProfiler.h
-    UniformBuffer.cpp
-    UniformBuffer.h
     Vertex.cpp
     Vertex.h
     ViewFrustum.cpp
@@ -94,10 +81,9 @@ add_library(Engine STATIC
 target_include_directories(Engine PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}
-    ${CMAKE_BINARY_DIR}/vcpkg_installed/x64-linux/include
 )
 
-# Add compiler definitions to fix C++20 compatibility issues
+# Compiler definitions
 target_compile_definitions(Engine PUBLIC
     GLM_ENABLE_EXPERIMENTAL
     GLM_FORCE_RADIANS
@@ -105,26 +91,21 @@ target_compile_definitions(Engine PUBLIC
     GLFW_INCLUDE_VULKAN
 )
 
-# Tracy profiler support - Enable by default in Debug builds
-option(ENABLE_TRACY "Enable Tracy profiler" OFF)
-if(CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
-    set(ENABLE_TRACY ON CACHE BOOL "Enable Tracy profiler in debug builds" FORCE)
+if(MSVC)
+    target_compile_definitions(Engine PUBLIC NOMINMAX _CRT_SECURE_NO_WARNINGS)
 endif()
 
-if(ENABLE_TRACY)
-    target_compile_definitions(Engine PUBLIC 
-        TRACY_ENABLE
-        TRACY_ON_DEMAND
+# Tracy profiler support - Only enable if Tracy is actually available
+find_package(Tracy QUIET CONFIG)
+if(TARGET Tracy::TracyClient)
+    target_compile_definitions(Engine PUBLIC
+        $<$<CONFIG:Debug,RelWithDebInfo>:TRACY_ENABLE>
+        $<$<CONFIG:Debug,RelWithDebInfo>:TRACY_ON_DEMAND>
     )
-    message(STATUS "Engine: Tracy profiler ENABLED")
-else()
-    message(STATUS "Engine: Tracy profiler DISABLED")
-endif()
-
-# Link Tracy if available
-if(TARGET Tracy::TracyClient AND ENABLE_TRACY)
     target_link_libraries(Engine PUBLIC Tracy::TracyClient)
-    message(STATUS "Engine: Linked Tracy::TracyClient")
+    message(STATUS "Engine: Tracy profiler available (enabled in Debug/RelWithDebInfo)")
+else()
+    message(STATUS "Engine: Tracy profiler not available")
 endif()
 
 # Link required dependencies
@@ -161,23 +142,26 @@ elseif(TARGET spirv-reflect::spirv-reflect)
     target_compile_definitions(Engine PUBLIC HAS_SPIRV_REFLECT)
 endif()
 
-# Handle KTX - prioritize manually built KTX over vcpkg
+# Handle KTX
 if(TARGET ktx::ktx)
-    # Use manually built KTX from /mnt/d/UbuntuTestFolder/KTX-Software
     target_link_libraries(Engine PUBLIC ktx::ktx)
     target_compile_definitions(Engine PUBLIC HAS_KTX)
-    message(STATUS "Engine: Using manually built KTX library from /mnt/d/UbuntuTestFolder/KTX-Software")
-elseif(TARGET unofficial::ktx::ktx)
-    # Fallback to vcpkg KTX if available
-    target_link_libraries(Engine PUBLIC unofficial::ktx::ktx)
+    message(STATUS "Engine: Using KTX library (manual build)")
+elseif(TARGET KTX::ktx)
+    target_link_libraries(Engine PUBLIC KTX::ktx)
     target_compile_definitions(Engine PUBLIC HAS_KTX)
-    message(STATUS "Engine: Using vcpkg KTX library")
+    message(STATUS "Engine: Using KTX library (vcpkg)")
 else()
     message(STATUS "Engine: KTX library not found")
 endif()
 
-# Compiler-specific options (changed to C++20 to match main CMakeLists.txt)
+# C++ standard
 target_compile_features(Engine PUBLIC cxx_std_20)
+
+# MSVC options
+if(MSVC)
+    target_compile_options(Engine PUBLIC /MP)
+endif()
 
 # Platform-specific settings
 if(UNIX AND NOT APPLE)

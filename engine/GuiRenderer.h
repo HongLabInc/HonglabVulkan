@@ -25,7 +25,7 @@ struct PushConstBlock
 class GuiRenderer
 {
   public:
-    GuiRenderer(Context& ctx, ShaderManager& shaderManager, VkFormat colorFormat);
+    GuiRenderer(Context& ctx, ShaderManager& shaderManager, VkFormat colorFormat, uint32_t maxFramesInFlight = 2);
     ~GuiRenderer();
 
     void draw(const VkCommandBuffer cmd, VkImageView swapchainImageView, VkViewport viewport, uint32_t frameIndex);
@@ -35,19 +35,17 @@ class GuiRenderer
     auto imguiPipeline() -> Pipeline&;
 
   private:
-    static constexpr uint32_t kMaxFramesInFlight = 2;
-    
     struct FrameData {
         MappedBuffer vertexBuffer;
         MappedBuffer indexBuffer;
-        
+
         FrameData(Context& ctx) : vertexBuffer(ctx), indexBuffer(ctx) {}
     };
 
     Context& ctx_;
     ShaderManager& shaderManager_;
 
-    std::array<FrameData, kMaxFramesInFlight> frameData_;
+    vector<unique_ptr<FrameData>> frameData_;
 
     // Current frame data counters (updated each frame)
     uint32_t vertexCount_{0};
