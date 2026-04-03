@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>런타임 Shader Reflection 제거</title>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.7; color: #333; }
+        h1 { border-bottom: 2px solid #333; padding-bottom: 10px; }
+        h2 { margin-top: 40px; color: #1a1a1a; }
+        h3 { margin-top: 30px; color: #444; }
+        table { border-collapse: collapse; width: 100%; margin: 20px 0; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; vertical-align: top; }
+        th { background-color: #f5f5f5; font-weight: bold; }
+        a { color: #0066cc; }
+        ul { padding-left: 20px; }
+        code { background: #f0f0f0; padding: 2px 6px; border-radius: 3px; font-size: 0.9em; }
+        pre { background: #f5f5f5; padding: 16px; border-radius: 6px; overflow-x: auto; font-size: 0.88em; line-height: 1.5; }
+        pre code { background: none; padding: 0; }
+        .notice { color: #c00; font-weight: bold; }
+        .good { color: #070; }
+        blockquote { border-left: 3px solid #ccc; margin: 16px 0; padding: 8px 16px; color: #555; background: #fafafa; }
+        .summary-box { background: #f0f7ff; border: 1px solid #cce0ff; border-radius: 6px; padding: 16px 20px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+
+<h1>런타임 Shader Reflection 제거</h1>
+
+<div class="summary-box">
+    <strong>한 줄 요약:</strong> 앱 시작 시 SPIR-V를 파싱해서 바인딩 정보를 자동 추출하던 시스템을,
+    C++ 코드에 직접 쓰는 명시적 방식으로 교체한다.
+</div>
+
+<ul>
+    <li>기존 시스템은 프로덕션 수준으로 잘 만들어진 코드였다. 기술적 결함 때문이 아니라, <strong>업계 흐름과 AI 도구의 발전</strong> 때문에 제거한다.</li>
+    <li><span class="notice">[주의]</span> 강의 영상의 코드와 실제 코드가 다를 수 있습니다.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2>Shader Reflection이 뭔가요?</h2>
+
+<p>Vulkan에서 파이프라인을 만들려면 C++ 코드에서 "이 셰이더가 어떤 리소스를 사용하는지"를
+정확히 기술해야 한다. 예를 들어 셰이더에 다음과 같은 코드가 있다면:</p>
+
+<pre><code>// 셰이더 (GLSL)
+layout(set=0, binding=0) uniform SceneUBO { mat4 viewProj; };
+layout(set=1, binding=0) uniform sampler2D albedoTex;
+layout(set=1, binding=1) uniform sampler2D normalTex;</code></pre>
+
+<p>C++ 쪽에서도 <strong>동일한 정보</strong>를 기술해야 한다:</p>
+
+<pre><code>// C++ — 셰이더와 정확히 일치해야 함
+VkDescriptorSetLayoutBinding bindings[] = {
+    {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         1, VK_SHADER_STAGE_VERTEX_BIT},
+    {0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT},
+    {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT},
+};</code></pre>
+
+<p><strong>Reflection</strong>이란, 컴파일된 SPIR-V 바이너리를 파싱하여 이 정보를 <strong>자동으로 추출</strong>하는 것이다.
+셰이더만 작성하면 C++ 코드를 수정하지 않아도 파이프라인이 자동으로 구성된다.</p>
+
+<!-- ============================================================ -->
+<h2>기존 시스템이 한 일</h2>
+
+<p><code>ShaderManager</code>가 spirv-reflect 라이브러리를 사용해서 앱 시작 시 자동으로 추출한 것:</p>
+
+<ul>
+    <li><strong>디스크립터 셋 레이아웃</strong> — set/binding 번호, 타입, 셰이더 스테이지</li>
+    <li><strong>버텍스 인풋 포맷</strong> — position, normal, UV 등의 메모리 레이아웃</li>
+    <li><strong>푸시 상수 범위</strong> — 크기와 사용 스테이지</li>
+    <li><strong>컴퓨트 셰이더 워크그룹 크기</strong> — dispatch 시 그리드 자동 계산</li>
+    <li><strong>읽기/쓰기 패턴</strong> — 파이프라인 배리어 자동 삽입</li>
+</ul>
+
+<h3>이 구현이 프로덕션 수준인 이유</h3>
+
+<p>단순한 "바인딩 번호 읽기"를 넘어서, 실제 엔진에서 요구되는 고급 기능을 포함한다:</p>
+
+<table>
+    <tr><th style="width:200px;">기능</th><th>설명</th></tr>
+    <tr><td>레이아웃 중복 제거</td><td>여러 파이프라인에서 같은 바인딩 구조를 쓰면 <code>VkDescriptorSetLayout</code>을 하나만 생성</td></tr>
+    <tr><td>스테이지 플래그 합산</td><td>같은 바인딩이 vertex + fragment 셰이더 양쪽에서 쓰이면 <code>stageFlags</code>를 OR로 합침</td></tr>
+    <tr><td>쓰기 전용 감지</td><td>SPIR-V 데코레이션을 검사해서 접근 패턴 판별</td></tr>
+    <tr><td>자동 배리어 정보</td><td><code>BindingInfo</code>에 <code>targetLayout</code>, <code>targetAccess</code>, <code>targetStage</code>를 저장해서 배리어 자동 삽입</td></tr>
+    <tr><td>가변 디스크립터 수</td><td>배열 바인딩을 감지해서 <code>PARTIALLY_BOUND</code> 플래그 자동 설정</td></tr>
+</table>
+
+<p>특히 자동 배리어 정보 추출은 프레임 그래프 기반 엔진에서나 볼 수 있는 수준이다.
+<strong>분명히 해둘 것: 이것은 잘 만든 코드였고, 실제 문제를 해결했다.</strong></p>
+
+<!-- ============================================================ -->
+<h2>왜 제거하는가</h2>
+
+<h3>이유 1. AI가 Reflection의 역할을 대체한다</h3>
+
+<p>런타임 Reflection이 가치 있었던 이유는 <strong>사람의 실수 방지</strong>였다.
+셰이더의 바인딩을 변경하면 C++ 쪽 코드가 자동으로 반영되므로,
+양쪽을 수동으로 동기화할 필요가 없었다.</p>
+
+<p>그러나 AI를 사용하는 환경에서는 이 장점이 약해진다:</p>
+<ul>
+    <li>AI가 셰이더를 읽고 대응하는 C++ 바인딩 코드를 생성할 수 있다</li>
+    <li>셰이더와 C++ 양쪽을 동시에 수정할 수 있다</li>
+    <li>불일치가 있으면 코드 리뷰 시 감지할 수 있다</li>
+    <li>"단일 진실의 원천(single source of truth)"이라는 Reflection의 핵심 이점이 희석된다</li>
+</ul>
+
+<p>빌드타임 Reflection 도구(<a href="https://github.com/floooh/sokol-tools/blob/master/docs/sokol-shdc.md">sokol-shdc</a>,
+<a href="https://floooh.github.io/2017/05/15/oryol-spirv.html">Oryol 셰이더 파이프라인</a>)도
+동일한 문제를 오프라인 코드 생성으로 해결한다.
+그런데 AI가 셰이더와 C++ 코드를 동시에 생성한다면, <strong>빌드 도구 자체도 불필요</strong>해진다.</p>
+
+<h3>이유 2. 업계가 런타임 Reflection에서 떠났다</h3>
+
+<p>실제 출시되는 게임 엔진들은 대부분 명시적 정의 또는 빌드타임 접근법을 쓴다:</p>
+
+<table>
+    <tr><th style="width:180px;">엔진</th><th>접근법</th></tr>
+    <tr><td>DOOM Eternal<br><small>(id Tech 7)</small></td><td>게임 전체에 약 12개 고정 디스크립터 레이아웃. 완전 bindless. 런타임 Reflection 없음.<br><small>출처: SIGGRAPH 2020 — <a href="https://advances.realtimerendering.com/s2020/RenderingDoomEternal.pdf">"Rendering the Hellscape of DOOM Eternal"</a></small></td></tr>
+    <tr><td>The Forge<br><small>(ConfettiFX)</small></td><td>Shader Resource Table(SRT)로 런타임 Reflection 완전 제거. 셰이더와 C++가 같은 매크로 공유.<br><small>출처: <a href="https://github.com/ConfettiFX/The-Forge/wiki/FSL-Programming-Guide">FSL Programming Guide</a></small></td></tr>
+    <tr><td>Unreal Engine</td><td>셰이더 쿠킹 파이프라인이 빌드 시 메타데이터 추출. 출시 빌드에 SPIR-V 파싱 없음.</td></tr>
+    <tr><td>Frostbite<br><small>(EA DICE)</small></td><td>프레임 그래프 + 빌드타임 메타데이터. 런타임 Reflection 없음.</td></tr>
+    <tr><td>Filament<br><small>(Google)</small></td><td>머티리얼 컴파일러(<code>matc</code>)가 빌드 시 바인딩 정보 삽입.</td></tr>
+</table>
+
+<p>Reflection 라이브러리(SPIRV-Cross)의 저자조차 이렇게 말한다:</p>
+
+<blockquote>
+    "게임 엔진 시나리오에서 SPIR-V를 런타임에 컴파일할 필요가 없다면,
+    Reflection도 오프라인으로 옮기지 못할 이유가 없다."<br><br>
+    "Bindless 디스크립터를 쓰거나 표준화된 파이프라인 레이아웃을 쓰면,
+    Reflection은 사실상 의미가 없어진다."<br><br>
+    — Hans-Kristian Arntzen, <a href="https://themaister.net/blog/2019/04/20/a-tour-of-granites-vulkan-backend-part-3/">Granite Vulkan Backend Part 3</a>
+</blockquote>
+
+<h3>이유 3. 런타임 비용 대비 이득이 없다</h3>
+
+<p>본 프로젝트의 셰이더는 빌드 시점에 확정된다. 매 실행마다 동일한 SPIR-V를 파싱하여
+동일한 결과를 얻는 것은 불필요한 비용이다:</p>
+
+<table>
+    <tr><th style="width:150px;">비용</th><th>내용</th></tr>
+    <tr><td>바이너리 크기</td><td>spirv-reflect 라이브러리를 앱과 함께 배포해야 함</td></tr>
+    <tr><td>시작 시간</td><td>매 실행마다 모든 셰이더의 SPIR-V를 파싱</td></tr>
+    <tr><td>디버깅 난이도</td><td>"이 바인딩이 어디서 왔지?" → Reflection 코드를 추적해야 함</td></tr>
+    <tr><td>의존성</td><td>외부 라이브러리를 빌드, 링크, 유지보수해야 함</td></tr>
+</table>
+
+<h3>이유 4. Reflection은 어려운 문제를 못 푼다</h3>
+
+<p>Reflection은 <strong>구조적 정보</strong>만 알려주고, <strong>의미</strong>는 알려주지 못한다:</p>
+
+<table>
+    <tr><th>Reflection이 아는 것</th><th>Reflection이 모르는 것</th></tr>
+    <tr><td>"binding 0은 uniform buffer, 128바이트"</td><td>"이건 카메라 행렬이다"</td></tr>
+    <tr><td>"binding 1은 combined_image_sampler"</td><td>"이건 쉐도우맵이다"</td></tr>
+    <tr><td>"set 0에 바인딩이 3개 있다"</td><td>"set 0은 프레임당 1번만 업데이트해야 한다"</td></tr>
+</table>
+
+<p>결국 개발자는 의미를 직접 파악해야 한다. Reflection이 자동화하는 것은 기계적인 부분에 한정되며,
+그 기계적인 부분은 명시적으로 작성하기 <strong>가장 쉬운</strong> 부분이기도 하다.</p>
+
+<h3>이유 5. 명시적 코드가 더 읽기 쉽다</h3>
+
+<p><strong>Reflection 방식</strong> — 바인딩의 출처를 추적해야 한다:</p>
+<pre><code>// 추적 경로: shader.spv → spirv-reflect → ShaderManager → DescriptorPool → Pipeline
+auto pipeline = createPipelineFromReflection("pbrForward");</code></pre>
+
+<p><strong>명시적 방식</strong> — 코드 자체가 문서 역할을 한다:</p>
+<pre><code>VkDescriptorSetLayoutBinding bindings[] = {
+    {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT},
+    {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT},
+    {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,         1, VK_SHADER_STAGE_FRAGMENT_BIT},
+};</code></pre>
+
+<p>교육용 코드베이스에서 명시성은 부담이 아니라 <strong>장점</strong>이다.</p>
+
+<h3>이유 6. WebGPU의 설계가 이 방향을 뒷받침한다</h3>
+
+<p>WebGPU 스펙(2020–2024년, Vulkan의 교훈을 반영해서 설계)은 <code>layout: 'auto'</code>를 제공하지만,
+프로덕션에서는 사용하지 말 것을 권장한다:</p>
+
+<blockquote>
+    "자동 파이프라인 레이아웃은 바인드 그룹 공유를 막고, 셰이더를 수정하면
+    예측할 수 없는 방식으로 변할 수 있다. <code>layout: 'auto'</code>는
+    다른 파이프라인과 상태를 거의 공유하지 않는 일회성 파이프라인에만 쓸 것."<br><br>
+    — Brandon Jones (Google Chrome WebGPU 팀),
+    <a href="https://toji.dev/webgpu-best-practices/bind-groups.html">WebGPU Bind Group Best Practices</a>
+</blockquote>
+
+<!-- ============================================================ -->
+<h2>대체하는 구조</h2>
+
+<h3>업데이트 빈도에 따른 디스크립터 셋 분리</h3>
+
+<p>The Forge의 SRT, DOOM Eternal, GPU 벤더 가이드 모두 같은 관례를 사용한다:</p>
+
+<table>
+    <tr><th>Set</th><th>용도</th><th>업데이트 빈도</th><th>예시</th></tr>
+    <tr><td>0</td><td>씬 전역</td><td>프레임당 1회</td><td>카메라 UBO, 라이트 UBO, 환경맵</td></tr>
+    <tr><td>1</td><td>머티리얼</td><td>머티리얼 변경 시</td><td>머티리얼 버퍼, 텍스처 배열</td></tr>
+    <tr><td>2</td><td>오브젝트별</td><td>드로우콜마다</td><td>모델 트랜스폼, 본 행렬</td></tr>
+</table>
+
+<h3>명시적 버텍스 인풋</h3>
+<pre><code>// Vertex.h — 셰이더의 layout(location=N)과 정확히 대응
+static std::vector&lt;VkVertexInputAttributeDescription&gt; getAttributeDescriptions() {
+    return {
+        {0, 0, VK_FORMAT_R16G16B16_SFLOAT, offsetof(Vertex, position)},
+        {1, 0, VK_FORMAT_R16G16B16_SFLOAT, offsetof(Vertex, normal)},
+        {2, 0, VK_FORMAT_R16G16_SFLOAT,    offsetof(Vertex, texCoord)},
+    };
+}</code></pre>
+
+<h3>명시적 푸시 상수</h3>
+<pre><code>VkPushConstantRange pushConstantRange = {
+    .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+    .offset = 0,
+    .size = sizeof(PushConstants),
+};</code></pre>
+
+<!-- ============================================================ -->
+<h2>잃는 것 — 솔직한 트레이드오프</h2>
+
+<table>
+    <tr><th style="width:240px;">잃는 기능</th><th>대응 방안</th></tr>
+    <tr><td>셰이더 바인딩 변경 시 자동 적응</td><td>AI가 C++ 코드 동시 수정. 디버그 빌드에서 validation layer가 불일치 감지</td></tr>
+    <tr><td>Reflection 기반 자동 배리어 대상 결정</td><td>파이프라인이 확정되면 전환 대상 레이아웃도 확정된다. <code>transitionTo()</code> 호출 자체는 Reflection 유무와 무관하게 동일하며, 대상 레이아웃만 상수로 명시하면 된다.</td></tr>
+    <tr><td>레이아웃 중복 제거</td><td>소수의 고정 레이아웃을 수동으로 공유 — 레이아웃이 적으면 간단</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2>업계 접근법 비교</h2>
+
+<table>
+    <tr><th></th><th>런타임 Reflection<br><small>(우리 기존 방식)</small></th><th>빌드타임 Reflection<br><small>(Oryol, sokol-shdc)</small></th><th>명시적 정의<br><small>(The Forge, DOOM Eternal)</small></th></tr>
+    <tr><td><strong>작동 시점</strong></td><td>앱 시작 시 SPIR-V 파싱</td><td>빌드 시 파싱 → C++ 헤더 생성</td><td>셰이더와 C++가 같은 선언 공유</td></tr>
+    <tr><td><strong>배포 의존성</strong></td><td>spirv-reflect 배포 필요</td><td>빌드 도구만 필요</td><td>매크로만 (의존성 제로)</td></tr>
+    <tr><td><strong>에러 발견 시점</strong></td><td>런타임 크래시</td><td>빌드 실패</td><td>컴파일 에러</td></tr>
+    <tr><td><strong>유연성</strong></td><td>높음 (에디터, 핫리로드)</td><td>중간</td><td>고정 구조, 최대 성능</td></tr>
+    <tr><td><strong>AI 시대 적합성</strong></td><td>AI가 대체 가능</td><td>AI가 대체 가능</td><td class="good"><strong>AI와 가장 잘 맞음</strong></td></tr>
+</table>
+
+<p>AI가 셰이더와 C++ 바인딩을 동시에 생성하면 빌드 도구 자체가 불필요해진다.
+<strong>우리는 오른쪽 끝(명시적 정의)으로 이동한다.</strong></p>
+
+<!-- ============================================================ -->
+<h2>영향받는 파일</h2>
+
+<table>
+    <tr><th style="width:250px;">파일</th><th>변경 내용</th></tr>
+    <tr><td><code>engine/Shader.h/cpp</code></td><td><code>SpvReflectShaderModule</code>, <code>makeVertexInputAttributeDescriptions()</code>, <code>getLocalWorkgroupSize()</code> 제거</td></tr>
+    <tr><td><code>engine/ShaderManager.h/cpp</code></td><td><code>BindingInfo</code>, <code>LayoutInfo</code>, <code>collectLayoutInfos()</code> 및 바인딩 수집 로직 제거</td></tr>
+    <tr><td><code>engine/DescriptorPool.h/cpp</code></td><td>ShaderManager로부터 <code>createLayouts()</code> 제거. 명시적 레이아웃 입력 방식으로 변경</td></tr>
+    <tr><td><code>engine/Pipeline.h/cpp</code></td><td>Reflection 기반 자동 바인딩 제거. 명시적 디스크립터 셋 레이아웃 입력으로 변경</td></tr>
+    <tr><td><code>CMakeLists.txt</code> / <code>vcpkg.json</code></td><td>spirv-reflect 의존성 제거</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2>참고 문헌</h2>
+
+<h3>프로덕션 엔진 — Reflection 미사용 / 명시적 방식</h3>
+<ul>
+    <li>SIGGRAPH 2020 — <a href="https://advances.realtimerendering.com/s2020/RenderingDoomEternal.pdf">Rendering DOOM Eternal</a> (Axel Gneiting, Jean Gefroy)</li>
+    <li><a href="https://simoncoenen.com/blog/programming/graphics/DoomEternalStudy">DOOM Eternal Graphics Study</a> (Simon Coenen)</li>
+    <li><a href="https://github.com/ConfettiFX/The-Forge/wiki/FSL-Programming-Guide">FSL Programming Guide — The Forge SRT</a> (ConfettiFX)</li>
+    <li><a href="https://zoo.dev/blog/vulkan-resource-binding-2023">Vulkan Shader Resource Binding in 2023</a> (Zoo.dev)</li>
+</ul>
+
+<h3>빌드타임 Reflection — 중간 단계</h3>
+<ul>
+    <li><a href="https://floooh.github.io/2017/05/15/oryol-spirv.html">Oryol SPIRV-based Shader Pipeline</a> (Andre Weissflog)</li>
+    <li><a href="https://github.com/floooh/sokol-tools/blob/master/docs/sokol-shdc.md">sokol-shdc Documentation</a> (Andre Weissflog)</li>
+    <li><a href="https://kylehalladay.com/blog/tutorial/2017/11/27/Vulkan-Material-System.html">Vulkan Material System</a> (Kyle Halladay)</li>
+</ul>
+
+<h3>Reflection 찬성파 — 반대 의견도 이해하기 위해</h3>
+<ul>
+    <li><a href="https://themaister.net/blog/2019/04/20/a-tour-of-granites-vulkan-backend-part-3/">Granite Vulkan Backend Part 3</a> (Hans-Kristian Arntzen, SPIRV-Cross 저자)</li>
+</ul>
+
+<h3>API 설계 결정</h3>
+<ul>
+    <li><a href="https://toji.dev/webgpu-best-practices/bind-groups.html">WebGPU Bind Group Best Practices</a> (Brandon Jones, Google)</li>
+</ul>
+
+<h3>AI + 셰이더 개발</h3>
+<ul>
+    <li><a href="https://ieeexplore.ieee.org/document/11236315/">ShadAR: LLM-driven Shader Generation</a> (IEEE, 2025)</li>
+    <li><a href="https://arxiv.org/html/2512.08951">AI Co-Artist: LLM GLSL Shader Animation</a> (arXiv, 2025)</li>
+</ul>
+
+<p style="margin-top: 40px; color: #888; font-size: 0.9em;">
+    결정일: 2026-04-03. 이 문서는 "프로덕션 수준의 Reflection 시스템을 왜 명시적 코드로
+    대체했는가?"라는 질문에 답하기 위해 작성되었다.
+</p>
+
+</body>
+</html>
