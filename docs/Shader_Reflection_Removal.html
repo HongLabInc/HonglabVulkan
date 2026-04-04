@@ -60,7 +60,7 @@ VkDescriptorSetLayoutBinding bindings[] = {
 };</code></pre>
 
 <p><strong>Reflection</strong>이란, 컴파일된 SPIR-V 바이너리를 파싱하여 이 정보를 <strong>자동으로 추출</strong>하는 것이다.
-셰이더만 작성하면 C++ 코드를 수정하지 않아�� 파이프라인��� 자동으로 구성된다.</p>
+셰이더만 작성하면 C++ 코드를 수정하지 않아도 파이프라인이 자동으로 구성된다.</p>
 
 <!-- ============================================================ -->
 <h2>기존 시스템이 한 일</h2>
@@ -126,7 +126,7 @@ VkDescriptorSetLayoutBinding bindings[] = {
     <tr><th style="width:150px;">비용</th><th>내용</th></tr>
     <tr><td>바이너리 크기</td><td>spirv-reflect 라이브러리를 배포해야 함</td></tr>
     <tr><td>시작 시간</td><td>매 실행마다 모든 셰이더의 SPIR-V를 파싱</td></tr>
-    <tr><td>디버깅 난��도</td><td>"이 바인딩이 어디서 왔지?" → Reflection 코드를 추적해야 함</td></tr>
+    <tr><td>디버깅 난이도</td><td>"이 바인딩이 어디서 왔지?" → Reflection 코드를 추적해야 함</td></tr>
     <tr><td>의존성</td><td>외부 라이브러리를 빌드, 링크, 유지보수해야 함</td></tr>
 </table>
 
@@ -183,7 +183,7 @@ bi::storageImageWrite("floatColor2", 0, 4, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BI
 
 <h3>레이아웃 공유</h3>
 
-<p><code>ShaderManager::buildLayoutInfos()</code>가 모든 파이프라인의 ��이아웃 바인딩을 모아서,
+<p><code>ShaderManager::buildLayoutInfos()</code>가 모든 파이프라인의 레이아웃 바인딩을 모아서,
 구조가 동일한 레이아웃은 하나의 <code>VkDescriptorSetLayout</code>으로 공유한다.
 예: <code>shadowMap</code> set 0과 <code>pbrDeferred</code> set 0은 UBO 3개로 구조가 같으므로
 하나의 레이아웃을 공유하고, <code>stageFlags</code>만 per-binding으로 OR한다.</p>
@@ -203,9 +203,9 @@ VkShaderStageFlagBits stage = Shader::stageFromFilename(spvFilename);</code></pr
 <h2>트레이드오프</h2>
 
 <table>
-    <tr><th style="width:240px;">잃는 기��</th><th>대응 방안</th></tr>
-    <tr><td>셰이더 바인��� 변경 시 자동 적응</td><td>AI가 셰이더와 파이프라인 클래스를 동시 수정. validation layer가 불일치 감지</td></tr>
-    <tr><td>자동 배리어 대상 결���</td><td>각 파이프라인 클래스의 <code>bindingInfos()</code>에 대상 레이아웃과 접근 플래그를 명시</td></tr>
+    <tr><th style="width:240px;">잃는 기능</th><th>대응 방안</th></tr>
+    <tr><td>셰이더 바인딩 변경 시 자동 적응</td><td>AI가 셰이더와 파이프라인 클래스를 동시 수정. validation layer가 불일치 감지</td></tr>
+    <tr><td>자동 배리어 대상 결정</td><td>각 파이프라인 클래스의 <code>bindingInfos()</code>에 대상 레이아웃과 접근 플래그를 명시</td></tr>
     <tr><td>레이아웃 중복 제거</td><td><code>ShaderManager::buildLayoutInfos()</code>가 구조 비교로 자동 공유 (기존과 동일)</td></tr>
 </table>
 
