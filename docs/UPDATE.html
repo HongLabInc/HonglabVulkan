@@ -27,6 +27,16 @@
     <li><span class="notice">[주의]</span> 강의 영상의 코드와 실제 코드가 약간씩 다를 수 있습니다.</li>
 </ul>
 
+<h2>런타임 Shader Reflection 제거 (2026-04-03)</h2>
+
+<ul>
+    <li>spirv-reflect 기반 런타임 Reflection을 제거하고, 파이프라인별 독립 클래스에 바인딩을 명시적으로 정의하는 방식으로 교체했습니다.</li>
+    <li><code>refactor/remove-shader-reflection</code> 브랜치에서 작업되었습니다.</li>
+    <li>자세한 내용은 <a href="Shader_Reflection_Removal.html">Shader Reflection 제거 문서</a>를 참고하세요.</li>
+</ul>
+
+<pre><code>git checkout refactor/remove-shader-reflection</code></pre>
+
 <h2>Tracy 0.13 업그레이드 및 G-buffer 수정 (2026-03-31)</h2>
 
 <ul>
@@ -59,7 +69,7 @@ copy vcpkg_installed\x64-windows\x64-windows\debug\bin\Debug\TracyClient.dll vcp
     <li><code>Renderer.cpp</code>에서 color attachment 사용 전 <code>transitionToColorAttachment(cmd)</code> 호출 추가.</li>
 </ul>
 
-<h2>동기화 수정 (2026-03-30)</h2>
+<h2>[중요] 동기화 수정 (2026-03-30)</h2>
 
 <ul>
     <li>구형 30시리즈 GPU에서 오류가 제보되어 조사한 결과, 최신 권고사항이 반영되지 않은 부분을 확인하여 수정하였습니다.</li>
