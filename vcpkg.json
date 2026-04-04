@@ -3,7 +3,6 @@
     "glfw3",
     "assimp",
     "glm",
-    "spirv-reflect",
     "stb",
     {
       "name": "tracy",

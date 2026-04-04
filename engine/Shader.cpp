@@ -25,23 +25,49 @@ std::string extractFilename(const std::string& spvFilename)
     return spvFilename.substr(start, end - start);
 }
 
+VkShaderStageFlagBits Shader::stageFromFilename(const string& filename)
+{
+    // Determine shader stage from extension before .spv
+    // e.g. "shadowMap.vert.spv" -> ".vert" -> VERTEX
+    //      "imgui.frag" (no .spv) -> ".frag" -> FRAGMENT
+    string f = filename;
+
+    // Strip .spv suffix if present
+    if (f.length() > 4 && f.substr(f.length() - 4) == ".spv") {
+        f = f.substr(0, f.length() - 4);
+    }
+
+    // Find the last dot to get the stage extension
+    size_t dot = f.find_last_of('.');
+    if (dot != string::npos) {
+        string ext = f.substr(dot);
+        if (ext == ".vert") return VK_SHADER_STAGE_VERTEX_BIT;
+        if (ext == ".frag") return VK_SHADER_STAGE_FRAGMENT_BIT;
+        if (ext == ".comp") return VK_SHADER_STAGE_COMPUTE_BIT;
+        if (ext == ".geom") return VK_SHADER_STAGE_GEOMETRY_BIT;
+        if (ext == ".tesc") return VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+        if (ext == ".tese") return VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+    }
+
+    exitWithMessage("Cannot determine shader stage from filename: {}", filename);
+    return VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM;
+}
+
 Shader::Shader(Context& ctx, string spvFilename) : ctx_(ctx)
 {
     name_ = extractFilename(spvFilename);
+    stage_ = stageFromFilename(spvFilename);
 
     auto shaderCode = readSpvFile(spvFilename);
     shaderModule_ = createShaderModule(shaderCode);
-    reflectModule_ = createRefModule(shaderCode);
-    stage_ = static_cast<VkShaderStageFlagBits>(reflectModule_.shader_stage);
 }
 
 Shader::Shader(Shader&& other) noexcept
     : ctx_(other.ctx_), // Copy reference (references can't be moved)
-      shaderModule_(other.shaderModule_), reflectModule_(other.reflectModule_),
+      shaderModule_(other.shaderModule_),
       stage_(other.stage_), name_(std::move(other.name_))
 {
     other.shaderModule_ = VK_NULL_HANDLE;
-    other.reflectModule_ = {}; // Zero-initialize the struct
     other.stage_ = VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM;
 }
 
@@ -52,9 +78,6 @@ Shader::~Shader()
 
 void Shader::cleanup()
 {
-    if (reflectModule_._internal != nullptr) {
-        spvReflectDestroyShaderModule(&reflectModule_);
-    }
     if (shaderModule_ != VK_NULL_HANDLE) {
         vkDestroyShaderModule(ctx_.device(), shaderModule_, nullptr);
         shaderModule_ = VK_NULL_HANDLE;
@@ -95,110 +118,6 @@ VkShaderModule Shader::createShaderModule(const vector<char>& shaderCode)
     check(vkCreateShaderModule(ctx_.device(), &shaderModuleCI, nullptr, &shaderModule));
 
     return shaderModule;
-}
-
-SpvReflectShaderModule Shader::createRefModule(const vector<char>& shaderCode)
-{
-    SpvReflectShaderModule reflectShaderModule;
-    SpvReflectResult reflectResult = spvReflectCreateShaderModule(
-        shaderCode.size(), reinterpret_cast<const uint32_t*>(shaderCode.data()),
-        &reflectShaderModule);
-    if (reflectResult != SPV_REFLECT_RESULT_SUCCESS) {
-        exitWithMessage("Failed to reflect shader module: {}",
-                        getSpvReflectResultString(reflectResult));
-    }
-    if (reflectShaderModule._internal == nullptr) {
-        exitWithMessage("Failed to create SPIR-V reflection module");
-    }
-
-    return reflectShaderModule;
-}
-
-vector<VkVertexInputAttributeDescription> Shader::makeVertexInputAttributeDescriptions() const
-{
-    vector<VkVertexInputAttributeDescription> attributes;
-
-    // Only meaningful for vertex shaders
-    if (stage_ != VK_SHADER_STAGE_VERTEX_BIT) {
-        exitWithMessage("Only for vertex shaders.");
-        return attributes;
-    }
-
-    // Enumerate input variables
-    uint32_t varCount = reflectModule_.input_variable_count;
-    if (varCount == 0 || reflectModule_.input_variables == nullptr) {
-        printLog("[Warning] No input variables found in shader: {}", name_);
-        return attributes;
-    }
-
-    attributes.reserve(varCount);
-
-    vector<const SpvReflectInterfaceVariable*> inputVars(reflectModule_.input_variables,
-                                                         reflectModule_.input_variables + varCount);
-    sort(inputVars.begin(), inputVars.end(),
-         [](const SpvReflectInterfaceVariable* a, const SpvReflectInterfaceVariable* b) {
-             return a->location < b->location;
-         }); // Sort by location
-
-    // Example: match your struct layout
-    // struct Vertex { float position[3]; float color[3]; };
-    // print("{}, Stage: {}\n", name_, vkShaderStageFlagBitsToString(stage));
-    uint32_t offset = 0;
-    for (uint32_t i = 0; i < varCount; ++i) {
-        const SpvReflectInterfaceVariable* var = inputVars[i];
-
-        if (var->location == uint32_t(-1) || string(var->name) == "gl_VertexIndex") {
-            // print("  No attribute\n"); // 셰이더에 in이 없는 경우
-            continue;
-        }
-
-        assert(i == var->location);
-
-        VkVertexInputAttributeDescription desc = {};
-        desc.location = var->location;
-        desc.binding = 0;
-        desc.format = getVkFormatFromSpvReflectFormat(var->format);
-        desc.offset = offset; // Offset은 나중에 계산할 예정
-
-        attributes.push_back(desc);
-
-        // print("  Attribute: name = {}, location = {}, binding = {}, format = {}, offset = {}\n",
-        //       string(var->name), desc.location, desc.binding, vkFormatToString(desc.format),
-        //       desc.offset);
-
-        offset += getFormatSize(desc.format);
-    }
-
-    return attributes;
-}
-
-array<uint32_t, 3> Shader::getLocalWorkgroupSize() const
-{
-    // Initialize with default values of 1 (minimum valid workgroup size)
-    array<uint32_t, 3> workgroupSize = {1, 1, 1};
-
-    // Only meaningful for compute shaders
-    if (stage_ != VK_SHADER_STAGE_COMPUTE_BIT) {
-        printLog("[Warning] getLocalWorkgroupSize() called on non-compute shader: {}", name_);
-        return workgroupSize;
-    }
-
-    // Extract workgroup size from SPIR-V reflection using entry points
-    // For compute shaders, we use the first (and typically only) entry point
-    if (reflectModule_.shader_stage == SPV_REFLECT_SHADER_STAGE_COMPUTE_BIT && 
-        reflectModule_.entry_point_count > 0) {
-        
-        workgroupSize[0] = reflectModule_.entry_points[0].local_size.x;
-        workgroupSize[1] = reflectModule_.entry_points[0].local_size.y;
-        workgroupSize[2] = reflectModule_.entry_points[0].local_size.z;
-
-        printLog("Compute shader '{}' local workgroup size: {}x{}x{}", 
-                 name_, workgroupSize[0], workgroupSize[1], workgroupSize[2]);
-    } else {
-        printLog("[Warning] Shader '{}' is not a compute shader or has no entry points", name_);
-    }
-
-    return workgroupSize;
 }
 
 } // namespace hlab

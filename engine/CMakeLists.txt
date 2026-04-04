@@ -36,6 +36,13 @@ add_library(Engine STATIC
     ModelLoader.h
     ModelNode.cpp
     ModelNode.h
+    BindingInfo.h
+    ShadowMapPipeline.h
+    PbrDeferredPipeline.h
+    SkyPipeline.h
+    DeferredLightingPipeline.h
+    PostPipeline.h
+    GuiPipeline.h
     Pipeline.cpp
     Pipeline.h
     PipelineCompute.cpp
@@ -131,15 +138,6 @@ endif()
 
 if(TARGET imgui::imgui)
     target_link_libraries(Engine PUBLIC imgui::imgui)
-endif()
-
-# Handle spirv-reflect with multiple possible target names
-if(TARGET unofficial::spirv-reflect)
-    target_link_libraries(Engine PUBLIC unofficial::spirv-reflect)
-    target_compile_definitions(Engine PUBLIC HAS_SPIRV_REFLECT)
-elseif(TARGET spirv-reflect::spirv-reflect)
-    target_link_libraries(Engine PUBLIC spirv-reflect::spirv-reflect)
-    target_compile_definitions(Engine PUBLIC HAS_SPIRV_REFLECT)
 endif()
 
 # Handle KTX

@@ -594,59 +594,6 @@ VkPipelineStageFlags2 convertShaderStageToPS2(VkShaderStageFlags shaderStageFlag
                                                   : VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
 }
 
-string getSpvReflectResultString(SpvReflectResult result)
-{
-    switch (result) {
-    case SPV_REFLECT_RESULT_SUCCESS:
-        return "SPV_REFLECT_RESULT_SUCCESS";
-    case SPV_REFLECT_RESULT_NOT_READY:
-        return "SPV_REFLECT_RESULT_NOT_READY";
-    case SPV_REFLECT_RESULT_ERROR_PARSE_FAILED:
-        return "SPV_REFLECT_RESULT_ERROR_PARSE_FAILED";
-    case SPV_REFLECT_RESULT_ERROR_ALLOC_FAILED:
-        return "SPV_REFLECT_RESULT_ERROR_ALLOC_FAILED";
-    case SPV_REFLECT_RESULT_ERROR_RANGE_EXCEEDED:
-        return "SPV_REFLECT_RESULT_ERROR_RANGE_EXCEEDED";
-    case SPV_REFLECT_RESULT_ERROR_NULL_POINTER:
-        return "SPV_REFLECT_RESULT_ERROR_NULL_POINTER";
-    case SPV_REFLECT_RESULT_ERROR_INTERNAL_ERROR:
-        return "SPV_REFLECT_RESULT_ERROR_INTERNAL_ERROR";
-    case SPV_REFLECT_RESULT_ERROR_COUNT_MISMATCH:
-        return "SPV_REFLECT_RESULT_ERROR_COUNT_MISMATCH";
-    case SPV_REFLECT_RESULT_ERROR_ELEMENT_NOT_FOUND:
-        return "SPV_REFLECT_RESULT_ERROR_ELEMENT_NOT_FOUND";
-    case SPV_REFLECT_RESULT_ERROR_SPIRV_INVALID_CODE_SIZE:
-        return "SPV_REFLECT_RESULT_ERROR_SPIRV_INVALID_CODE_SIZE";
-    case SPV_REFLECT_RESULT_ERROR_SPIRV_INVALID_MAGIC_NUMBER:
-        return "SPV_REFLECT_RESULT_ERROR_SPIRV_INVALID_MAGIC_NUMBER";
-    case SPV_REFLECT_RESULT_ERROR_SPIRV_UNEXPECTED_EOF:
-        return "SPV_REFLECT_RESULT_ERROR_SPIRV_UNEXPECTED_EOF";
-    case SPV_REFLECT_RESULT_ERROR_SPIRV_INVALID_ID_REFERENCE:
-        return "SPV_REFLECT_RESULT_ERROR_SPIRV_INVALID_ID_REFERENCE";
-    case SPV_REFLECT_RESULT_ERROR_SPIRV_SET_NUMBER_OVERFLOW:
-        return "SPV_REFLECT_RESULT_ERROR_SPIRV_SET_NUMBER_OVERFLOW";
-    case SPV_REFLECT_RESULT_ERROR_SPIRV_INVALID_STORAGE_CLASS:
-        return "SPV_REFLECT_RESULT_ERROR_SPIRV_INVALID_STORAGE_CLASS";
-    default:
-        return "SPV_REFLECT_RESULT_UNKNOWN";
-    }
-}
-
-VkFormat getVkFormatFromSpvReflectFormat(SpvReflectFormat format)
-{
-    switch (format) {
-    case SPV_REFLECT_FORMAT_R32G32B32_SFLOAT:
-        return VK_FORMAT_R32G32B32_SFLOAT;
-    case SPV_REFLECT_FORMAT_R32G32_SFLOAT:
-        return VK_FORMAT_R32G32_SFLOAT;
-    case SPV_REFLECT_FORMAT_R32_SFLOAT:
-        return VK_FORMAT_R32_SFLOAT;
-    default:
-        exitWithMessage("Unsupported SPIR-V format");
-        return VK_FORMAT_UNDEFINED; // Unsupported or unknown format
-    }
-}
-
 bool BindingComp::operator()(const vector<VkDescriptorSetLayoutBinding>& lhs,
                              const vector<VkDescriptorSetLayoutBinding>& rhs) const
 {

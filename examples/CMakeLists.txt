@@ -3,7 +3,7 @@ add_subdirectory(Ex01_Context)
 add_subdirectory(Ex02_Compute)
 add_subdirectory(Ex03_Triangle13)
 add_subdirectory(Ex04_Triangle11)
-add_subdirectory(Ex05_ShaderReflection)
+# add_subdirectory(Ex05_ShaderReflection) # Disabled: spirv-reflect dependency removed
 add_subdirectory(Ex06_PipelineFactory)
 add_subdirectory(Ex07_OnDemandDescriptorPool)
 add_subdirectory(Ex08_Swapchain)

@@ -53,8 +53,6 @@ find_package(assimp REQUIRED CONFIG)
 
 find_package(imgui QUIET CONFIG)
 
-find_package(unofficial-spirv-reflect QUIET CONFIG)
-
 find_package(Stb QUIET CONFIG)
 
 # KTX: on Windows use vcpkg, on Linux use manual build (already set above)
