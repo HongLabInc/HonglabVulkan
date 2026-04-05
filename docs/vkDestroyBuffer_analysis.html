@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>vkDestroyBuffer Validation Error — Root Cause Analysis</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: #1A1A1E;
+      color: #E0E0E0;
+      line-height: 1.65;
+      min-height: 100vh;
+    }
+
+    :root {
+      --bg: #1A1A1E;
+      --bg-card: #111114;
+      --bg-elevated: #222226;
+      --bg-hover: #2A2A2E;
+      --gold: #FFC000;
+      --cyan: #00B0F0;
+      --blue: #5B9BD5;
+      --orange: #ED7D31;
+      --green: #70AD47;
+      --deepblue: #4472C4;
+      --gray: #A5A5A5;
+      --purple: #7030A0;
+      --red: #E57373;
+      --text-primary: #FFFFFF;
+      --text-body: #E0E0E0;
+      --text-secondary: #B0B0B0;
+      --text-muted: #808080;
+      --border: rgba(255,255,255,0.06);
+    }
+
+    .page { max-width: 1200px; margin: 0 auto; padding: 3rem 2.5rem 4rem; }
+    @media (max-width: 800px) { .page { padding: 2rem 1.2rem; } }
+
+    h1 { font-size: 2.2rem; font-weight: 700; color: var(--text-primary); letter-spacing: -0.02em; }
+    .subtitle { color: var(--gold); font-size: 0.95rem; font-weight: 500; margin: 0.4rem 0 3rem; }
+    h2 {
+      font-size: 1.15rem; font-weight: 600; color: var(--gold);
+      text-transform: uppercase; letter-spacing: 0.08em;
+      margin: 3.5rem 0 1.2rem; padding-bottom: 0.5rem;
+      border-bottom: 1px solid rgba(255,192,0,0.25);
+    }
+    h3 { font-size: 1.05rem; font-weight: 600; color: var(--text-primary); margin: 1rem 0 0.5rem; }
+    p { margin-bottom: 0.6rem; color: var(--text-body); font-size: 0.9rem; }
+    a { color: var(--cyan); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code { font-family: 'JetBrains Mono', monospace; font-size: 0.82em; color: var(--gold); }
+
+    .tip {
+      position: relative;
+      border-bottom: 1px dotted var(--gold);
+      cursor: help;
+      color: inherit;
+    }
+    .tip::after {
+      content: attr(data-tip);
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: #252528;
+      color: var(--text-body);
+      font-size: 0.78rem;
+      font-weight: 400;
+      line-height: 1.45;
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      border: 1px solid rgba(255,192,0,0.2);
+      white-space: normal;
+      width: max-content;
+      max-width: 340px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+      z-index: 100;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    }
+    .tip:hover::after { opacity: 1; }
+
+    .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.2rem 1.4rem; margin-bottom: 1.2rem; }
+    .card:hover { border-color: rgba(255,255,255,0.12); }
+
+    .error-box { background: rgba(229,115,115,0.06); border: 1px solid rgba(229,115,115,0.25); border-radius: 8px; padding: 1rem 1.2rem; margin: 1rem 0; }
+    .error-box code { color: var(--red); }
+
+    pre {
+      background: #0D0D10;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1rem 1.2rem;
+      overflow-x: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      line-height: 1.55;
+      color: var(--text-secondary);
+      margin: 0.8rem 0;
+    }
+    pre .comment { color: #6A6A6A; }
+    pre .keyword { color: var(--blue); }
+    pre .fn { color: var(--gold); }
+    pre .num { color: var(--green); }
+    pre .highlight-line { background: rgba(255,192,0,0.08); display: inline-block; width: 100%; margin: 0 -1.2rem; padding: 0 1.2rem; }
+    pre .err-line { background: rgba(229,115,115,0.08); display: inline-block; width: 100%; margin: 0 -1.2rem; padding: 0 1.2rem; }
+    pre .ok-line { background: rgba(112,173,71,0.08); display: inline-block; width: 100%; margin: 0 -1.2rem; padding: 0 1.2rem; }
+    pre .arrow { color: var(--gold); font-weight: 700; }
+    pre .err-arrow { color: var(--red); font-weight: 700; }
+    pre .ok-arrow { color: var(--green); font-weight: 700; }
+
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.85rem; }
+    thead th {
+      text-align: left; padding: 0.6rem 0.8rem; font-weight: 600; font-size: 0.8rem;
+      color: var(--gold); border-bottom: 1px solid rgba(255,192,0,0.3);
+      text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    tbody td { padding: 0.55rem 0.8rem; border-bottom: 1px solid var(--border); color: var(--text-body); }
+    tbody tr:hover { background: var(--bg-hover); }
+    td.highlight { color: var(--gold); font-weight: 500; }
+
+    .badge { display: inline-block; font-size: 0.7rem; font-weight: 600; padding: 0.1rem 0.5rem; border-radius: 999px; vertical-align: middle; }
+    .badge-green { background: rgba(112,173,71,0.12); color: var(--green); }
+    .badge-red { background: rgba(229,115,115,0.12); color: var(--red); }
+    .badge-gold { background: rgba(255,192,0,0.12); color: var(--gold); }
+    .badge-blue { background: rgba(91,155,213,0.12); color: var(--blue); }
+
+    .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 1.2rem; }
+
+    .landscape-svg { width: 100%; max-width: 900px; margin: 1.5rem auto; display: block; background: #1A1A1E; }
+
+    .rec { background: rgba(255,192,0,0.06); border: 1px solid rgba(255,192,0,0.2); border-radius: 8px; padding: 1.3rem 1.5rem; margin: 1rem 0; }
+    .rec h3 { color: var(--gold); margin-top: 0; }
+    .rec ul { margin: 0.6rem 0 0 1.2rem; color: var(--text-body); font-size: 0.9rem; }
+    .rec li { margin-bottom: 0.3rem; }
+
+    .tag { font-size: 0.72rem; font-weight: 500; padding: 0.15rem 0.5rem; border-radius: 4px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: var(--text-secondary); display: inline-block; margin: 0.1rem 0.15rem; }
+    .tag-gold { background: rgba(255,192,0,0.1); border-color: rgba(255,192,0,0.25); color: var(--gold); }
+    .tag-green { background: rgba(112,173,71,0.1); border-color: rgba(112,173,71,0.25); color: var(--green); }
+    .tag-red { background: rgba(229,115,115,0.1); border-color: rgba(229,115,115,0.25); color: var(--red); }
+
+    .toc { margin: 0 0 2rem; }
+    .toc a { font-size: 0.85rem; color: var(--text-secondary); margin-right: 1.5rem; }
+    .toc a:hover { color: var(--gold); }
+
+    .top-btn {
+      position: fixed; bottom: 2rem; right: 2rem;
+      background: rgba(255,192,0,0.15); color: var(--gold);
+      width: 36px; height: 36px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      text-decoration: none; font-size: 1rem; border: 1px solid rgba(255,192,0,0.2);
+      transition: background 0.2s;
+    }
+    .top-btn:hover { background: rgba(255,192,0,0.25); text-decoration: none; }
+
+    @media print {
+      body { background: #fff; color: #000; }
+      .top-btn { display: none; }
+      .card { border: 1px solid #ccc; }
+    }
+  </style>
+</head>
+<body id="top">
+<div class="page">
+
+  <h1>vkDestroyBuffer Validation Error</h1>
+  <p class="subtitle">VUID-vkDestroyBuffer-buffer-00922 — Root Cause Analysis &amp; Best Practice Comparison</p>
+
+  <div class="toc">
+    <a href="#error">Error</a>
+    <a href="#spec">Spec vs Layer</a>
+    <a href="#spec-deep">Spec Deep Dive</a>
+    <a href="#best-practice">Best Practice</a>
+    <a href="#current-code">Current Code</a>
+    <a href="#destruction">Destruction Order</a>
+    <a href="#why-before">Why It Worked Before</a>
+    <a href="#fix">The Fix</a>
+  </div>
+
+  <!-- ====== 1. THE ERROR ====== -->
+  <h2 id="error">1. The Validation Error</h2>
+
+  <div class="error-box">
+    <code style="font-size: 0.82rem; line-height: 1.6; display: block;">
+      [ERROR] <span style="color:#E57373">VUID-vkDestroyBuffer-buffer-00922</span><br>
+      vkDestroyBuffer(): can't be called on VkBuffer 0x4e000000004e<br>
+      that is currently in use by VkCommandBuffer 0x1879aa85900
+    </code>
+  </div>
+
+  <p>This fires during <strong>initialization</strong> of Ex11_PostProcessing, right after sky pipeline creation, when loading textures via staging buffers.</p>
+
+
+  <!-- ====== 2. SPEC vs VALIDATION LAYER ====== -->
+  <h2 id="spec">2. What the Spec Says vs What the Layer Does</h2>
+
+  <div class="grid-2">
+    <div class="card" style="border-left: 2px solid var(--green);">
+      <h3 style="color: var(--green); font-size: 0.95rem;">Vulkan Spec (Legal)</h3>
+      <p style="font-size: 0.85rem; margin-top: 0.5rem;">
+        <span class="tip" data-tip="VUID-vkDestroyBuffer-buffer-00922: 'All submitted commands that refer to buffer must have completed execution'">VUID-00922</span> requires commands to have <strong>completed execution</strong>. After <code>vkWaitForFences</code> returns, the commands <em>have</em> completed. Destroying the buffer is <strong>spec-legal</strong>.
+      </p>
+      <p style="font-size: 0.85rem;">The spec does <strong>not</strong> require the command buffer to be freed before destroying referenced resources — only that submitted work has finished.</p>
+    </div>
+    <div class="card" style="border-left: 2px solid var(--orange);">
+      <h3 style="color: var(--orange); font-size: 0.95rem;">Validation Layer (Stricter)</h3>
+      <p style="font-size: 0.85rem; margin-top: 0.5rem;">
+        The <span class="tip" data-tip="Khronos Vulkan Validation Layers — open-source error checking for Vulkan API usage. Updated with each Vulkan SDK release.">Khronos validation layer</span> tracks "in use" by <strong>command buffer lifetime</strong>, not solely by fence completion. If a command buffer that references a buffer is still allocated (not freed/reset), some layer versions flag the buffer as "in use."
+      </p>
+      <p style="font-size: 0.85rem;">This is a <strong>conservative heuristic</strong> — it can produce false positives when the fence <em>has</em> signaled but the command buffer is still alive.</p>
+    </div>
+  </div>
+
+
+  <!-- ====== SPEC DEEP DIVE ====== -->
+  <h2 id="spec-deep">2b. Vulkan Spec Deep Dive</h2>
+
+  <p>Three separate pieces of spec language govern this situation. Together they prove that destroying a buffer after <code>vkWaitForFences</code> is legal — even if the command buffer is still allocated.</p>
+
+  <!-- Spec Quote 1: VUID -->
+  <div class="card" style="border-left: 2px solid var(--gold);">
+    <h3 style="font-size: 0.95rem; color: var(--gold);">Rule 1 — VUID-vkDestroyBuffer-buffer-00922</h3>
+    <div style="font-family: 'JetBrains Mono'; font-size: 0.78rem; color: #808080; margin: 0.3rem 0 0.6rem;">
+      <a href="https://registry.khronos.org/vulkan/specs/latest/man/html/vkDestroyBuffer.html" target="_blank" rel="noopener noreferrer">vkDestroyBuffer(3) — Vulkan Spec</a>
+    </div>
+    <blockquote style="border-left: 2px solid rgba(255,192,0,0.3); padding: 0.6rem 1rem; margin: 0.5rem 0; background: rgba(255,192,0,0.03); border-radius: 0 6px 6px 0;">
+      <p style="font-size: 0.88rem; color: var(--text-primary); font-style: italic; margin: 0;">
+        "All submitted commands that refer to <code>buffer</code>, either directly or via a <code>VkBufferView</code>, <strong>must</strong> have completed execution."
+      </p>
+    </blockquote>
+    <p style="font-size: 0.85rem; margin-top: 0.6rem;">
+      The requirement is <strong>"completed execution"</strong> — not "command buffer freed" or "command buffer reset." This is a statement about GPU work, not about CPU-side object lifetime.
+    </p>
+  </div>
+
+  <!-- Spec Quote 2: Fence guarantee -->
+  <div class="card" style="border-left: 2px solid var(--green);">
+    <h3 style="font-size: 0.95rem; color: var(--green);">Rule 2 — Fence Completion Guarantee</h3>
+    <div style="font-family: 'JetBrains Mono'; font-size: 0.78rem; color: #808080; margin: 0.3rem 0 0.6rem;">
+      <a href="https://registry.khronos.org/vulkan/specs/latest/html/vkspec.html" target="_blank" rel="noopener noreferrer">Vulkan 1.4 Spec — Synchronization</a>
+    </div>
+    <blockquote style="border-left: 2px solid rgba(112,173,71,0.3); padding: 0.6rem 1rem; margin: 0.5rem 0; background: rgba(112,173,71,0.03); border-radius: 0 6px 6px 0;">
+      <p style="font-size: 0.88rem; color: var(--text-primary); font-style: italic; margin: 0;">
+        "Before a fence or semaphore is signaled, it is guaranteed that any previously submitted queue operations have <strong>completed execution</strong>, and that memory writes from those queue operations are <strong>available</strong> to future queue operations."
+      </p>
+    </blockquote>
+    <p style="font-size: 0.85rem; margin-top: 0.6rem;">
+      After <code>vkWaitForFences</code> returns <code>VK_SUCCESS</code>, the spec <strong>guarantees</strong> that all commands in that submission have completed execution. This directly satisfies Rule 1.
+    </p>
+  </div>
+
+  <!-- Spec Quote 3: Command Buffer Lifecycle -->
+  <div class="card" style="border-left: 2px solid var(--blue);">
+    <h3 style="font-size: 0.95rem; color: var(--blue);">Rule 3 — Command Buffer State Transition</h3>
+    <div style="font-family: 'JetBrains Mono'; font-size: 0.78rem; color: #808080; margin: 0.3rem 0 0.6rem;">
+      <a href="https://vulkan.lunarg.com/doc/view/1.4.304.1/windows/antora/spec/latest/chapters/cmdbuffers.html" target="_blank" rel="noopener noreferrer">Vulkan Spec — Command Buffer Lifecycle</a>
+    </div>
+    <blockquote style="border-left: 2px solid rgba(91,155,213,0.3); padding: 0.6rem 1rem; margin: 0.5rem 0; background: rgba(91,155,213,0.03); border-radius: 0 6px 6px 0;">
+      <p style="font-size: 0.88rem; color: var(--text-primary); font-style: italic; margin: 0;">
+        "Once execution of all submissions of a command buffer complete, it moves from the <strong>pending state</strong>, back to the <strong>executable state</strong>."
+      </p>
+    </blockquote>
+    <p style="font-size: 0.85rem; margin-top: 0.6rem;">
+      After the fence signals, the command buffer is no longer in <span class="tip" data-tip="Pending state: the command buffer has been submitted to a queue and the GPU is (or may be) executing it. Resources it references must not be destroyed while in this state.">pending state</span> — it's back in <span class="tip" data-tip="Executable state: the command buffer has finished execution but is still a valid, allocated object. It could theoretically be resubmitted (unless recorded with ONE_TIME_SUBMIT). It still 'knows about' the resources it recorded commands against, but the GPU is no longer using them.">executable state</span>. The spec's Object Lifetime section says:
+    </p>
+    <blockquote style="border-left: 2px solid rgba(91,155,213,0.3); padding: 0.6rem 1rem; margin: 0.5rem 0; background: rgba(91,155,213,0.03); border-radius: 0 6px 6px 0;">
+      <p style="font-size: 0.88rem; color: var(--text-primary); font-style: italic; margin: 0;">
+        "The following Vulkan objects <strong>must</strong> not be destroyed while any command buffers using the object are in the <strong>pending state</strong>."
+      </p>
+    </blockquote>
+    <p style="font-size: 0.85rem; margin-top: 0.6rem;">
+      The restriction is on <strong>pending state</strong> only. An <em>executable</em> command buffer that still holds internal references to a buffer does not prevent that buffer from being destroyed — per the spec.
+    </p>
+  </div>
+
+  <!-- Putting it all together -->
+  <svg class="landscape-svg" viewBox="0 0 900 320" xmlns="http://www.w3.org/2000/svg">
+    <rect width="900" height="320" fill="#1A1A1E"/>
+    <defs>
+      <marker id="arr-g2" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="none" stroke="#70AD47" stroke-width="1.2"/>
+      </marker>
+      <marker id="arr-b2" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="none" stroke="#5B9BD5" stroke-width="1.2"/>
+      </marker>
+      <marker id="arr-o2" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="none" stroke="#ED7D31" stroke-width="1.2"/>
+      </marker>
+    </defs>
+
+    <!-- Title -->
+    <text x="450" y="25" text-anchor="middle" fill="#808080" font-family="Inter, sans-serif" font-size="10" letter-spacing="0.1em">COMMAND BUFFER LIFECYCLE &amp; RESOURCE DESTRUCTION LEGALITY</text>
+
+    <!-- Timeline line -->
+    <line x1="60" y1="80" x2="840" y2="80" stroke="#FFC000" stroke-width="2"/>
+
+    <!-- State: Recording -->
+    <rect x="60" y="55" width="130" height="50" rx="4" fill="#111114" stroke="#808080" stroke-width="1"/>
+    <text x="125" y="76" text-anchor="middle" fill="#808080" font-family="Inter, sans-serif" font-size="12" font-weight="600">Recording</text>
+    <text x="125" y="94" text-anchor="middle" fill="#808080" font-family="Inter, sans-serif" font-size="9">vkCmd* calls</text>
+
+    <!-- Arrow -->
+    <line x1="190" y1="80" x2="240" y2="80" stroke="#FFC000" stroke-width="1.5" marker-end="url(#arr-g2)"/>
+    <text x="215" y="70" text-anchor="middle" fill="#808080" font-family="JetBrains Mono, monospace" font-size="8">vkEnd</text>
+
+    <!-- State: Executable (before submit) -->
+    <rect x="240" y="55" width="130" height="50" rx="4" fill="#111114" stroke="#5B9BD5" stroke-width="1.5"/>
+    <text x="305" y="76" text-anchor="middle" fill="#5B9BD5" font-family="Inter, sans-serif" font-size="12" font-weight="600">Executable</text>
+    <text x="305" y="94" text-anchor="middle" fill="#808080" font-family="Inter, sans-serif" font-size="9">ready to submit</text>
+
+    <!-- Arrow -->
+    <line x1="370" y1="80" x2="420" y2="80" stroke="#FFC000" stroke-width="1.5" marker-end="url(#arr-g2)"/>
+    <text x="395" y="70" text-anchor="middle" fill="#808080" font-family="JetBrains Mono, monospace" font-size="8">vkQueueSubmit</text>
+
+    <!-- State: Pending -->
+    <rect x="420" y="55" width="130" height="50" rx="4" fill="#111114" stroke="#E57373" stroke-width="2"/>
+    <text x="485" y="76" text-anchor="middle" fill="#E57373" font-family="Inter, sans-serif" font-size="12" font-weight="600">Pending</text>
+    <text x="485" y="94" text-anchor="middle" fill="#E57373" font-family="Inter, sans-serif" font-size="9">GPU executing</text>
+
+    <!-- Arrow -->
+    <line x1="550" y1="80" x2="600" y2="80" stroke="#FFC000" stroke-width="1.5" marker-end="url(#arr-g2)"/>
+    <text x="575" y="70" text-anchor="middle" fill="#808080" font-family="JetBrains Mono, monospace" font-size="8">fence signals</text>
+
+    <!-- State: Executable (after completion) -->
+    <rect x="600" y="55" width="240" height="50" rx="4" fill="#111114" stroke="#70AD47" stroke-width="2"/>
+    <text x="720" y="76" text-anchor="middle" fill="#70AD47" font-family="Inter, sans-serif" font-size="12" font-weight="600">Executable (completed)</text>
+    <text x="720" y="94" text-anchor="middle" fill="#70AD47" font-family="Inter, sans-serif" font-size="9">GPU done — not pending</text>
+
+    <!-- Danger zone label -->
+    <rect x="420" y="125" width="130" height="65" rx="6" fill="rgba(229,115,115,0.05)" stroke="rgba(229,115,115,0.3)" stroke-width="1" stroke-dasharray="5,3"/>
+    <text x="485" y="145" text-anchor="middle" fill="#E57373" font-family="Inter, sans-serif" font-size="10" font-weight="600">MUST NOT destroy</text>
+    <text x="485" y="161" text-anchor="middle" fill="#E57373" font-family="Inter, sans-serif" font-size="10" font-weight="600">referenced resources</text>
+    <text x="485" y="180" text-anchor="middle" fill="#808080" font-family="Inter, sans-serif" font-size="9">(cmd buffer is pending)</text>
+
+    <!-- Safe zone label -->
+    <rect x="600" y="125" width="240" height="65" rx="6" fill="rgba(112,173,71,0.05)" stroke="rgba(112,173,71,0.3)" stroke-width="1" stroke-dasharray="5,3"/>
+    <text x="720" y="145" text-anchor="middle" fill="#70AD47" font-family="Inter, sans-serif" font-size="10" font-weight="600">CAN destroy resources</text>
+    <text x="720" y="161" text-anchor="middle" fill="#70AD47" font-family="Inter, sans-serif" font-size="10" font-weight="600">(per spec)</text>
+    <text x="720" y="180" text-anchor="middle" fill="#808080" font-family="Inter, sans-serif" font-size="9">(cmd is executable, not pending)</text>
+
+    <!-- Validation layer zone -->
+    <rect x="420" y="210" width="420" height="65" rx="6" fill="rgba(237,125,49,0.05)" stroke="rgba(237,125,49,0.3)" stroke-width="1" stroke-dasharray="5,3"/>
+    <text x="630" y="232" text-anchor="middle" fill="#ED7D31" font-family="Inter, sans-serif" font-size="10" font-weight="600">Validation layer MAY still flag destruction</text>
+    <text x="630" y="250" text-anchor="middle" fill="#808080" font-family="Inter, sans-serif" font-size="9">Conservative heuristic: tracks by cmd buffer allocation, not fence state</text>
+    <text x="630" y="266" text-anchor="middle" fill="#808080" font-family="Inter, sans-serif" font-size="9">Fix: free the cmd buffer → removes the layer's reference tracking</text>
+
+    <!-- Connecting lines -->
+    <path d="M485,105 L485,125" fill="none" stroke="rgba(229,115,115,0.4)" stroke-width="1"/>
+    <path d="M720,105 L720,125" fill="none" stroke="rgba(112,173,71,0.4)" stroke-width="1"/>
+    <path d="M630,190 L630,210" fill="none" stroke="rgba(237,125,49,0.4)" stroke-width="1"/>
+
+    <!-- Key insight -->
+    <rect x="100" y="290" width="700" height="25" rx="4" fill="rgba(255,192,0,0.06)" stroke="rgba(255,192,0,0.2)" stroke-width="1"/>
+    <text x="450" y="307" text-anchor="middle" fill="#FFC000" font-family="Inter, sans-serif" font-size="11" font-weight="600">Fence = detector of completion, not the trigger. GPU execution completion is the trigger.</text>
+  </svg>
+
+  <!-- The gap between spec and layer -->
+  <div class="card" style="border-left: 2px solid var(--orange);">
+    <h3 style="font-size: 0.95rem; color: var(--orange);">The Gap: Spec vs. Validation Layer</h3>
+    <table style="font-size: 0.85rem; margin: 0.5rem 0 0;">
+      <thead>
+        <tr>
+          <th style="width: 40%;">Question</th>
+          <th style="width: 30%;">Vulkan Spec</th>
+          <th style="width: 30%;">Validation Layer</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Can I destroy a buffer after <code>vkWaitForFences</code>?</td>
+          <td style="color: var(--green); font-weight: 500;">Yes — commands completed</td>
+          <td style="color: var(--orange); font-weight: 500;">May flag as error</td>
+        </tr>
+        <tr>
+          <td>Must the cmd buffer be freed first?</td>
+          <td style="color: var(--green); font-weight: 500;">No — not required</td>
+          <td style="color: var(--orange); font-weight: 500;">Recommended — avoids false positive</td>
+        </tr>
+        <tr>
+          <td>How is "in use" tracked?</td>
+          <td>By pending state (GPU executing)</td>
+          <td>By cmd buffer allocation (conservative)</td>
+        </tr>
+        <tr>
+          <td>What satisfies the check?</td>
+          <td>Fence signals → work done</td>
+          <td>Fence signals + cmd freed/reset</td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="font-size: 0.83rem; margin-top: 0.8rem; color: var(--text-secondary);">
+      The validation layer uses a <strong>conservative heuristic</strong> because accurately correlating fence completion with every individual resource across multiple queue families is complex. It's simpler (and safer for catching real bugs) to track by command buffer lifetime. The trade-off is occasional false positives for code that is spec-correct.
+    </p>
+  </div>
+
+
+  <!-- ====== 3. BEST PRACTICE ====== -->
+  <h2 id="best-practice">3. Industry Best Practice</h2>
+
+  <p>Both major Vulkan example codebases use the same pattern: <strong>free the command buffer inside the flush helper, then destroy staging resources at the call site.</strong></p>
+
+  <div class="grid-2">
+    <!-- Sascha -->
+    <div class="card">
+      <h3>
+        <a href="https://github.com/SaschaWillems/Vulkan" target="_blank" rel="noopener noreferrer" style="color: var(--cyan);">Sascha Willems / Vulkan</a>
+        <span class="badge badge-gold" style="margin-left: 0.5rem;">13k+ stars</span>
+      </h3>
+      <div style="font-family: 'JetBrains Mono'; font-size: 0.78rem; color: #808080; margin: 0.3rem 0 0.8rem;">
+        base/VulkanDevice.cpp · flushCommandBuffer()
+      </div>
+<pre><span class="keyword">void</span> VulkanDevice::<span class="fn">flushCommandBuffer</span>(
+    VkCommandBuffer commandBuffer,
+    VkQueue queue, VkCommandPool pool,
+    <span class="keyword">bool</span> free <span class="comment">/* = true */</span>)
+{
+    vkEndCommandBuffer(commandBuffer);
+
+    VkFence fence;
+    vkCreateFence(device, &fenceInfo, <span class="keyword">nullptr</span>, &fence);
+    vkQueueSubmit(queue, <span class="num">1</span>, &submitInfo, fence);
+    vkWaitForFences(device, <span class="num">1</span>, &fence, VK_TRUE, timeout);
+    vkDestroyFence(device, fence, <span class="keyword">nullptr</span>);
+<span class="highlight-line">    <span class="keyword">if</span> (free) {</span>
+<span class="highlight-line">        <span class="fn">vkFreeCommandBuffers</span>(device, pool, <span class="num">1</span>,</span>
+<span class="highlight-line">                             &commandBuffer);</span>
+<span class="highlight-line">    }</span>
+}</pre>
+
+      <div style="font-family: 'JetBrains Mono'; font-size: 0.78rem; color: #808080; margin: 0.5rem 0 0.3rem;">
+        base/VulkanTexture.cpp · loadFromFile()
+      </div>
+<pre><span class="comment">// Submit, wait, free cmd — all inside:</span>
+device-><span class="fn">flushCommandBuffer</span>(copyCmd, copyQueue);
+
+<span class="comment">// THEN destroy staging resources:</span>
+<span class="fn">vkDestroyBuffer</span>(device, stagingBuffer, <span class="keyword">nullptr</span>);
+<span class="fn">vkFreeMemory</span>(device, stagingMemory, <span class="keyword">nullptr</span>);</pre>
+    </div>
+
+    <!-- Khronos -->
+    <div class="card">
+      <h3>
+        <a href="https://github.com/KhronosGroup/Vulkan-Samples" target="_blank" rel="noopener noreferrer" style="color: var(--cyan);">Khronos / Vulkan-Samples</a>
+        <span class="badge badge-blue" style="margin-left: 0.5rem;">Official</span>
+      </h3>
+      <div style="font-family: 'JetBrains Mono'; font-size: 0.78rem; color: #808080; margin: 0.3rem 0 0.8rem;">
+        framework/core/device.h · flush_command_buffer()
+      </div>
+<pre>command_buffer.<span class="fn">end</span>();
+
+vk::Fence fence = device.<span class="fn">createFence</span>({});
+queue.<span class="fn">submit</span>(submit_info, fence);
+device.<span class="fn">waitForFences</span>(fence, <span class="keyword">true</span>, timeout);
+device.<span class="fn">destroyFence</span>(fence);
+<span class="highlight-line"><span class="keyword">if</span> (command_pool && free) {</span>
+<span class="highlight-line">    device.<span class="fn">freeCommandBuffers</span>(pool, cmd);</span>
+<span class="highlight-line">}</span></pre>
+
+      <div style="font-family: 'JetBrains Mono'; font-size: 0.78rem; color: #808080; margin: 0.5rem 0 0.3rem;">
+        samples/api/texture_loading.cpp
+      </div>
+<pre>get_device().<span class="fn">flush_command_buffer</span>(
+    copy_cmd, queue, <span class="keyword">true</span>); <span class="comment">// free=true</span>
+
+<span class="fn">vkDestroyBuffer</span>(..., staging_buffer, ...);
+<span class="fn">vkFreeMemory</span>(..., staging_memory, ...);</pre>
+    </div>
+  </div>
+
+  <div class="rec">
+    <h3>The Pattern</h3>
+    <p style="font-size: 0.9rem;">Both codebases achieve a clean <strong>separation of concerns</strong>: the flush helper owns the command buffer lifecycle, while the caller owns the staging buffer lifecycle. The command buffer is always freed <em>before</em> staging resources are destroyed.</p>
+  </div>
+
+
+  <!-- ====== 4. CURRENT CODE ====== -->
+  <h2 id="current-code">4. Current Code — submitAndWait()</h2>
+
+  <div class="card">
+    <div style="font-family: 'JetBrains Mono'; font-size: 0.78rem; color: #808080; margin-bottom: 0.5rem;">
+      engine/CommandBuffer.cpp
+    </div>
+<pre><span class="keyword">void</span> CommandBuffer::<span class="fn">submitAndWait</span>()
+{
+    vkEndCommandBuffer(handle_);
+
+    VkFence fence;
+    vkCreateFence(device_, &fenceInfo, <span class="keyword">nullptr</span>, &fence);
+    vkQueueSubmit2(queue_, <span class="num">1</span>, &submitInfo, fence);
+    vkWaitForFences(device_, <span class="num">1</span>, &fence, VK_TRUE, <span class="num">1e9</span>);
+    vkDestroyFence(device_, fence, <span class="keyword">nullptr</span>);
+
+    <span class="comment">// ← command buffer NOT freed here</span>
+    <span class="comment">// ← freed later by ~CommandBuffer() → cleanup()</span>
+}</pre>
+    <p style="font-size: 0.85rem; margin-top: 0.8rem;">Unlike the best-practice pattern, the command buffer remains allocated after <code>submitAndWait()</code> returns. Resource destruction depends entirely on <span class="tip" data-tip="C++ destroys local variables in reverse order of declaration. The variable declared last is destroyed first.">C++ RAII destruction order</span>.</p>
+  </div>
+
+
+  <!-- ====== 5. DESTRUCTION ORDER ====== -->
+  <h2 id="destruction">5. C++ Destruction Order — Why It Matters</h2>
+
+  <p>C++ destroys local variables in <strong>reverse order of declaration</strong>. The variable declared <em>last</em> is destroyed <em>first</em>.</p>
+
+  <!-- SVG Diagram -->
+  <svg class="landscape-svg" viewBox="0 0 900 500" xmlns="http://www.w3.org/2000/svg">
+    <rect width="900" height="500" fill="#1A1A1E"/>
+    <defs>
+      <marker id="arr-green" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="none" stroke="#70AD47" stroke-width="1.2"/>
+      </marker>
+      <marker id="arr-red" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="none" stroke="#E57373" stroke-width="1.2"/>
+      </marker>
+      <marker id="arr-gold" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="none" stroke="#FFC000" stroke-width="1.2"/>
+      </marker>
+    </defs>
+
+    <!-- Title -->
+    <text x="450" y="30" text-anchor="middle" fill="#808080" font-family="Inter, sans-serif" font-size="10" letter-spacing="0.1em">DECLARATION ORDER → DESTRUCTION ORDER (REVERSED)</text>
+
+    <!-- ===== LEFT COLUMN: Image2D (SAFE) ===== -->
+    <rect x="30" y="50" width="400" height="430" rx="6" fill="none" stroke="rgba(112,173,71,0.2)" stroke-width="1" stroke-dasharray="6,4"/>
+    <text x="230" y="70" text-anchor="middle" fill="#70AD47" font-family="Inter, sans-serif" font-size="11" font-weight="600">Image2D::createTextureFromKtx2()</text>
+    <text x="230" y="85" text-anchor="middle" fill="#808080" font-family="Inter, sans-serif" font-size="10">RAII — Correct Order</text>
+
+    <!-- Declaration -->
+    <text x="50" y="115" fill="#808080" font-family="Inter, sans-serif" font-size="10" letter-spacing="0.05em">DECLARATION</text>
+
+    <!-- stagingBuffer declared first -->
+    <rect x="50" y="125" width="360" height="44" rx="4" fill="#111114" stroke="#5B9BD5" stroke-width="1.5"/>
+    <text x="66" y="142" fill="#808080" font-family="JetBrains Mono, monospace" font-size="10">line 174</text>
+    <text x="130" y="142" fill="#5B9BD5" font-family="JetBrains Mono, monospace" font-size="11" font-weight="500">MappedBuffer stagingBuffer(ctx_);</text>
+    <text x="66" y="160" fill="#808080" font-family="Inter, sans-serif" font-size="9">declared FIRST</text>
+    <text x="370" y="160" text-anchor="end" fill="#808080" font-family="Inter, sans-serif" font-size="9">→ destroyed LAST</text>
+
+    <!-- copyCmd declared second -->
+    <rect x="50" y="180" width="360" height="44" rx="4" fill="#111114" stroke="#FFC000" stroke-width="1.5"/>
+    <text x="66" y="197" fill="#808080" font-family="JetBrains Mono, monospace" font-size="10">line 186</text>
+    <text x="130" y="197" fill="#FFC000" font-family="JetBrains Mono, monospace" font-size="11" font-weight="500">CommandBuffer copyCmd = ...;</text>
+    <text x="66" y="215" fill="#808080" font-family="Inter, sans-serif" font-size="9">declared SECOND</text>
+    <text x="370" y="215" text-anchor="end" fill="#808080" font-family="Inter, sans-serif" font-size="9">→ destroyed FIRST</text>
+
+    <!-- submitAndWait -->
+    <rect x="50" y="240" width="360" height="30" rx="4" fill="rgba(255,192,0,0.06)" stroke="rgba(255,192,0,0.2)" stroke-width="1"/>
+    <text x="230" y="260" text-anchor="middle" fill="#FFC000" font-family="JetBrains Mono, monospace" font-size="11">copyCmd.submitAndWait();</text>
+
+    <!-- Destruction -->
+    <text x="50" y="300" fill="#808080" font-family="Inter, sans-serif" font-size="10" letter-spacing="0.05em">DESTRUCTION (END OF SCOPE)</text>
+
+    <!-- Step 1: copyCmd destroyed -->
+    <rect x="50" y="310" width="360" height="50" rx="4" fill="#111114" stroke="#70AD47" stroke-width="1.5"/>
+    <circle cx="66" cy="330" r="10" fill="rgba(112,173,71,0.15)" stroke="#70AD47" stroke-width="1"/>
+    <text x="66" y="334" text-anchor="middle" fill="#70AD47" font-family="Inter, sans-serif" font-size="10" font-weight="700">1</text>
+    <text x="84" y="330" fill="#70AD47" font-family="JetBrains Mono, monospace" font-size="11" font-weight="500">~CommandBuffer → vkFreeCommandBuffers</text>
+    <text x="84" y="350" fill="#808080" font-family="Inter, sans-serif" font-size="9">cmd freed — references released</text>
+
+    <!-- Step 2: stagingBuffer destroyed -->
+    <rect x="50" y="370" width="360" height="50" rx="4" fill="#111114" stroke="#70AD47" stroke-width="1.5"/>
+    <circle cx="66" cy="390" r="10" fill="rgba(112,173,71,0.15)" stroke="#70AD47" stroke-width="1"/>
+    <text x="66" y="394" text-anchor="middle" fill="#70AD47" font-family="Inter, sans-serif" font-size="10" font-weight="700">2</text>
+    <text x="84" y="390" fill="#70AD47" font-family="JetBrains Mono, monospace" font-size="11" font-weight="500">~MappedBuffer → vkDestroyBuffer</text>
+    <text x="84" y="410" fill="#808080" font-family="Inter, sans-serif" font-size="9">staging destroyed — no cmd references it</text>
+
+    <!-- Verdict -->
+    <rect x="50" y="435" width="360" height="30" rx="4" fill="rgba(112,173,71,0.08)" stroke="rgba(112,173,71,0.3)" stroke-width="1"/>
+    <text x="230" y="455" text-anchor="middle" fill="#70AD47" font-family="Inter, sans-serif" font-size="12" font-weight="600">✓ SAFE — cmd freed before staging destroyed</text>
+
+
+    <!-- ===== RIGHT COLUMN: Mesh (PROBLEMATIC) ===== -->
+    <rect x="470" y="50" width="400" height="430" rx="6" fill="none" stroke="rgba(229,115,115,0.2)" stroke-width="1" stroke-dasharray="6,4"/>
+    <text x="670" y="70" text-anchor="middle" fill="#E57373" font-family="Inter, sans-serif" font-size="11" font-weight="600">Mesh::createBuffers()</text>
+    <text x="670" y="85" text-anchor="middle" fill="#808080" font-family="Inter, sans-serif" font-size="10">Explicit Destroy — Wrong Order</text>
+
+    <!-- Declaration -->
+    <text x="490" y="115" fill="#808080" font-family="Inter, sans-serif" font-size="10" letter-spacing="0.05em">DECLARATION</text>
+
+    <!-- stagingBuffer declared first (raw) -->
+    <rect x="490" y="125" width="360" height="44" rx="4" fill="#111114" stroke="#5B9BD5" stroke-width="1.5"/>
+    <text x="506" y="142" fill="#808080" font-family="JetBrains Mono, monospace" font-size="10">line 20</text>
+    <text x="570" y="142" fill="#5B9BD5" font-family="JetBrains Mono, monospace" font-size="11" font-weight="500">VkBuffer stagingBuffer;</text>
+    <text x="506" y="160" fill="#808080" font-family="Inter, sans-serif" font-size="9">raw handle — no RAII</text>
+
+    <!-- cmd declared later -->
+    <rect x="490" y="180" width="360" height="44" rx="4" fill="#111114" stroke="#FFC000" stroke-width="1.5"/>
+    <text x="506" y="197" fill="#808080" font-family="JetBrains Mono, monospace" font-size="10">line 74</text>
+    <text x="570" y="197" fill="#FFC000" font-family="JetBrains Mono, monospace" font-size="11" font-weight="500">CommandBuffer cmd = ...;</text>
+    <text x="506" y="215" fill="#808080" font-family="Inter, sans-serif" font-size="9">RAII wrapper</text>
+
+    <!-- submitAndWait -->
+    <rect x="490" y="240" width="360" height="30" rx="4" fill="rgba(255,192,0,0.06)" stroke="rgba(255,192,0,0.2)" stroke-width="1"/>
+    <text x="670" y="260" text-anchor="middle" fill="#FFC000" font-family="JetBrains Mono, monospace" font-size="11">cmd.submitAndWait();</text>
+
+    <!-- Destruction -->
+    <text x="490" y="300" fill="#808080" font-family="Inter, sans-serif" font-size="10" letter-spacing="0.05em">EXPLICIT DESTROY + END OF SCOPE</text>
+
+    <!-- Step 1: stagingBuffer explicitly destroyed FIRST -->
+    <rect x="490" y="310" width="360" height="50" rx="4" fill="#111114" stroke="#E57373" stroke-width="1.5"/>
+    <circle cx="506" cy="330" r="10" fill="rgba(229,115,115,0.15)" stroke="#E57373" stroke-width="1"/>
+    <text x="506" y="334" text-anchor="middle" fill="#E57373" font-family="Inter, sans-serif" font-size="10" font-weight="700">1</text>
+    <text x="524" y="330" fill="#E57373" font-family="JetBrains Mono, monospace" font-size="11" font-weight="500">vkDestroyBuffer(stagingBuffer)</text>
+    <text x="524" y="350" fill="#E57373" font-family="Inter, sans-serif" font-size="9">staging destroyed — but cmd STILL references it!</text>
+
+    <!-- Step 2: cmd destroyed at end of scope -->
+    <rect x="490" y="370" width="360" height="50" rx="4" fill="#111114" stroke="#808080" stroke-width="1"/>
+    <circle cx="506" cy="390" r="10" fill="rgba(128,128,128,0.15)" stroke="#808080" stroke-width="1"/>
+    <text x="506" y="394" text-anchor="middle" fill="#808080" font-family="Inter, sans-serif" font-size="10" font-weight="700">2</text>
+    <text x="524" y="390" fill="#808080" font-family="JetBrains Mono, monospace" font-size="11">~CommandBuffer → vkFreeCommandBuffers</text>
+    <text x="524" y="410" fill="#808080" font-family="Inter, sans-serif" font-size="9">cmd freed — too late, validation already fired</text>
+
+    <!-- Verdict -->
+    <rect x="490" y="435" width="360" height="30" rx="4" fill="rgba(229,115,115,0.08)" stroke="rgba(229,115,115,0.3)" stroke-width="1"/>
+    <text x="670" y="455" text-anchor="middle" fill="#E57373" font-family="Inter, sans-serif" font-size="12" font-weight="600">✗ TRIGGERS VALIDATION ERROR</text>
+  </svg>
+
+
+  <!-- Explanation -->
+  <div class="card" style="border-left: 2px solid var(--gold);">
+    <h3 style="font-size: 0.95rem;">Why "cmd still alive" matters to the validation layer</h3>
+    <p style="font-size: 0.85rem; margin-top: 0.5rem;">
+      After <code>vkWaitForFences</code>, the GPU work is <strong>finished</strong>. The buffer data is no longer being read. Per the spec, destroying it is legal.
+    </p>
+    <p style="font-size: 0.85rem;">
+      However, the command buffer object is still <strong>allocated</strong> and in <span class="tip" data-tip="After submission and fence completion, a command buffer transitions to 'Executable' state — it's done executing, but still valid and still holds internal references to all resources it recorded commands against.">Executable state</span>. It holds internal references to the buffer. The validation layer's tracking sees: <em>"this VkBuffer is referenced by an allocated VkCommandBuffer → it's in use."</em> It does not correlate the fence wait with per-resource completion.
+    </p>
+    <p style="font-size: 0.85rem;">
+      This is a <strong>conservative false positive</strong> — the layer errs on the side of caution because accurately tracking fence-to-resource completion across multiple queues is complex.
+    </p>
+  </div>
+
+
+  <!-- All functions table -->
+  <h3 style="margin-top: 2rem;">Destruction Order in All Staging Buffer Functions</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Function</th>
+        <th>Staging Type</th>
+        <th>Cmd Freed Before Staging?</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>Image2D::createFromPixelData</code></td>
+        <td><span class="tag">RAII MappedBuffer</span></td>
+        <td>Yes — RAII reverse order</td>
+        <td><span class="badge badge-green">SAFE</span></td>
+      </tr>
+      <tr>
+        <td><code>Image2D::createTextureFromKtx2</code></td>
+        <td><span class="tag">RAII MappedBuffer</span></td>
+        <td>Yes — RAII reverse order</td>
+        <td><span class="badge badge-green">SAFE</span></td>
+      </tr>
+      <tr>
+        <td><code>Mesh::createBuffers</code></td>
+        <td><span class="tag tag-red">Raw VkBuffer</span></td>
+        <td>No — explicit destroy before scope end</td>
+        <td><span class="badge badge-red">TRIGGERS ERROR</span></td>
+      </tr>
+      <tr>
+        <td><code>StorageBuffer::copyData</code></td>
+        <td><span class="tag tag-red">Raw VkBuffer</span></td>
+        <td>No — explicit destroy before scope end</td>
+        <td><span class="badge badge-red">TRIGGERS ERROR</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p style="font-size: 0.85rem; color: var(--text-secondary);">
+    Note: Ex11_PostProcessing uses the Image2D path (SAFE), not Mesh. The validation error in Ex11 is likely triggered by the validation layer's conservative tracking interacting with the <span class="tip" data-tip="RTX 4090 has Queue Family 0 (Graphics) and Queue Family 1 (Transfer). When the transfer queue is truly separate, the layer must correlate fences across queue families — a known weak spot in older layer versions.">dedicated transfer queue</span>.
+  </p>
+
+
+  <!-- ====== 6. WHY IT WORKED BEFORE ====== -->
+  <h2 id="why-before">6. Why It Worked Before</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Factor</th>
+        <th>Explanation</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="highlight">Vulkan SDK Version</td>
+        <td>Validation layers are updated with each SDK. Newer versions (~1.3.236+) improved resource lifetime tracking but also introduced stricter checks. A recent SDK update may have enabled this VUID check more aggressively.</td>
+      </tr>
+      <tr>
+        <td class="highlight">NVIDIA Driver</td>
+        <td>Driver updates change internal handle allocation and timing. A different driver version may cause the command buffer handle to be tracked differently by the layer.</td>
+      </tr>
+      <tr>
+        <td class="highlight">Separate Transfer Queue</td>
+        <td>RTX 4090 has a dedicated transfer queue (family 1). If previous GPUs used the same queue family for graphics and transfer, the layer's fence tracking was simpler and less likely to misfire.</td>
+      </tr>
+      <tr>
+        <td class="highlight">Non-Deterministic</td>
+        <td>The error depends on internal layer bookkeeping state. Handle recycling, allocation order, and timing can all affect whether the layer flags the issue on a given run.</td>
+      </tr>
+      <tr>
+        <td class="highlight">Not Frequently Tested</td>
+        <td>The issue may have always been latent but never observed because this specific example wasn't run often with validation enabled.</td>
+      </tr>
+    </tbody>
+  </table>
+
+
+  <!-- ====== 7. THE FIX ====== -->
+  <h2 id="fix">7. The Fix</h2>
+
+  <div class="card">
+    <div style="font-family: 'JetBrains Mono'; font-size: 0.78rem; color: #808080; margin-bottom: 0.5rem;">
+      engine/CommandBuffer.cpp — submitAndWait()
+    </div>
+<pre><span class="keyword">void</span> CommandBuffer::<span class="fn">submitAndWait</span>()
+{
+    vkEndCommandBuffer(handle_);
+
+    VkFence fence;
+    vkCreateFence(device_, &fenceInfo, <span class="keyword">nullptr</span>, &fence);
+    vkQueueSubmit2(queue_, <span class="num">1</span>, &submitInfo, fence);
+    vkWaitForFences(device_, <span class="num">1</span>, &fence, VK_TRUE, <span class="num">1e9</span>);
+    vkDestroyFence(device_, fence, <span class="keyword">nullptr</span>);
+<span class="ok-line"></span>
+<span class="ok-line">    <span class="fn">vkFreeCommandBuffers</span>(device_, commandPool_,</span>
+<span class="ok-line">                         <span class="num">1</span>, &handle_);     <span class="comment">// ← NEW</span></span>
+<span class="ok-line">    handle_ = VK_NULL_HANDLE;              <span class="comment">// ← prevents double-free in ~CommandBuffer</span></span>
+}</pre>
+  </div>
+
+  <div class="rec">
+    <h3>What This Achieves</h3>
+    <ul>
+      <li><strong>Matches Sascha/Khronos pattern exactly</strong> — cmd freed inside the flush function</li>
+      <li><strong>Fixes all paths</strong> — whether the caller uses RAII or explicit <code>vkDestroyBuffer</code>, the cmd is already freed</li>
+      <li><strong>Eliminates validation false positive</strong> — no allocated cmd holds resource references</li>
+      <li><strong>Safe with existing RAII</strong> — <code>handle_ = VK_NULL_HANDLE</code> makes the destructor's <code>cleanup()</code> a no-op</li>
+      <li><strong>Semantically clear</strong> — <code>submitAndWait</code> means "fire and forget." The cmd is not reusable after this call, so freeing it is the correct lifecycle</li>
+    </ul>
+  </div>
+
+  <div style="font-family: 'JetBrains Mono'; font-size: 0.78rem; color: #808080; margin-top: 3rem;">
+    Generated 2026-04-05 · HonglabVulkan · Ex11_PostProcessing VUID-vkDestroyBuffer-buffer-00922
+  </div>
+
+</div>
+<a href="#top" class="top-btn" title="Back to top">&uarr;</a>
+</body>
+</html>

@@ -566,8 +566,8 @@ void main() {
         // Right side: processed
         outFragColor = vec4(color, 1.0);
     } else if (postOptions.debugMode == 3) {
-        // Left side: original (with basic exposure and gamma)
-        vec3 simple = pow(originalColor * postOptions.exposure, vec3(1.0 / postOptions.gamma));
+        // Left side: original (pure texture sample, no chromatic aberration or FXAA)
+        vec3 simple = pow(texture(floatColor2, uv).rgb * postOptions.exposure, vec3(1.0 / postOptions.gamma));
         outFragColor = vec4(simple, 1.0);
     } else {
         outFragColor = vec4(color, 1.0);

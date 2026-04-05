@@ -52,6 +52,9 @@ void CommandBuffer::submitAndWait()
 
     check(vkWaitForFences(device_, 1, &fence, VK_TRUE, 1000000000));
     vkDestroyFence(device_, fence, nullptr);
+
+    vkFreeCommandBuffers(device_, commandPool_, 1, &handle_);
+    handle_ = VK_NULL_HANDLE;
 }
 
 } // namespace hlab

@@ -9,6 +9,8 @@
 #include "DeferredLightingPipeline.h"
 #include "PostPipeline.h"
 #include "GuiPipeline.h"
+#include "TrianglePipeline.h"
+#include "ComputePipeline.h"
 
 #include <string>
 #include <algorithm>
@@ -45,6 +47,10 @@ static auto getBindingDef(const string& name) -> PipelineBindingDef
         return {PostPipeline::layoutBindings(), PostPipeline::bindingInfos()};
     if (name == "gui")
         return {GuiPipeline::layoutBindings(), GuiPipeline::bindingInfos()};
+    if (name == "triangle")
+        return {TrianglePipeline::layoutBindings(), TrianglePipeline::bindingInfos()};
+    if (name == "compute")
+        return {ComputePipeline::layoutBindings(), ComputePipeline::bindingInfos()};
 
     exitWithMessage("No binding definitions for pipeline '{}'", name);
     return {};
@@ -58,6 +64,7 @@ static auto getPushConstantRange(const string& name) -> VkPushConstantRange
     if (name == "deferredLighting") return DeferredLightingPipeline::pushConstantRange();
     if (name == "post") return PostPipeline::pushConstantRange();
     if (name == "gui") return GuiPipeline::pushConstantRange();
+    if (name == "triangle") return TrianglePipeline::pushConstantRange();
 
     printLog("[Warning] No push constant range defined for pipeline '{}'", name);
     return {0, 0, 0};
@@ -66,6 +73,7 @@ static auto getPushConstantRange(const string& name) -> VkPushConstantRange
 static auto getLocalWorkgroupSize(const string& name) -> array<uint32_t, 3>
 {
     if (name == "deferredLighting") return DeferredLightingPipeline::kLocalSize;
+    if (name == "compute") return ComputePipeline::kLocalSize;
 
     printLog("[Warning] No compute workgroup size defined for pipeline '{}'", name);
     return {1, 1, 1};
