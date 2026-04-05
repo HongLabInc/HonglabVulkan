@@ -27,6 +27,14 @@
     <li><span class="notice">[주의]</span> 강의 영상의 코드와 실제 코드가 약간씩 다를 수 있습니다.</li>
 </ul>
 
+<h2>버그 수정 및 Best Practice 적용 (2026-04-05)</h2>
+
+<ul>
+    <li><strong>Split view chromatic aberration 수정 (Ex11_PostProcessing):</strong> 후처리 split view(debugMode 3)에서 좌측(원본)에도 chromatic aberration이 적용되던 문제를 수정했습니다. 좌측은 이제 순수한 원본 텍스처 샘플을 사용합니다.</li>
+    <li><strong>CommandBuffer::submitAndWait() 개선:</strong> fence 대기 후 command buffer를 즉시 해제하도록 변경했습니다. <a href="https://github.com/SaschaWillems/Vulkan">Sascha Willems</a> 및 <a href="https://github.com/KhronosGroup/Vulkan-Samples">Khronos Vulkan-Samples</a>의 <code>flushCommandBuffer</code> 패턴과 동일합니다.</li>
+    <li><strong>임베디드 텍스처 로딩 수정:</strong> <code>aiTexel</code>의 r/g/b/a는 이미 0–255 범위의 <code>unsigned char</code>인데 <code>* 255</code>를 곱해 오버플로우가 발생하던 문제를 수정했습니다. Ex12_PBR 등 glTF 임베디드 텍스처를 사용하는 예제에 영향이 있었습니다.</li>
+</ul>
+
 <h2>동기화 수정 (2026-03-30)</h2>
 
 <ul>

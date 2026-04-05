@@ -155,10 +155,10 @@ void ModelLoader::loadFromModelFile(const string& modelFilename, bool readBistro
                     data = static_cast<unsigned char*>(malloc(dataSize));
 
                     for (int i = 0; i < width * height; ++i) {
-                        data[i * 4 + 0] = static_cast<unsigned char>(aiTex->pcData[i].r * 255);
-                        data[i * 4 + 1] = static_cast<unsigned char>(aiTex->pcData[i].g * 255);
-                        data[i * 4 + 2] = static_cast<unsigned char>(aiTex->pcData[i].b * 255);
-                        data[i * 4 + 3] = static_cast<unsigned char>(aiTex->pcData[i].a * 255);
+                        data[i * 4 + 0] = aiTex->pcData[i].r;
+                        data[i * 4 + 1] = aiTex->pcData[i].g;
+                        data[i * 4 + 2] = aiTex->pcData[i].b;
+                        data[i * 4 + 3] = aiTex->pcData[i].a;
                     }
                 }
 
@@ -1039,10 +1039,10 @@ void ModelLoader::debugWriteEmbeddedTextures() const
             // Convert aiTexel to RGBA8
             vector<unsigned char> rgba8Data(aiTex->mWidth * aiTex->mHeight * 4);
             for (uint32_t j = 0; j < static_cast<uint32_t>(aiTex->mWidth * aiTex->mHeight); ++j) {
-                rgba8Data[j * 4 + 0] = static_cast<unsigned char>(aiTex->pcData[j].r * 255);
-                rgba8Data[j * 4 + 1] = static_cast<unsigned char>(aiTex->pcData[j].g * 255);
-                rgba8Data[j * 4 + 2] = static_cast<unsigned char>(aiTex->pcData[j].b * 255);
-                rgba8Data[j * 4 + 3] = static_cast<unsigned char>(aiTex->pcData[j].a * 255);
+                rgba8Data[j * 4 + 0] = aiTex->pcData[j].r;
+                rgba8Data[j * 4 + 1] = aiTex->pcData[j].g;
+                rgba8Data[j * 4 + 2] = aiTex->pcData[j].b;
+                rgba8Data[j * 4 + 3] = aiTex->pcData[j].a;
             }
 
             // Write as PNG
