@@ -404,7 +404,8 @@ void Application::run()
             camera_.update(deltaTime);
             renderer_->sceneUBO().projection = camera_.matrices.perspective;
             renderer_->sceneUBO().view = camera_.matrices.view;
-            renderer_->sceneUBO().cameraPos = camera_.position;
+            renderer_->sceneUBO().cameraPos =
+                glm::vec3(glm::inverse(camera_.matrices.view)[3]);
         }
 
         {
@@ -902,8 +903,8 @@ void Application::updateGui()
         ImGui::SliderFloat(format("DiffuseWeight##{}", i).c_str(), &(m.coeffs()[1]), 0.0f, 10.0f);
         ImGui::SliderFloat(format("EmissiveWeight##{}", i).c_str(), &(m.coeffs()[2]), 0.0f, 10.0f);
         ImGui::SliderFloat(format("ShadowOffset##{}", i).c_str(), &(m.coeffs()[3]), 0.0f, 1.0f);
-        ImGui::SliderFloat(format("RoughnessWeight##{}", i).c_str(), &(m.coeffs()[4]), 0.0f, 1.0f);
-        ImGui::SliderFloat(format("MetallicWeight##{}", i).c_str(), &(m.coeffs()[5]), 0.0f, 1.0f);
+        ImGui::SliderFloat(format("MetallicWeight##{}", i).c_str(), &(m.coeffs()[4]), 0.0f, 1.0f);
+        ImGui::SliderFloat(format("RoughnessWeight##{}", i).c_str(), &(m.coeffs()[5]), 0.0f, 1.0f);
 
         // Extract and edit position
         glm::vec3 position = glm::vec3(m.modelMatrix()[3]);
