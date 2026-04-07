@@ -27,6 +27,19 @@
     <li><span class="notice">[주의]</span> 강의 영상의 코드와 실제 코드가 약간씩 다를 수 있습니다.</li>
 </ul>
 
+<h2>PBR 셰이딩 및 카메라 수정 (2026-04-07)</h2>
+
+<ul>
+    <li><strong>월드 카메라 위치 계산 수정</strong> — <code>SceneUBO::cameraPos</code>에 view 행렬 생성용 내부 파라미터(<code>camera_.position</code>)를 그대로 넘기고 있어, 셰이더의 view 벡터 <code>V = normalize(cameraPos - fragPos)</code>가 실제 카메라와 어긋나는 문제를 수정했습니다. <code>inverse(view)[3]</code>으로 월드 카메라 위치를 추출하도록 변경.</li>
+    <li><strong>IBL specular reflect 부호 수정</strong> — <code>pbrForward.frag</code>의 <code>getIBLRadianceGGX()</code>에서 <code>reflect(v, n)</code>으로 호출하던 것을 <code>reflect(-v, n)</code>으로 수정했습니다. GLSL <code>reflect()</code>는 incident vector(camera→surface)를 받는데, <code>v</code>는 surface→camera 방향이므로 부호를 뒤집어야 합니다. <a href="https://github.com/SaschaWillems/Vulkan/blob/master/shaders/glsl/pbribl/pbribl.frag">Sascha Willems pbribl.frag</a>의 패턴과 동일. 참고로 <a href="https://github.com/KhronosGroup/Vulkan-Samples">Khronos Vulkan-Samples</a>의 <code>shaders/shader_object/material_reflective.frag</code>에도 동일한 부호 오류가 남아 있는 것을 확인했습니다.</li>
+    <li><strong>Metallic / Roughness 슬라이더 라벨 수정</strong> — UI 슬라이더 라벨이 셰이더의 <code>coeffs[4]=metallic</code>, <code>coeffs[5]=roughness</code> 매핑과 뒤바뀌어 있던 문제를 수정했습니다.</li>
+</ul>
+
+<h3>감사</h3>
+<ul>
+    <li>위 세 가지 PBR 셰이딩 문제를 정확하게 진단하고 수정안까지 제안해주신 수강생 yoonseok chu 님께 감사드립니다.</li>
+</ul>
+
 <h2>glTF 텍스처 색공간 수정 (2026-04-07)</h2>
 
 <ul>
