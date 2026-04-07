@@ -736,7 +736,7 @@ void ModelLoader::processMaterial(aiMaterial* material, const aiScene* scene,
         mat.ubo_.occlusionTextureIndex_ = getTextureIndex(texturePath.C_Str(), false);
     }
     if (material->GetTexture(aiTextureType_EMISSIVE, 0, &texturePath) == AI_SUCCESS) {
-        mat.ubo_.emissiveTextureIndex_ = getTextureIndex(texturePath.C_Str(), false);
+        mat.ubo_.emissiveTextureIndex_ = getTextureIndex(texturePath.C_Str(), true);
     }
 
     // print("Processed materialIndex {}:\n", materialIndex);
@@ -823,7 +823,7 @@ void ModelLoader::processMaterialBistro(aiMaterial* aiMat, const aiScene* scene,
         aiString texturePath;
 
         if (aiMat->GetTexture(aiTextureType_EMISSIVE, 0, &texturePath) == AI_SUCCESS) {
-            mat.ubo_.emissiveTextureIndex_ = getTextureIndex(texturePath.C_Str(), false);
+            mat.ubo_.emissiveTextureIndex_ = getTextureIndex(texturePath.C_Str(), true);
         }
 
         if (aiMat->GetTexture(aiTextureType_DIFFUSE, 0, &texturePath) == AI_SUCCESS) {
