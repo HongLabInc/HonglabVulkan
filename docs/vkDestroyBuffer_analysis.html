@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>vkDestroyBuffer Validation Error — Root Cause Analysis</title>
+  <meta name="color-scheme" content="dark only">
+  <title>vkDestroyBuffer 검증 오류 — 근본 원인 분석</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,7 +12,7 @@
 
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; }
+    html { scroll-behavior: smooth; color-scheme: dark only; }
 
     body {
       font-family: 'Inter', system-ui, sans-serif;
@@ -173,22 +174,22 @@
 <body id="top">
 <div class="page">
 
-  <h1>vkDestroyBuffer Validation Error</h1>
-  <p class="subtitle">VUID-vkDestroyBuffer-buffer-00922 — Root Cause Analysis &amp; Best Practice Comparison</p>
+  <h1>vkDestroyBuffer 검증 오류</h1>
+  <p class="subtitle">VUID-vkDestroyBuffer-buffer-00922 — 근본 원인 분석 &amp; Best Practice 비교</p>
 
   <div class="toc">
-    <a href="#error">Error</a>
-    <a href="#spec">Spec vs Layer</a>
-    <a href="#spec-deep">Spec Deep Dive</a>
+    <a href="#error">오류</a>
+    <a href="#spec">스펙 vs 레이어</a>
+    <a href="#spec-deep">스펙 심층 분석</a>
     <a href="#best-practice">Best Practice</a>
-    <a href="#current-code">Current Code</a>
-    <a href="#destruction">Destruction Order</a>
-    <a href="#why-before">Why It Worked Before</a>
-    <a href="#fix">The Fix</a>
+    <a href="#current-code">현재 코드</a>
+    <a href="#destruction">소멸 순서</a>
+    <a href="#why-before">왜 예전에는 동작했나</a>
+    <a href="#fix">해결 방법</a>
   </div>
 
-  <!-- ====== 1. THE ERROR ====== -->
-  <h2 id="error">1. The Validation Error</h2>
+  <!-- ====== 1. 오류 ====== -->
+  <h2 id="error">1. 검증 오류 (Validation Error)</h2>
 
   <div class="error-box">
     <code style="font-size: 0.82rem; line-height: 1.6; display: block;">
@@ -198,92 +199,92 @@
     </code>
   </div>
 
-  <p>This fires during <strong>initialization</strong> of Ex11_PostProcessing, right after sky pipeline creation, when loading textures via staging buffers.</p>
+  <p>이 오류는 Ex11_PostProcessing의 <strong>초기화 단계</strong>에서, sky 파이프라인 생성 직후 staging 버퍼를 통해 텍스처를 로드하는 시점에 발생합니다.</p>
 
 
-  <!-- ====== 2. SPEC vs VALIDATION LAYER ====== -->
-  <h2 id="spec">2. What the Spec Says vs What the Layer Does</h2>
+  <!-- ====== 2. 스펙 vs 검증 레이어 ====== -->
+  <h2 id="spec">2. 스펙 규정 vs 검증 레이어의 동작</h2>
 
   <div class="grid-2">
     <div class="card" style="border-left: 2px solid var(--green);">
-      <h3 style="color: var(--green); font-size: 0.95rem;">Vulkan Spec (Legal)</h3>
+      <h3 style="color: var(--green); font-size: 0.95rem;">Vulkan 스펙 (합법)</h3>
       <p style="font-size: 0.85rem; margin-top: 0.5rem;">
-        <span class="tip" data-tip="VUID-vkDestroyBuffer-buffer-00922: 'All submitted commands that refer to buffer must have completed execution'">VUID-00922</span> requires commands to have <strong>completed execution</strong>. After <code>vkWaitForFences</code> returns, the commands <em>have</em> completed. Destroying the buffer is <strong>spec-legal</strong>.
+        <span class="tip" data-tip="VUID-vkDestroyBuffer-buffer-00922: 'buffer를 참조하는 모든 제출된 명령은 실행이 완료되어 있어야 한다'">VUID-00922</span>가 요구하는 것은 명령들이 <strong>실행 완료(completed execution)</strong> 상태여야 한다는 것입니다. <code>vkWaitForFences</code>가 반환된 시점에는 명령이 <em>이미</em> 완료된 상태이므로, 버퍼를 파괴하는 것은 <strong>스펙상 합법</strong>입니다.
       </p>
-      <p style="font-size: 0.85rem;">The spec does <strong>not</strong> require the command buffer to be freed before destroying referenced resources — only that submitted work has finished.</p>
+      <p style="font-size: 0.85rem;">스펙은 참조된 리소스를 파괴하기 전에 커맨드 버퍼를 먼저 free 해야 한다고 <strong>요구하지 않습니다</strong>. 단지 제출된 작업이 끝나기만 하면 됩니다.</p>
     </div>
     <div class="card" style="border-left: 2px solid var(--orange);">
-      <h3 style="color: var(--orange); font-size: 0.95rem;">Validation Layer (Stricter)</h3>
+      <h3 style="color: var(--orange); font-size: 0.95rem;">검증 레이어 (더 엄격)</h3>
       <p style="font-size: 0.85rem; margin-top: 0.5rem;">
-        The <span class="tip" data-tip="Khronos Vulkan Validation Layers — open-source error checking for Vulkan API usage. Updated with each Vulkan SDK release.">Khronos validation layer</span> tracks "in use" by <strong>command buffer lifetime</strong>, not solely by fence completion. If a command buffer that references a buffer is still allocated (not freed/reset), some layer versions flag the buffer as "in use."
+        <span class="tip" data-tip="Khronos Vulkan Validation Layers — Vulkan API 사용을 검증하는 오픈소스 레이어. Vulkan SDK가 갱신될 때마다 함께 업데이트됨.">Khronos 검증 레이어</span>는 "사용 중(in use)" 여부를 펜스 완료가 아닌 <strong>커맨드 버퍼의 생존 기간</strong>을 기준으로 추적합니다. 버퍼를 참조하는 커맨드 버퍼가 여전히 할당된 상태(free 또는 reset되지 않음)라면, 일부 레이어 버전은 그 버퍼를 "사용 중"으로 표시합니다.
       </p>
-      <p style="font-size: 0.85rem;">This is a <strong>conservative heuristic</strong> — it can produce false positives when the fence <em>has</em> signaled but the command buffer is still alive.</p>
+      <p style="font-size: 0.85rem;">이는 <strong>보수적인 휴리스틱</strong>으로, 펜스가 시그널된 상태에서도 커맨드 버퍼가 살아있다면 거짓 양성(false positive)을 발생시킬 수 있습니다.</p>
     </div>
   </div>
 
 
-  <!-- ====== SPEC DEEP DIVE ====== -->
-  <h2 id="spec-deep">2b. Vulkan Spec Deep Dive</h2>
+  <!-- ====== 스펙 심층 분석 ====== -->
+  <h2 id="spec-deep">2b. Vulkan 스펙 심층 분석</h2>
 
-  <p>Three separate pieces of spec language govern this situation. Together they prove that destroying a buffer after <code>vkWaitForFences</code> is legal — even if the command buffer is still allocated.</p>
+  <p>이 상황에는 세 가지 별개의 스펙 조항이 적용됩니다. 이 셋을 종합하면 <code>vkWaitForFences</code> 이후에 버퍼를 파괴하는 것이 — 커맨드 버퍼가 여전히 할당되어 있더라도 — 합법임을 증명할 수 있습니다.</p>
 
-  <!-- Spec Quote 1: VUID -->
+  <!-- 스펙 인용 1: VUID -->
   <div class="card" style="border-left: 2px solid var(--gold);">
-    <h3 style="font-size: 0.95rem; color: var(--gold);">Rule 1 — VUID-vkDestroyBuffer-buffer-00922</h3>
+    <h3 style="font-size: 0.95rem; color: var(--gold);">규칙 1 — VUID-vkDestroyBuffer-buffer-00922</h3>
     <div style="font-family: 'JetBrains Mono'; font-size: 0.78rem; color: #808080; margin: 0.3rem 0 0.6rem;">
       <a href="https://registry.khronos.org/vulkan/specs/latest/man/html/vkDestroyBuffer.html" target="_blank" rel="noopener noreferrer">vkDestroyBuffer(3) — Vulkan Spec</a>
     </div>
     <blockquote style="border-left: 2px solid rgba(255,192,0,0.3); padding: 0.6rem 1rem; margin: 0.5rem 0; background: rgba(255,192,0,0.03); border-radius: 0 6px 6px 0;">
       <p style="font-size: 0.88rem; color: var(--text-primary); font-style: italic; margin: 0;">
-        "All submitted commands that refer to <code>buffer</code>, either directly or via a <code>VkBufferView</code>, <strong>must</strong> have completed execution."
+        "<code>buffer</code>를 직접 또는 <code>VkBufferView</code>를 통해 참조하는 모든 제출된 명령은 <strong>반드시</strong> 실행이 완료되어 있어야 한다."
       </p>
     </blockquote>
     <p style="font-size: 0.85rem; margin-top: 0.6rem;">
-      The requirement is <strong>"completed execution"</strong> — not "command buffer freed" or "command buffer reset." This is a statement about GPU work, not about CPU-side object lifetime.
+      요구사항은 <strong>"실행 완료(completed execution)"</strong>이지 "커맨드 버퍼 free" 또는 "커맨드 버퍼 reset"이 아닙니다. 이것은 GPU 작업에 관한 규정이지, CPU 측 객체의 수명에 관한 규정이 아닙니다.
     </p>
   </div>
 
-  <!-- Spec Quote 2: Fence guarantee -->
+  <!-- 스펙 인용 2: 펜스 보장 -->
   <div class="card" style="border-left: 2px solid var(--green);">
-    <h3 style="font-size: 0.95rem; color: var(--green);">Rule 2 — Fence Completion Guarantee</h3>
+    <h3 style="font-size: 0.95rem; color: var(--green);">규칙 2 — 펜스 완료 보장</h3>
     <div style="font-family: 'JetBrains Mono'; font-size: 0.78rem; color: #808080; margin: 0.3rem 0 0.6rem;">
       <a href="https://registry.khronos.org/vulkan/specs/latest/html/vkspec.html" target="_blank" rel="noopener noreferrer">Vulkan 1.4 Spec — Synchronization</a>
     </div>
     <blockquote style="border-left: 2px solid rgba(112,173,71,0.3); padding: 0.6rem 1rem; margin: 0.5rem 0; background: rgba(112,173,71,0.03); border-radius: 0 6px 6px 0;">
       <p style="font-size: 0.88rem; color: var(--text-primary); font-style: italic; margin: 0;">
-        "Before a fence or semaphore is signaled, it is guaranteed that any previously submitted queue operations have <strong>completed execution</strong>, and that memory writes from those queue operations are <strong>available</strong> to future queue operations."
+        "펜스나 세마포어가 시그널되기 전에, 이전에 제출된 모든 큐 작업이 <strong>실행 완료</strong>되었음이 보장되며, 해당 큐 작업의 메모리 쓰기는 이후 큐 작업에서 <strong>가시(available)</strong>해진다."
       </p>
     </blockquote>
     <p style="font-size: 0.85rem; margin-top: 0.6rem;">
-      After <code>vkWaitForFences</code> returns <code>VK_SUCCESS</code>, the spec <strong>guarantees</strong> that all commands in that submission have completed execution. This directly satisfies Rule 1.
+      <code>vkWaitForFences</code>가 <code>VK_SUCCESS</code>를 반환한 후에는, 해당 제출의 모든 명령이 실행 완료되었음을 스펙이 <strong>보장합니다</strong>. 이는 규칙 1을 직접적으로 충족시킵니다.
     </p>
   </div>
 
-  <!-- Spec Quote 3: Command Buffer Lifecycle -->
+  <!-- 스펙 인용 3: 커맨드 버퍼 라이프사이클 -->
   <div class="card" style="border-left: 2px solid var(--blue);">
-    <h3 style="font-size: 0.95rem; color: var(--blue);">Rule 3 — Command Buffer State Transition</h3>
+    <h3 style="font-size: 0.95rem; color: var(--blue);">규칙 3 — 커맨드 버퍼 상태 전이</h3>
     <div style="font-family: 'JetBrains Mono'; font-size: 0.78rem; color: #808080; margin: 0.3rem 0 0.6rem;">
       <a href="https://vulkan.lunarg.com/doc/view/1.4.304.1/windows/antora/spec/latest/chapters/cmdbuffers.html" target="_blank" rel="noopener noreferrer">Vulkan Spec — Command Buffer Lifecycle</a>
     </div>
     <blockquote style="border-left: 2px solid rgba(91,155,213,0.3); padding: 0.6rem 1rem; margin: 0.5rem 0; background: rgba(91,155,213,0.03); border-radius: 0 6px 6px 0;">
       <p style="font-size: 0.88rem; color: var(--text-primary); font-style: italic; margin: 0;">
-        "Once execution of all submissions of a command buffer complete, it moves from the <strong>pending state</strong>, back to the <strong>executable state</strong>."
+        "커맨드 버퍼의 모든 제출이 실행 완료되면, 커맨드 버퍼는 <strong>pending 상태</strong>에서 다시 <strong>executable 상태</strong>로 돌아간다."
       </p>
     </blockquote>
     <p style="font-size: 0.85rem; margin-top: 0.6rem;">
-      After the fence signals, the command buffer is no longer in <span class="tip" data-tip="Pending state: the command buffer has been submitted to a queue and the GPU is (or may be) executing it. Resources it references must not be destroyed while in this state.">pending state</span> — it's back in <span class="tip" data-tip="Executable state: the command buffer has finished execution but is still a valid, allocated object. It could theoretically be resubmitted (unless recorded with ONE_TIME_SUBMIT). It still 'knows about' the resources it recorded commands against, but the GPU is no longer using them.">executable state</span>. The spec's Object Lifetime section says:
+      펜스가 시그널된 후, 커맨드 버퍼는 더 이상 <span class="tip" data-tip="Pending 상태: 커맨드 버퍼가 큐에 제출되었고 GPU가 실행 중이거나 실행할 수 있는 상태. 이 상태에서는 참조된 리소스를 파괴해서는 안 됨.">pending 상태</span>가 아니라 <span class="tip" data-tip="Executable 상태: 커맨드 버퍼가 실행을 마쳤지만 여전히 유효하고 할당된 객체. 이론상 재제출이 가능 (ONE_TIME_SUBMIT으로 기록되지 않은 경우). 자신이 기록한 리소스에 대한 참조는 여전히 '알고 있지만', GPU는 더 이상 사용하지 않음.">executable 상태</span>로 돌아갑니다. 스펙의 객체 수명(Object Lifetime) 절은 다음과 같이 명시합니다:
     </p>
     <blockquote style="border-left: 2px solid rgba(91,155,213,0.3); padding: 0.6rem 1rem; margin: 0.5rem 0; background: rgba(91,155,213,0.03); border-radius: 0 6px 6px 0;">
       <p style="font-size: 0.88rem; color: var(--text-primary); font-style: italic; margin: 0;">
-        "The following Vulkan objects <strong>must</strong> not be destroyed while any command buffers using the object are in the <strong>pending state</strong>."
+        "다음 Vulkan 객체들은 그 객체를 사용하는 어떤 커맨드 버퍼라도 <strong>pending 상태</strong>에 있는 동안에는 <strong>반드시</strong> 파괴되어서는 안 된다."
       </p>
     </blockquote>
     <p style="font-size: 0.85rem; margin-top: 0.6rem;">
-      The restriction is on <strong>pending state</strong> only. An <em>executable</em> command buffer that still holds internal references to a buffer does not prevent that buffer from being destroyed — per the spec.
+      제약은 오직 <strong>pending 상태</strong>에 한정됩니다. 여전히 버퍼에 대한 내부 참조를 가지고 있는 <em>executable</em> 상태의 커맨드 버퍼는 — 스펙상 — 그 버퍼의 파괴를 막지 못합니다.
     </p>
   </div>
 
-  <!-- Putting it all together -->
+  <!-- 종합 다이어그램 -->
   <svg class="landscape-svg" viewBox="0 0 900 320" xmlns="http://www.w3.org/2000/svg">
     <rect width="900" height="320" fill="#1A1A1E"/>
     <defs>
@@ -298,116 +299,116 @@
       </marker>
     </defs>
 
-    <!-- Title -->
-    <text x="450" y="25" text-anchor="middle" fill="#808080" font-family="Inter, sans-serif" font-size="10" letter-spacing="0.1em">COMMAND BUFFER LIFECYCLE &amp; RESOURCE DESTRUCTION LEGALITY</text>
+    <!-- 제목 -->
+    <text x="450" y="25" text-anchor="middle" fill="#808080" font-family="Inter, sans-serif" font-size="10" letter-spacing="0.1em">커맨드 버퍼 라이프사이클 &amp; 리소스 파괴 합법성</text>
 
-    <!-- Timeline line -->
+    <!-- 타임라인 -->
     <line x1="60" y1="80" x2="840" y2="80" stroke="#FFC000" stroke-width="2"/>
 
-    <!-- State: Recording -->
+    <!-- 상태: Recording -->
     <rect x="60" y="55" width="130" height="50" rx="4" fill="#111114" stroke="#808080" stroke-width="1"/>
     <text x="125" y="76" text-anchor="middle" fill="#808080" font-family="Inter, sans-serif" font-size="12" font-weight="600">Recording</text>
-    <text x="125" y="94" text-anchor="middle" fill="#808080" font-family="Inter, sans-serif" font-size="9">vkCmd* calls</text>
+    <text x="125" y="94" text-anchor="middle" fill="#808080" font-family="Inter, sans-serif" font-size="9">vkCmd* 호출 중</text>
 
-    <!-- Arrow -->
+    <!-- 화살표 -->
     <line x1="190" y1="80" x2="240" y2="80" stroke="#FFC000" stroke-width="1.5" marker-end="url(#arr-g2)"/>
     <text x="215" y="70" text-anchor="middle" fill="#808080" font-family="JetBrains Mono, monospace" font-size="8">vkEnd</text>
 
-    <!-- State: Executable (before submit) -->
+    <!-- 상태: Executable (제출 전) -->
     <rect x="240" y="55" width="130" height="50" rx="4" fill="#111114" stroke="#5B9BD5" stroke-width="1.5"/>
     <text x="305" y="76" text-anchor="middle" fill="#5B9BD5" font-family="Inter, sans-serif" font-size="12" font-weight="600">Executable</text>
-    <text x="305" y="94" text-anchor="middle" fill="#808080" font-family="Inter, sans-serif" font-size="9">ready to submit</text>
+    <text x="305" y="94" text-anchor="middle" fill="#808080" font-family="Inter, sans-serif" font-size="9">제출 준비 완료</text>
 
-    <!-- Arrow -->
+    <!-- 화살표 -->
     <line x1="370" y1="80" x2="420" y2="80" stroke="#FFC000" stroke-width="1.5" marker-end="url(#arr-g2)"/>
     <text x="395" y="70" text-anchor="middle" fill="#808080" font-family="JetBrains Mono, monospace" font-size="8">vkQueueSubmit</text>
 
-    <!-- State: Pending -->
+    <!-- 상태: Pending -->
     <rect x="420" y="55" width="130" height="50" rx="4" fill="#111114" stroke="#E57373" stroke-width="2"/>
     <text x="485" y="76" text-anchor="middle" fill="#E57373" font-family="Inter, sans-serif" font-size="12" font-weight="600">Pending</text>
-    <text x="485" y="94" text-anchor="middle" fill="#E57373" font-family="Inter, sans-serif" font-size="9">GPU executing</text>
+    <text x="485" y="94" text-anchor="middle" fill="#E57373" font-family="Inter, sans-serif" font-size="9">GPU 실행 중</text>
 
-    <!-- Arrow -->
+    <!-- 화살표 -->
     <line x1="550" y1="80" x2="600" y2="80" stroke="#FFC000" stroke-width="1.5" marker-end="url(#arr-g2)"/>
-    <text x="575" y="70" text-anchor="middle" fill="#808080" font-family="JetBrains Mono, monospace" font-size="8">fence signals</text>
+    <text x="575" y="70" text-anchor="middle" fill="#808080" font-family="JetBrains Mono, monospace" font-size="8">fence 시그널</text>
 
-    <!-- State: Executable (after completion) -->
+    <!-- 상태: Executable (완료 후) -->
     <rect x="600" y="55" width="240" height="50" rx="4" fill="#111114" stroke="#70AD47" stroke-width="2"/>
-    <text x="720" y="76" text-anchor="middle" fill="#70AD47" font-family="Inter, sans-serif" font-size="12" font-weight="600">Executable (completed)</text>
-    <text x="720" y="94" text-anchor="middle" fill="#70AD47" font-family="Inter, sans-serif" font-size="9">GPU done — not pending</text>
+    <text x="720" y="76" text-anchor="middle" fill="#70AD47" font-family="Inter, sans-serif" font-size="12" font-weight="600">Executable (완료 상태)</text>
+    <text x="720" y="94" text-anchor="middle" fill="#70AD47" font-family="Inter, sans-serif" font-size="9">GPU 작업 끝 — pending 아님</text>
 
-    <!-- Danger zone label -->
+    <!-- 위험 영역 -->
     <rect x="420" y="125" width="130" height="65" rx="6" fill="rgba(229,115,115,0.05)" stroke="rgba(229,115,115,0.3)" stroke-width="1" stroke-dasharray="5,3"/>
-    <text x="485" y="145" text-anchor="middle" fill="#E57373" font-family="Inter, sans-serif" font-size="10" font-weight="600">MUST NOT destroy</text>
-    <text x="485" y="161" text-anchor="middle" fill="#E57373" font-family="Inter, sans-serif" font-size="10" font-weight="600">referenced resources</text>
-    <text x="485" y="180" text-anchor="middle" fill="#808080" font-family="Inter, sans-serif" font-size="9">(cmd buffer is pending)</text>
+    <text x="485" y="145" text-anchor="middle" fill="#E57373" font-family="Inter, sans-serif" font-size="10" font-weight="600">참조된 리소스</text>
+    <text x="485" y="161" text-anchor="middle" fill="#E57373" font-family="Inter, sans-serif" font-size="10" font-weight="600">파괴 금지</text>
+    <text x="485" y="180" text-anchor="middle" fill="#808080" font-family="Inter, sans-serif" font-size="9">(cmd buffer가 pending 상태)</text>
 
-    <!-- Safe zone label -->
+    <!-- 안전 영역 -->
     <rect x="600" y="125" width="240" height="65" rx="6" fill="rgba(112,173,71,0.05)" stroke="rgba(112,173,71,0.3)" stroke-width="1" stroke-dasharray="5,3"/>
-    <text x="720" y="145" text-anchor="middle" fill="#70AD47" font-family="Inter, sans-serif" font-size="10" font-weight="600">CAN destroy resources</text>
-    <text x="720" y="161" text-anchor="middle" fill="#70AD47" font-family="Inter, sans-serif" font-size="10" font-weight="600">(per spec)</text>
-    <text x="720" y="180" text-anchor="middle" fill="#808080" font-family="Inter, sans-serif" font-size="9">(cmd is executable, not pending)</text>
+    <text x="720" y="145" text-anchor="middle" fill="#70AD47" font-family="Inter, sans-serif" font-size="10" font-weight="600">리소스 파괴 가능</text>
+    <text x="720" y="161" text-anchor="middle" fill="#70AD47" font-family="Inter, sans-serif" font-size="10" font-weight="600">(스펙 기준)</text>
+    <text x="720" y="180" text-anchor="middle" fill="#808080" font-family="Inter, sans-serif" font-size="9">(cmd가 executable, pending 아님)</text>
 
-    <!-- Validation layer zone -->
+    <!-- 검증 레이어 영역 -->
     <rect x="420" y="210" width="420" height="65" rx="6" fill="rgba(237,125,49,0.05)" stroke="rgba(237,125,49,0.3)" stroke-width="1" stroke-dasharray="5,3"/>
-    <text x="630" y="232" text-anchor="middle" fill="#ED7D31" font-family="Inter, sans-serif" font-size="10" font-weight="600">Validation layer MAY still flag destruction</text>
-    <text x="630" y="250" text-anchor="middle" fill="#808080" font-family="Inter, sans-serif" font-size="9">Conservative heuristic: tracks by cmd buffer allocation, not fence state</text>
-    <text x="630" y="266" text-anchor="middle" fill="#808080" font-family="Inter, sans-serif" font-size="9">Fix: free the cmd buffer → removes the layer's reference tracking</text>
+    <text x="630" y="232" text-anchor="middle" fill="#ED7D31" font-family="Inter, sans-serif" font-size="10" font-weight="600">검증 레이어는 여전히 파괴를 오류로 표시할 수 있음</text>
+    <text x="630" y="250" text-anchor="middle" fill="#808080" font-family="Inter, sans-serif" font-size="9">보수적 휴리스틱: 펜스 상태가 아닌 cmd buffer 할당으로 추적</text>
+    <text x="630" y="266" text-anchor="middle" fill="#808080" font-family="Inter, sans-serif" font-size="9">해결책: cmd buffer를 free → 레이어의 참조 추적이 사라짐</text>
 
-    <!-- Connecting lines -->
+    <!-- 연결선 -->
     <path d="M485,105 L485,125" fill="none" stroke="rgba(229,115,115,0.4)" stroke-width="1"/>
     <path d="M720,105 L720,125" fill="none" stroke="rgba(112,173,71,0.4)" stroke-width="1"/>
     <path d="M630,190 L630,210" fill="none" stroke="rgba(237,125,49,0.4)" stroke-width="1"/>
 
-    <!-- Key insight -->
+    <!-- 핵심 통찰 -->
     <rect x="100" y="290" width="700" height="25" rx="4" fill="rgba(255,192,0,0.06)" stroke="rgba(255,192,0,0.2)" stroke-width="1"/>
-    <text x="450" y="307" text-anchor="middle" fill="#FFC000" font-family="Inter, sans-serif" font-size="11" font-weight="600">Fence = detector of completion, not the trigger. GPU execution completion is the trigger.</text>
+    <text x="450" y="307" text-anchor="middle" fill="#FFC000" font-family="Inter, sans-serif" font-size="11" font-weight="600">펜스는 완료의 감지자이지 트리거가 아니다. 트리거는 GPU 실행 완료 그 자체.</text>
   </svg>
 
-  <!-- The gap between spec and layer -->
+  <!-- 스펙과 레이어 사이의 간극 -->
   <div class="card" style="border-left: 2px solid var(--orange);">
-    <h3 style="font-size: 0.95rem; color: var(--orange);">The Gap: Spec vs. Validation Layer</h3>
+    <h3 style="font-size: 0.95rem; color: var(--orange);">간극: 스펙 vs 검증 레이어</h3>
     <table style="font-size: 0.85rem; margin: 0.5rem 0 0;">
       <thead>
         <tr>
-          <th style="width: 40%;">Question</th>
-          <th style="width: 30%;">Vulkan Spec</th>
-          <th style="width: 30%;">Validation Layer</th>
+          <th style="width: 40%;">질문</th>
+          <th style="width: 30%;">Vulkan 스펙</th>
+          <th style="width: 30%;">검증 레이어</th>
         </tr>
       </thead>
       <tbody>
         <tr>
-          <td>Can I destroy a buffer after <code>vkWaitForFences</code>?</td>
-          <td style="color: var(--green); font-weight: 500;">Yes — commands completed</td>
-          <td style="color: var(--orange); font-weight: 500;">May flag as error</td>
+          <td><code>vkWaitForFences</code> 후에 버퍼를 파괴해도 되는가?</td>
+          <td style="color: var(--green); font-weight: 500;">가능 — 명령이 완료됨</td>
+          <td style="color: var(--orange); font-weight: 500;">오류로 표시할 수 있음</td>
         </tr>
         <tr>
-          <td>Must the cmd buffer be freed first?</td>
-          <td style="color: var(--green); font-weight: 500;">No — not required</td>
-          <td style="color: var(--orange); font-weight: 500;">Recommended — avoids false positive</td>
+          <td>cmd buffer를 먼저 free 해야 하는가?</td>
+          <td style="color: var(--green); font-weight: 500;">아니오 — 요구되지 않음</td>
+          <td style="color: var(--orange); font-weight: 500;">권장 — 거짓 양성 방지</td>
         </tr>
         <tr>
-          <td>How is "in use" tracked?</td>
-          <td>By pending state (GPU executing)</td>
-          <td>By cmd buffer allocation (conservative)</td>
+          <td>"사용 중"은 어떻게 추적되는가?</td>
+          <td>pending 상태 (GPU 실행 중)</td>
+          <td>cmd buffer 할당 여부 (보수적)</td>
         </tr>
         <tr>
-          <td>What satisfies the check?</td>
-          <td>Fence signals → work done</td>
-          <td>Fence signals + cmd freed/reset</td>
+          <td>무엇이 검사를 통과시키는가?</td>
+          <td>fence 시그널 → 작업 완료</td>
+          <td>fence 시그널 + cmd free/reset</td>
         </tr>
       </tbody>
     </table>
     <p style="font-size: 0.83rem; margin-top: 0.8rem; color: var(--text-secondary);">
-      The validation layer uses a <strong>conservative heuristic</strong> because accurately correlating fence completion with every individual resource across multiple queue families is complex. It's simpler (and safer for catching real bugs) to track by command buffer lifetime. The trade-off is occasional false positives for code that is spec-correct.
+      검증 레이어가 <strong>보수적 휴리스틱</strong>을 사용하는 이유는, 여러 큐 패밀리에 걸쳐 펜스 완료와 개별 리소스를 정확히 연관시키는 것이 복잡하기 때문입니다. 커맨드 버퍼 수명을 기준으로 추적하는 편이 더 단순하고 (실제 버그를 잡는 데에도) 더 안전합니다. 그 대가로 스펙상으로는 정확한 코드에서도 가끔 거짓 양성이 발생할 수 있습니다.
     </p>
   </div>
 
 
   <!-- ====== 3. BEST PRACTICE ====== -->
-  <h2 id="best-practice">3. Industry Best Practice</h2>
+  <h2 id="best-practice">3. 업계 Best Practice</h2>
 
-  <p>Both major Vulkan example codebases use the same pattern: <strong>free the command buffer inside the flush helper, then destroy staging resources at the call site.</strong></p>
+  <p>대표적인 Vulkan 예제 코드베이스 두 곳 모두 동일한 패턴을 사용합니다: <strong>flush 헬퍼 안에서 커맨드 버퍼를 free 한 뒤, 호출 측에서 staging 리소스를 파괴한다.</strong></p>
 
   <div class="grid-2">
     <!-- Sascha -->
@@ -440,10 +441,10 @@
       <div style="font-family: 'JetBrains Mono'; font-size: 0.78rem; color: #808080; margin: 0.5rem 0 0.3rem;">
         base/VulkanTexture.cpp · loadFromFile()
       </div>
-<pre><span class="comment">// Submit, wait, free cmd — all inside:</span>
+<pre><span class="comment">// 제출, 대기, cmd free — 모두 내부에서 처리:</span>
 device-><span class="fn">flushCommandBuffer</span>(copyCmd, copyQueue);
 
-<span class="comment">// THEN destroy staging resources:</span>
+<span class="comment">// 그 후에 staging 리소스 파괴:</span>
 <span class="fn">vkDestroyBuffer</span>(device, stagingBuffer, <span class="keyword">nullptr</span>);
 <span class="fn">vkFreeMemory</span>(device, stagingMemory, <span class="keyword">nullptr</span>);</pre>
     </div>
@@ -452,7 +453,7 @@ device-><span class="fn">flushCommandBuffer</span>(copyCmd, copyQueue);
     <div class="card">
       <h3>
         <a href="https://github.com/KhronosGroup/Vulkan-Samples" target="_blank" rel="noopener noreferrer" style="color: var(--cyan);">Khronos / Vulkan-Samples</a>
-        <span class="badge badge-blue" style="margin-left: 0.5rem;">Official</span>
+        <span class="badge badge-blue" style="margin-left: 0.5rem;">공식</span>
       </h3>
       <div style="font-family: 'JetBrains Mono'; font-size: 0.78rem; color: #808080; margin: 0.3rem 0 0.8rem;">
         framework/core/device.h · flush_command_buffer()
@@ -479,13 +480,13 @@ device.<span class="fn">destroyFence</span>(fence);
   </div>
 
   <div class="rec">
-    <h3>The Pattern</h3>
-    <p style="font-size: 0.9rem;">Both codebases achieve a clean <strong>separation of concerns</strong>: the flush helper owns the command buffer lifecycle, while the caller owns the staging buffer lifecycle. The command buffer is always freed <em>before</em> staging resources are destroyed.</p>
+    <h3>핵심 패턴</h3>
+    <p style="font-size: 0.9rem;">두 코드베이스 모두 깔끔한 <strong>관심사의 분리(separation of concerns)</strong>를 달성합니다: flush 헬퍼는 커맨드 버퍼의 수명을 책임지고, 호출 측은 staging 버퍼의 수명을 책임집니다. 커맨드 버퍼는 항상 staging 리소스가 파괴되기 <em>전에</em> free 됩니다.</p>
   </div>
 
 
-  <!-- ====== 4. CURRENT CODE ====== -->
-  <h2 id="current-code">4. Current Code — submitAndWait()</h2>
+  <!-- ====== 4. 현재 코드 ====== -->
+  <h2 id="current-code">4. 현재 코드 — submitAndWait()</h2>
 
   <div class="card">
     <div style="font-family: 'JetBrains Mono'; font-size: 0.78rem; color: #808080; margin-bottom: 0.5rem;">
@@ -501,19 +502,19 @@ device.<span class="fn">destroyFence</span>(fence);
     vkWaitForFences(device_, <span class="num">1</span>, &fence, VK_TRUE, <span class="num">1e9</span>);
     vkDestroyFence(device_, fence, <span class="keyword">nullptr</span>);
 
-    <span class="comment">// ← command buffer NOT freed here</span>
-    <span class="comment">// ← freed later by ~CommandBuffer() → cleanup()</span>
+    <span class="comment">// ← 이 시점에 커맨드 버퍼가 free 되지 않음</span>
+    <span class="comment">// ← 나중에 ~CommandBuffer() → cleanup()에서 free 됨</span>
 }</pre>
-    <p style="font-size: 0.85rem; margin-top: 0.8rem;">Unlike the best-practice pattern, the command buffer remains allocated after <code>submitAndWait()</code> returns. Resource destruction depends entirely on <span class="tip" data-tip="C++ destroys local variables in reverse order of declaration. The variable declared last is destroyed first.">C++ RAII destruction order</span>.</p>
+    <p style="font-size: 0.85rem; margin-top: 0.8rem;">Best practice 패턴과 달리, <code>submitAndWait()</code>가 반환된 후에도 커맨드 버퍼는 여전히 할당된 상태로 남습니다. 리소스 파괴 순서는 전적으로 <span class="tip" data-tip="C++은 지역 변수를 선언의 역순으로 파괴한다. 마지막에 선언된 변수가 가장 먼저 파괴된다.">C++ RAII 소멸 순서</span>에 의존하게 됩니다.</p>
   </div>
 
 
-  <!-- ====== 5. DESTRUCTION ORDER ====== -->
-  <h2 id="destruction">5. C++ Destruction Order — Why It Matters</h2>
+  <!-- ====== 5. 소멸 순서 ====== -->
+  <h2 id="destruction">5. C++ 소멸 순서 — 왜 중요한가</h2>
 
-  <p>C++ destroys local variables in <strong>reverse order of declaration</strong>. The variable declared <em>last</em> is destroyed <em>first</em>.</p>
+  <p>C++은 지역 변수를 <strong>선언의 역순</strong>으로 파괴합니다. <em>마지막에</em> 선언된 변수가 <em>가장 먼저</em> 파괴됩니다.</p>
 
-  <!-- SVG Diagram -->
+  <!-- SVG 다이어그램 -->
   <svg class="landscape-svg" viewBox="0 0 900 500" xmlns="http://www.w3.org/2000/svg">
     <rect width="900" height="500" fill="#1A1A1E"/>
     <defs>
@@ -528,200 +529,200 @@ device.<span class="fn">destroyFence</span>(fence);
       </marker>
     </defs>
 
-    <!-- Title -->
-    <text x="450" y="30" text-anchor="middle" fill="#808080" font-family="Inter, sans-serif" font-size="10" letter-spacing="0.1em">DECLARATION ORDER → DESTRUCTION ORDER (REVERSED)</text>
+    <!-- 제목 -->
+    <text x="450" y="30" text-anchor="middle" fill="#808080" font-family="Inter, sans-serif" font-size="10" letter-spacing="0.1em">선언 순서 → 소멸 순서 (역순)</text>
 
-    <!-- ===== LEFT COLUMN: Image2D (SAFE) ===== -->
+    <!-- ===== 왼쪽 컬럼: Image2D (안전) ===== -->
     <rect x="30" y="50" width="400" height="430" rx="6" fill="none" stroke="rgba(112,173,71,0.2)" stroke-width="1" stroke-dasharray="6,4"/>
     <text x="230" y="70" text-anchor="middle" fill="#70AD47" font-family="Inter, sans-serif" font-size="11" font-weight="600">Image2D::createTextureFromKtx2()</text>
-    <text x="230" y="85" text-anchor="middle" fill="#808080" font-family="Inter, sans-serif" font-size="10">RAII — Correct Order</text>
+    <text x="230" y="85" text-anchor="middle" fill="#808080" font-family="Inter, sans-serif" font-size="10">RAII — 올바른 순서</text>
 
-    <!-- Declaration -->
-    <text x="50" y="115" fill="#808080" font-family="Inter, sans-serif" font-size="10" letter-spacing="0.05em">DECLARATION</text>
+    <!-- 선언 -->
+    <text x="50" y="115" fill="#808080" font-family="Inter, sans-serif" font-size="10" letter-spacing="0.05em">선언</text>
 
-    <!-- stagingBuffer declared first -->
+    <!-- stagingBuffer가 먼저 선언 -->
     <rect x="50" y="125" width="360" height="44" rx="4" fill="#111114" stroke="#5B9BD5" stroke-width="1.5"/>
     <text x="66" y="142" fill="#808080" font-family="JetBrains Mono, monospace" font-size="10">line 174</text>
     <text x="130" y="142" fill="#5B9BD5" font-family="JetBrains Mono, monospace" font-size="11" font-weight="500">MappedBuffer stagingBuffer(ctx_);</text>
-    <text x="66" y="160" fill="#808080" font-family="Inter, sans-serif" font-size="9">declared FIRST</text>
-    <text x="370" y="160" text-anchor="end" fill="#808080" font-family="Inter, sans-serif" font-size="9">→ destroyed LAST</text>
+    <text x="66" y="160" fill="#808080" font-family="Inter, sans-serif" font-size="9">먼저 선언됨</text>
+    <text x="370" y="160" text-anchor="end" fill="#808080" font-family="Inter, sans-serif" font-size="9">→ 가장 나중에 파괴</text>
 
-    <!-- copyCmd declared second -->
+    <!-- copyCmd가 두 번째 선언 -->
     <rect x="50" y="180" width="360" height="44" rx="4" fill="#111114" stroke="#FFC000" stroke-width="1.5"/>
     <text x="66" y="197" fill="#808080" font-family="JetBrains Mono, monospace" font-size="10">line 186</text>
     <text x="130" y="197" fill="#FFC000" font-family="JetBrains Mono, monospace" font-size="11" font-weight="500">CommandBuffer copyCmd = ...;</text>
-    <text x="66" y="215" fill="#808080" font-family="Inter, sans-serif" font-size="9">declared SECOND</text>
-    <text x="370" y="215" text-anchor="end" fill="#808080" font-family="Inter, sans-serif" font-size="9">→ destroyed FIRST</text>
+    <text x="66" y="215" fill="#808080" font-family="Inter, sans-serif" font-size="9">두 번째 선언됨</text>
+    <text x="370" y="215" text-anchor="end" fill="#808080" font-family="Inter, sans-serif" font-size="9">→ 먼저 파괴</text>
 
     <!-- submitAndWait -->
     <rect x="50" y="240" width="360" height="30" rx="4" fill="rgba(255,192,0,0.06)" stroke="rgba(255,192,0,0.2)" stroke-width="1"/>
     <text x="230" y="260" text-anchor="middle" fill="#FFC000" font-family="JetBrains Mono, monospace" font-size="11">copyCmd.submitAndWait();</text>
 
-    <!-- Destruction -->
-    <text x="50" y="300" fill="#808080" font-family="Inter, sans-serif" font-size="10" letter-spacing="0.05em">DESTRUCTION (END OF SCOPE)</text>
+    <!-- 소멸 -->
+    <text x="50" y="300" fill="#808080" font-family="Inter, sans-serif" font-size="10" letter-spacing="0.05em">소멸 (스코프 종료)</text>
 
-    <!-- Step 1: copyCmd destroyed -->
+    <!-- 단계 1: copyCmd 소멸 -->
     <rect x="50" y="310" width="360" height="50" rx="4" fill="#111114" stroke="#70AD47" stroke-width="1.5"/>
     <circle cx="66" cy="330" r="10" fill="rgba(112,173,71,0.15)" stroke="#70AD47" stroke-width="1"/>
     <text x="66" y="334" text-anchor="middle" fill="#70AD47" font-family="Inter, sans-serif" font-size="10" font-weight="700">1</text>
     <text x="84" y="330" fill="#70AD47" font-family="JetBrains Mono, monospace" font-size="11" font-weight="500">~CommandBuffer → vkFreeCommandBuffers</text>
-    <text x="84" y="350" fill="#808080" font-family="Inter, sans-serif" font-size="9">cmd freed — references released</text>
+    <text x="84" y="350" fill="#808080" font-family="Inter, sans-serif" font-size="9">cmd free — 참조 해제됨</text>
 
-    <!-- Step 2: stagingBuffer destroyed -->
+    <!-- 단계 2: stagingBuffer 소멸 -->
     <rect x="50" y="370" width="360" height="50" rx="4" fill="#111114" stroke="#70AD47" stroke-width="1.5"/>
     <circle cx="66" cy="390" r="10" fill="rgba(112,173,71,0.15)" stroke="#70AD47" stroke-width="1"/>
     <text x="66" y="394" text-anchor="middle" fill="#70AD47" font-family="Inter, sans-serif" font-size="10" font-weight="700">2</text>
     <text x="84" y="390" fill="#70AD47" font-family="JetBrains Mono, monospace" font-size="11" font-weight="500">~MappedBuffer → vkDestroyBuffer</text>
-    <text x="84" y="410" fill="#808080" font-family="Inter, sans-serif" font-size="9">staging destroyed — no cmd references it</text>
+    <text x="84" y="410" fill="#808080" font-family="Inter, sans-serif" font-size="9">staging 파괴 — 더 이상 cmd가 참조 안 함</text>
 
-    <!-- Verdict -->
+    <!-- 결과 -->
     <rect x="50" y="435" width="360" height="30" rx="4" fill="rgba(112,173,71,0.08)" stroke="rgba(112,173,71,0.3)" stroke-width="1"/>
-    <text x="230" y="455" text-anchor="middle" fill="#70AD47" font-family="Inter, sans-serif" font-size="12" font-weight="600">✓ SAFE — cmd freed before staging destroyed</text>
+    <text x="230" y="455" text-anchor="middle" fill="#70AD47" font-family="Inter, sans-serif" font-size="12" font-weight="600">✓ 안전 — staging 파괴 전에 cmd가 free 됨</text>
 
 
-    <!-- ===== RIGHT COLUMN: Mesh (PROBLEMATIC) ===== -->
+    <!-- ===== 오른쪽 컬럼: Mesh (문제 있음) ===== -->
     <rect x="470" y="50" width="400" height="430" rx="6" fill="none" stroke="rgba(229,115,115,0.2)" stroke-width="1" stroke-dasharray="6,4"/>
     <text x="670" y="70" text-anchor="middle" fill="#E57373" font-family="Inter, sans-serif" font-size="11" font-weight="600">Mesh::createBuffers()</text>
-    <text x="670" y="85" text-anchor="middle" fill="#808080" font-family="Inter, sans-serif" font-size="10">Explicit Destroy — Wrong Order</text>
+    <text x="670" y="85" text-anchor="middle" fill="#808080" font-family="Inter, sans-serif" font-size="10">명시적 파괴 — 잘못된 순서</text>
 
-    <!-- Declaration -->
-    <text x="490" y="115" fill="#808080" font-family="Inter, sans-serif" font-size="10" letter-spacing="0.05em">DECLARATION</text>
+    <!-- 선언 -->
+    <text x="490" y="115" fill="#808080" font-family="Inter, sans-serif" font-size="10" letter-spacing="0.05em">선언</text>
 
-    <!-- stagingBuffer declared first (raw) -->
+    <!-- stagingBuffer 먼저 선언 (raw) -->
     <rect x="490" y="125" width="360" height="44" rx="4" fill="#111114" stroke="#5B9BD5" stroke-width="1.5"/>
     <text x="506" y="142" fill="#808080" font-family="JetBrains Mono, monospace" font-size="10">line 20</text>
     <text x="570" y="142" fill="#5B9BD5" font-family="JetBrains Mono, monospace" font-size="11" font-weight="500">VkBuffer stagingBuffer;</text>
-    <text x="506" y="160" fill="#808080" font-family="Inter, sans-serif" font-size="9">raw handle — no RAII</text>
+    <text x="506" y="160" fill="#808080" font-family="Inter, sans-serif" font-size="9">raw 핸들 — RAII 없음</text>
 
-    <!-- cmd declared later -->
+    <!-- cmd 나중에 선언 -->
     <rect x="490" y="180" width="360" height="44" rx="4" fill="#111114" stroke="#FFC000" stroke-width="1.5"/>
     <text x="506" y="197" fill="#808080" font-family="JetBrains Mono, monospace" font-size="10">line 74</text>
     <text x="570" y="197" fill="#FFC000" font-family="JetBrains Mono, monospace" font-size="11" font-weight="500">CommandBuffer cmd = ...;</text>
-    <text x="506" y="215" fill="#808080" font-family="Inter, sans-serif" font-size="9">RAII wrapper</text>
+    <text x="506" y="215" fill="#808080" font-family="Inter, sans-serif" font-size="9">RAII 래퍼</text>
 
     <!-- submitAndWait -->
     <rect x="490" y="240" width="360" height="30" rx="4" fill="rgba(255,192,0,0.06)" stroke="rgba(255,192,0,0.2)" stroke-width="1"/>
     <text x="670" y="260" text-anchor="middle" fill="#FFC000" font-family="JetBrains Mono, monospace" font-size="11">cmd.submitAndWait();</text>
 
-    <!-- Destruction -->
-    <text x="490" y="300" fill="#808080" font-family="Inter, sans-serif" font-size="10" letter-spacing="0.05em">EXPLICIT DESTROY + END OF SCOPE</text>
+    <!-- 소멸 -->
+    <text x="490" y="300" fill="#808080" font-family="Inter, sans-serif" font-size="10" letter-spacing="0.05em">명시적 파괴 + 스코프 종료</text>
 
-    <!-- Step 1: stagingBuffer explicitly destroyed FIRST -->
+    <!-- 단계 1: stagingBuffer를 명시적으로 먼저 파괴 -->
     <rect x="490" y="310" width="360" height="50" rx="4" fill="#111114" stroke="#E57373" stroke-width="1.5"/>
     <circle cx="506" cy="330" r="10" fill="rgba(229,115,115,0.15)" stroke="#E57373" stroke-width="1"/>
     <text x="506" y="334" text-anchor="middle" fill="#E57373" font-family="Inter, sans-serif" font-size="10" font-weight="700">1</text>
     <text x="524" y="330" fill="#E57373" font-family="JetBrains Mono, monospace" font-size="11" font-weight="500">vkDestroyBuffer(stagingBuffer)</text>
-    <text x="524" y="350" fill="#E57373" font-family="Inter, sans-serif" font-size="9">staging destroyed — but cmd STILL references it!</text>
+    <text x="524" y="350" fill="#E57373" font-family="Inter, sans-serif" font-size="9">staging 파괴됨 — 그러나 cmd가 아직 참조 중!</text>
 
-    <!-- Step 2: cmd destroyed at end of scope -->
+    <!-- 단계 2: 스코프 종료 시 cmd 소멸 -->
     <rect x="490" y="370" width="360" height="50" rx="4" fill="#111114" stroke="#808080" stroke-width="1"/>
     <circle cx="506" cy="390" r="10" fill="rgba(128,128,128,0.15)" stroke="#808080" stroke-width="1"/>
     <text x="506" y="394" text-anchor="middle" fill="#808080" font-family="Inter, sans-serif" font-size="10" font-weight="700">2</text>
     <text x="524" y="390" fill="#808080" font-family="JetBrains Mono, monospace" font-size="11">~CommandBuffer → vkFreeCommandBuffers</text>
-    <text x="524" y="410" fill="#808080" font-family="Inter, sans-serif" font-size="9">cmd freed — too late, validation already fired</text>
+    <text x="524" y="410" fill="#808080" font-family="Inter, sans-serif" font-size="9">cmd free — 너무 늦음, 검증 오류 이미 발생</text>
 
-    <!-- Verdict -->
+    <!-- 결과 -->
     <rect x="490" y="435" width="360" height="30" rx="4" fill="rgba(229,115,115,0.08)" stroke="rgba(229,115,115,0.3)" stroke-width="1"/>
-    <text x="670" y="455" text-anchor="middle" fill="#E57373" font-family="Inter, sans-serif" font-size="12" font-weight="600">✗ TRIGGERS VALIDATION ERROR</text>
+    <text x="670" y="455" text-anchor="middle" fill="#E57373" font-family="Inter, sans-serif" font-size="12" font-weight="600">✗ 검증 오류 발생</text>
   </svg>
 
 
-  <!-- Explanation -->
+  <!-- 설명 -->
   <div class="card" style="border-left: 2px solid var(--gold);">
-    <h3 style="font-size: 0.95rem;">Why "cmd still alive" matters to the validation layer</h3>
+    <h3 style="font-size: 0.95rem;">"cmd가 살아있다는 사실"이 검증 레이어에게 왜 중요한가</h3>
     <p style="font-size: 0.85rem; margin-top: 0.5rem;">
-      After <code>vkWaitForFences</code>, the GPU work is <strong>finished</strong>. The buffer data is no longer being read. Per the spec, destroying it is legal.
+      <code>vkWaitForFences</code> 이후 GPU 작업은 <strong>완료된</strong> 상태입니다. 버퍼의 데이터는 더 이상 읽히지 않습니다. 스펙상 파괴는 합법입니다.
     </p>
     <p style="font-size: 0.85rem;">
-      However, the command buffer object is still <strong>allocated</strong> and in <span class="tip" data-tip="After submission and fence completion, a command buffer transitions to 'Executable' state — it's done executing, but still valid and still holds internal references to all resources it recorded commands against.">Executable state</span>. It holds internal references to the buffer. The validation layer's tracking sees: <em>"this VkBuffer is referenced by an allocated VkCommandBuffer → it's in use."</em> It does not correlate the fence wait with per-resource completion.
+      그러나 커맨드 버퍼 객체는 여전히 <strong>할당된</strong> 상태이고 <span class="tip" data-tip="제출 후 펜스가 완료되면 커맨드 버퍼는 'Executable' 상태로 전이된다 — 실행은 끝났지만 여전히 유효하며, 자신이 기록한 모든 리소스에 대한 내부 참조를 가지고 있다.">Executable 상태</span>에 있습니다. 내부적으로 버퍼에 대한 참조를 보유하고 있죠. 검증 레이어의 추적기는 이렇게 봅니다: <em>"이 VkBuffer는 할당된 VkCommandBuffer가 참조하고 있다 → 사용 중이다."</em> 펜스 대기와 리소스별 완료를 연관시키지 않습니다.
     </p>
     <p style="font-size: 0.85rem;">
-      This is a <strong>conservative false positive</strong> — the layer errs on the side of caution because accurately tracking fence-to-resource completion across multiple queues is complex.
+      이것이 바로 <strong>보수적 거짓 양성</strong>입니다 — 여러 큐에 걸쳐 펜스와 리소스 완료를 정확히 추적하는 것이 복잡하기 때문에 레이어가 안전한 쪽을 택한 결과입니다.
     </p>
   </div>
 
 
-  <!-- All functions table -->
-  <h3 style="margin-top: 2rem;">Destruction Order in All Staging Buffer Functions</h3>
+  <!-- 모든 함수 표 -->
+  <h3 style="margin-top: 2rem;">staging 버퍼를 사용하는 모든 함수의 소멸 순서</h3>
   <table>
     <thead>
       <tr>
-        <th>Function</th>
-        <th>Staging Type</th>
-        <th>Cmd Freed Before Staging?</th>
-        <th>Status</th>
+        <th>함수</th>
+        <th>Staging 타입</th>
+        <th>staging보다 먼저 cmd가 free 되는가?</th>
+        <th>상태</th>
       </tr>
     </thead>
     <tbody>
       <tr>
         <td><code>Image2D::createFromPixelData</code></td>
         <td><span class="tag">RAII MappedBuffer</span></td>
-        <td>Yes — RAII reverse order</td>
-        <td><span class="badge badge-green">SAFE</span></td>
+        <td>예 — RAII 역순</td>
+        <td><span class="badge badge-green">안전</span></td>
       </tr>
       <tr>
         <td><code>Image2D::createTextureFromKtx2</code></td>
         <td><span class="tag">RAII MappedBuffer</span></td>
-        <td>Yes — RAII reverse order</td>
-        <td><span class="badge badge-green">SAFE</span></td>
+        <td>예 — RAII 역순</td>
+        <td><span class="badge badge-green">안전</span></td>
       </tr>
       <tr>
         <td><code>Mesh::createBuffers</code></td>
         <td><span class="tag tag-red">Raw VkBuffer</span></td>
-        <td>No — explicit destroy before scope end</td>
-        <td><span class="badge badge-red">TRIGGERS ERROR</span></td>
+        <td>아니오 — 스코프 종료 전에 명시적으로 파괴</td>
+        <td><span class="badge badge-red">오류 발생</span></td>
       </tr>
       <tr>
         <td><code>StorageBuffer::copyData</code></td>
         <td><span class="tag tag-red">Raw VkBuffer</span></td>
-        <td>No — explicit destroy before scope end</td>
-        <td><span class="badge badge-red">TRIGGERS ERROR</span></td>
+        <td>아니오 — 스코프 종료 전에 명시적으로 파괴</td>
+        <td><span class="badge badge-red">오류 발생</span></td>
       </tr>
     </tbody>
   </table>
 
   <p style="font-size: 0.85rem; color: var(--text-secondary);">
-    Note: Ex11_PostProcessing uses the Image2D path (SAFE), not Mesh. The validation error in Ex11 is likely triggered by the validation layer's conservative tracking interacting with the <span class="tip" data-tip="RTX 4090 has Queue Family 0 (Graphics) and Queue Family 1 (Transfer). When the transfer queue is truly separate, the layer must correlate fences across queue families — a known weak spot in older layer versions.">dedicated transfer queue</span>.
+    참고: Ex11_PostProcessing은 Mesh가 아니라 Image2D 경로(안전)를 사용합니다. Ex11에서 발생한 검증 오류는 검증 레이어의 보수적 추적이 <span class="tip" data-tip="RTX 4090은 큐 패밀리 0(Graphics)과 큐 패밀리 1(Transfer)을 가지고 있다. 전송 큐가 진정으로 분리되어 있을 때, 레이어는 큐 패밀리 간 펜스 상태를 연관시켜야 하는데 — 이는 구버전 레이어의 알려진 약점이다.">전용 전송 큐</span>와 상호작용하면서 발생했을 가능성이 큽니다.
   </p>
 
 
-  <!-- ====== 6. WHY IT WORKED BEFORE ====== -->
-  <h2 id="why-before">6. Why It Worked Before</h2>
+  <!-- ====== 6. 왜 예전에는 동작했나 ====== -->
+  <h2 id="why-before">6. 왜 예전에는 동작했나</h2>
 
   <table>
     <thead>
       <tr>
-        <th>Factor</th>
-        <th>Explanation</th>
+        <th>요인</th>
+        <th>설명</th>
       </tr>
     </thead>
     <tbody>
       <tr>
-        <td class="highlight">Vulkan SDK Version</td>
-        <td>Validation layers are updated with each SDK. Newer versions (~1.3.236+) improved resource lifetime tracking but also introduced stricter checks. A recent SDK update may have enabled this VUID check more aggressively.</td>
+        <td class="highlight">Vulkan SDK 버전</td>
+        <td>검증 레이어는 SDK가 갱신될 때마다 함께 업데이트됩니다. 비교적 새로운 버전(~1.3.236+)은 리소스 수명 추적을 개선했지만 동시에 더 엄격한 검사를 도입했습니다. 최근 SDK 업데이트가 이 VUID 검사를 더 적극적으로 활성화했을 수 있습니다.</td>
       </tr>
       <tr>
-        <td class="highlight">NVIDIA Driver</td>
-        <td>Driver updates change internal handle allocation and timing. A different driver version may cause the command buffer handle to be tracked differently by the layer.</td>
+        <td class="highlight">NVIDIA 드라이버</td>
+        <td>드라이버 업데이트는 내부적인 핸들 할당 방식과 타이밍을 바꿉니다. 다른 드라이버 버전에서는 커맨드 버퍼 핸들이 레이어에 의해 다르게 추적될 수 있습니다.</td>
       </tr>
       <tr>
-        <td class="highlight">Separate Transfer Queue</td>
-        <td>RTX 4090 has a dedicated transfer queue (family 1). If previous GPUs used the same queue family for graphics and transfer, the layer's fence tracking was simpler and less likely to misfire.</td>
+        <td class="highlight">분리된 전송 큐</td>
+        <td>RTX 4090은 전용 전송 큐(패밀리 1)를 가지고 있습니다. 이전 GPU들이 그래픽스와 전송에 같은 큐 패밀리를 사용했다면, 레이어의 펜스 추적이 더 단순했고 오발(misfire) 가능성도 낮았을 것입니다.</td>
       </tr>
       <tr>
-        <td class="highlight">Non-Deterministic</td>
-        <td>The error depends on internal layer bookkeeping state. Handle recycling, allocation order, and timing can all affect whether the layer flags the issue on a given run.</td>
+        <td class="highlight">비결정적 동작</td>
+        <td>이 오류는 레이어 내부 부기(bookkeeping) 상태에 의존합니다. 핸들 재활용, 할당 순서, 타이밍 등이 모두 레이어가 특정 실행에서 이 문제를 표시할지 여부에 영향을 줍니다.</td>
       </tr>
       <tr>
-        <td class="highlight">Not Frequently Tested</td>
-        <td>The issue may have always been latent but never observed because this specific example wasn't run often with validation enabled.</td>
+        <td class="highlight">자주 테스트되지 않음</td>
+        <td>이 문제는 항상 잠재되어 있었지만, 이 특정 예제를 검증을 켠 채로 자주 실행하지 않았기 때문에 관찰되지 않았을 수 있습니다.</td>
       </tr>
     </tbody>
   </table>
 
 
-  <!-- ====== 7. THE FIX ====== -->
-  <h2 id="fix">7. The Fix</h2>
+  <!-- ====== 7. 해결 방법 ====== -->
+  <h2 id="fix">7. 해결 방법</h2>
 
   <div class="card">
     <div style="font-family: 'JetBrains Mono'; font-size: 0.78rem; color: #808080; margin-bottom: 0.5rem;">
@@ -738,19 +739,19 @@ device.<span class="fn">destroyFence</span>(fence);
     vkDestroyFence(device_, fence, <span class="keyword">nullptr</span>);
 <span class="ok-line"></span>
 <span class="ok-line">    <span class="fn">vkFreeCommandBuffers</span>(device_, commandPool_,</span>
-<span class="ok-line">                         <span class="num">1</span>, &handle_);     <span class="comment">// ← NEW</span></span>
-<span class="ok-line">    handle_ = VK_NULL_HANDLE;              <span class="comment">// ← prevents double-free in ~CommandBuffer</span></span>
+<span class="ok-line">                         <span class="num">1</span>, &handle_);     <span class="comment">// ← 추가</span></span>
+<span class="ok-line">    handle_ = VK_NULL_HANDLE;              <span class="comment">// ← ~CommandBuffer에서 이중 free 방지</span></span>
 }</pre>
   </div>
 
   <div class="rec">
-    <h3>What This Achieves</h3>
+    <h3>이 수정이 달성하는 것</h3>
     <ul>
-      <li><strong>Matches Sascha/Khronos pattern exactly</strong> — cmd freed inside the flush function</li>
-      <li><strong>Fixes all paths</strong> — whether the caller uses RAII or explicit <code>vkDestroyBuffer</code>, the cmd is already freed</li>
-      <li><strong>Eliminates validation false positive</strong> — no allocated cmd holds resource references</li>
-      <li><strong>Safe with existing RAII</strong> — <code>handle_ = VK_NULL_HANDLE</code> makes the destructor's <code>cleanup()</code> a no-op</li>
-      <li><strong>Semantically clear</strong> — <code>submitAndWait</code> means "fire and forget." The cmd is not reusable after this call, so freeing it is the correct lifecycle</li>
+      <li><strong>Sascha/Khronos 패턴과 정확히 일치</strong> — flush 함수 안에서 cmd가 free 됨</li>
+      <li><strong>모든 경로를 한 번에 해결</strong> — 호출 측이 RAII를 쓰든 명시적으로 <code>vkDestroyBuffer</code>를 호출하든, cmd는 이미 free된 상태</li>
+      <li><strong>검증 거짓 양성 제거</strong> — 리소스 참조를 보유한 할당된 cmd가 존재하지 않음</li>
+      <li><strong>기존 RAII와도 안전</strong> — <code>handle_ = VK_NULL_HANDLE</code> 덕분에 소멸자의 <code>cleanup()</code>이 no-op으로 동작</li>
+      <li><strong>의미가 명확</strong> — <code>submitAndWait</code>는 "fire and forget"을 뜻합니다. 호출 후 cmd는 재사용되지 않으므로 free 하는 것이 올바른 수명 관리입니다</li>
     </ul>
   </div>
 
@@ -759,6 +760,6 @@ device.<span class="fn">destroyFence</span>(fence);
   </div>
 
 </div>
-<a href="#top" class="top-btn" title="Back to top">&uarr;</a>
+<a href="#top" class="top-btn" title="맨 위로">&uarr;</a>
 </body>
 </html>
