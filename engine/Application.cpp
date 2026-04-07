@@ -1,6 +1,7 @@
 #include "Application.h"
 #include "Logger.h"
 
+#include <algorithm>
 #include <format>
 #include <glm/glm.hpp>
 #include <glm/gtx/string_cast.hpp>
@@ -357,6 +358,8 @@ void Application::run()
         // Clamp delta time to prevent large jumps (e.g., when debugging)
         deltaTime = std::min(deltaTime, 0.033f); // Max 33ms (30 FPS minimum)
 
+        updateFPS(deltaTime);
+
         updateGui();
 
         camera_.update(deltaTime);
@@ -550,6 +553,21 @@ void Application::updateGui()
     ImGui::SetNextWindowPos(ImVec2(10 * scale, 10 * scale), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(0, 0), ImGuiCond_FirstUseEver);
     ImGui::Begin("벌컨 실시간 렌더링 예제", nullptr, ImGuiWindowFlags_None);
+
+    // FPS display
+    ImGui::Text("FPS: %.1f (%.2f ms/frame)", currentFPS_, 1000.0f / std::max(currentFPS_, 1.0f));
+    ImVec4 fpsColor = ImVec4(0.0f, 1.0f, 0.0f, 1.0f); // Green
+    if (currentFPS_ < 30.0f) {
+        fpsColor = ImVec4(1.0f, 0.0f, 0.0f, 1.0f); // Red
+    } else if (currentFPS_ < 60.0f) {
+        fpsColor = ImVec4(1.0f, 1.0f, 0.0f, 1.0f); // Yellow
+    }
+    ImGui::SameLine();
+    ImGui::TextColored(fpsColor, "●");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Performance Indicator\nGreen: >60 FPS\nYellow: 30-60 FPS\nRed: <30 FPS");
+    }
+    ImGui::Separator();
 
     static vec3 lightColor = vec3(1.0f);
     static float lightIntensity = 28.454f;
@@ -1046,6 +1064,19 @@ void Application::handleMouseMove(int32_t x, int32_t y)
     }
 
     mouseState_.position = glm::vec2((float)x, (float)y);
+}
+
+void Application::updateFPS(float deltaTime)
+{
+    framesSinceLastUpdate_++;
+    fpsUpdateTimer_ += deltaTime;
+
+    if (fpsUpdateTimer_ >= kFpsUpdateInterval) {
+        currentFPS_ = static_cast<float>(framesSinceLastUpdate_) / fpsUpdateTimer_;
+        currentFPS_ = std::clamp(currentFPS_, 0.1f, 1000.0f);
+        framesSinceLastUpdate_ = 0;
+        fpsUpdateTimer_ = 0.0f;
+    }
 }
 
 } // namespace hlab

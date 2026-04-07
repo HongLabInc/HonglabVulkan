@@ -328,13 +328,10 @@ void Renderer::makeShadowMap(VkCommandBuffer cmd, uint32_t currentFrame, vector<
                            &models[j].modelMatrix());
 
         // Render all meshes in this model
+        // 주의: 카메라 frustum 컬링(mesh.isCulled)을 shadow pass에서 사용하면 안 됨.
+        // 카메라 시야 밖에 있어도 그림자가 카메라 시야 내로 떨어질 수 있어 깜빡임 발생.
         for (size_t i = 0; i < models[j].meshes().size(); i++) {
             auto& mesh = models[j].meshes()[i];
-
-            // Skip culled meshes in shadow pass too
-            if (mesh.isCulled) {
-                continue;
-            }
 
             // Bind vertex and index buffers
             vkCmdBindVertexBuffers(cmd, 0, 1, &mesh.vertexBuffer_, offsets);
