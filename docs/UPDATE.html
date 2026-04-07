@@ -31,7 +31,7 @@
 
 <ul>
     <li><strong>pbrForward.frag.spv를 source(.frag)와 sync</strong> — 이전 PBR 셰이딩 수정에서 <code>pbrForward.frag</code> source는 변경됐지만 함께 커밋된 SPV가 옛날 컴파일 결과 그대로여서, 런타임에는 옛날 <code>reflect(v, n)</code>이 적용되어 IBL specular 반사 방향의 normal-component가 뒤집혀 보이던 문제를 수정했습니다. <code>ShaderManager</code>는 <code>.spv</code>를 직접 로드하고 source에서 컴파일하지 않으므로, 셰이더 source 수정시 SPV 재컴파일을 함께 커밋해야 합니다.</li>
-    <li><strong>Shadow pass에서 카메라 frustum 컬링 제거</strong> — <code>Renderer::makeShadowMap()</code>이 카메라 frustum 컬링 결과(<code>mesh.isCulled</code>)를 shadow pass에서도 적용하고 있어, 카메라 시야 밖에 있는 캐스터의 그림자가 카메라 시야 내로 떨어질 때 그림자가 깜빡이는 문제를 수정했습니다. shadow pass는 visible한 모델의 모든 메시를 무조건 렌더링하도록 변경.</li>
+    <li><strong>Shadow pass에서 카메라 frustum 컬링 제거</strong> — <code>Renderer::makeShadowMap()</code>이 카메라 frustum 컬링 결과(<code>mesh.isCulled</code>)를 shadow pass에서도 적용하고 있어, 카메라 시야 밖에 있는 캐스터의 그림자가 카메라 시야 내로 떨어질 때 그림자가 깜빡이는 문제를 수정했습니다. shadow pass는 visible한 모델의 모든 메시를 무조건 렌더링하도록 변경. 참고로 현재 구현은 <code>lightSpaceMatrix</code>가 씬 전체 모델 AABB의 합집합을 덮도록 계산되어 모든 메시가 light frustum 안에 들어오므로, 별도의 light frustum 컬링을 추가해도 절감 효과가 없습니다. 카메라 frustum에 맞춰 shadow map을 타이트하게 자르는 방식(CSM 등)을 도입할 때 light frustum 컬링도 함께 추가하면 됩니다.</li>
     <li><strong>FPS 카운터 복원</strong> — 세마포어 리팩토링(<code>2edc744</code>) 과정에서 함께 제거되었던 FPS 카운터(GUI 윈도우 상단의 FPS 표시와 색상 인디케이터)를 복원했습니다.</li>
 </ul>
 
